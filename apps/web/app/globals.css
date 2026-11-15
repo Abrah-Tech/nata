@@ -99,9 +99,12 @@
   --animate-shimmer: shimmer 1.4s ease-in-out infinite;
 }
 
-/* Preflight is deliberately not loaded: the app assumes browser defaults for
-   headings, lists and margins, and each screen sets the ones it needs. Only
-   the resets below are global. */
+/* Preflight is deliberately not loaded, so the resets below are written by
+   hand. Headings and lists are the ones a browser always gives margins to, and
+   those margins fight the gap-based layouts every screen uses; a screen that
+   wants space sets it with a utility, which wins over this layer. Paragraphs
+   keep their browser margin, because a screen that stacks two of them without
+   a gap expects the default. */
 @layer base {
   *,
   ::before,
@@ -120,6 +123,24 @@
   body {
     margin: 0;
     padding: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 0;
+  }
+
+  /* Every list in the app is a layout list: an indented, bulleted list would
+     push the rows of a card or a panel out of line. */
+  ul,
+  ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   body {

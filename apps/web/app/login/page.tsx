@@ -173,13 +173,13 @@ export default function LoginPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <p className="text-[10px] font-bold tracking-[0.1em] text-[#7fc0a5]">
+          <p className="m-0 text-[10px] font-bold tracking-[0.1em] text-[#7fc0a5]">
             {t.login.brand.label}
           </p>
           <h1 className="max-w-[15ch] text-[42px] leading-[1.08] font-bold tracking-[-0.02em]">
             {t.login.brand.title}
           </h1>
-          <p className="max-w-[56ch] text-[13px] leading-[1.6] text-[#a9c7bc]">
+          <p className="m-0 max-w-[56ch] text-[13px] leading-[1.6] text-[#a9c7bc]">
             {t.login.brand.subtitle}
           </p>
         </div>
@@ -220,7 +220,7 @@ export default function LoginPage() {
       </aside>
 
       <section className="flex flex-col gap-6 bg-surface px-5 py-6 sm:px-10 lg:px-14 lg:py-10">
-        <p className="self-center text-[11px] text-ink-3 lg:self-end">
+        <p className="m-0 self-center text-[11px] text-ink-3 lg:self-end">
           {t.login.help}{" "}
           <a
             className="font-semibold text-brand no-underline hover:underline"
@@ -232,7 +232,7 @@ export default function LoginPage() {
 
         <div className="m-auto flex w-full max-w-[392px] flex-col gap-4 rounded-2xl border border-border p-[26px]">
           <header className="flex flex-col gap-1.5">
-            <p className="text-[9.5px] font-bold tracking-[0.12em] text-ink-3">
+            <p className="m-0 text-[9.5px] font-bold tracking-[0.12em] text-ink-3">
               {t.login.eyebrow}
             </p>
             <h1 className="text-[21px] leading-[1.25] font-bold tracking-[-0.01em]">
@@ -244,7 +244,7 @@ export default function LoginPage() {
                     ? t.login.titlePhone
                     : t.login.titleEmail}
             </h1>
-            <p className="text-[11.5px] leading-[1.55] text-ink-3">
+            <p className="m-0 text-[11.5px] leading-[1.55] text-ink-3">
               {step === "tenant"
                 ? t.login.tenantSubtitle
                 : step === "code"
@@ -356,7 +356,7 @@ export default function LoginPage() {
                 />
               </div>
 
-              <p className="text-center text-[10.5px] text-ink-3">
+              <p className="m-0 text-center text-[10.5px] text-ink-3">
                 {seconds > 0 ? (
                   fill(t.login.resendIn, { seconds })
                 ) : (
@@ -378,7 +378,7 @@ export default function LoginPage() {
                 {busy ? t.login.verifying : t.login.verify}
               </Button>
 
-              <p className="text-center text-[10.5px] text-ink-3">{t.login.or}</p>
+              <p className="m-0 text-center text-[10.5px] text-ink-3">{t.login.or}</p>
 
               <Button variant="ghost" className="w-full" type="button" onClick={switchMode}>
                 {isPhone ? t.login.switchToEmail : t.login.switchToPhone}
@@ -407,17 +407,17 @@ export default function LoginPage() {
           )}
 
           {pendingInvitation && (
-            <p
-              className="rounded-lg bg-warning-soft px-3 py-2.5 text-xs leading-[1.45] text-warning"
-              role="status"
-            >
+              <p
+                className="m-0 rounded-lg bg-warning-soft px-3 py-2.5 text-xs leading-[1.45] text-warning"
+                role="status"
+              >
               {t.login.invitationPending}
             </p>
           )}
 
           {error && <FormError>{error}</FormError>}
 
-          <p className="text-[10px] leading-[1.5] text-ink-3">{t.login.terms}</p>
+          <p className="m-0 text-[10px] leading-[1.5] text-ink-3">{t.login.terms}</p>
         </div>
 
         <footer className="mx-auto flex w-full max-w-[392px] items-center justify-between gap-3.5 text-[10px] text-ink-3">
