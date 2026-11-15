@@ -82,6 +82,7 @@ bun run --filter web dev
 bun run --filter web build                 # must stay a static export
 bun run --filter web lint
 bun run --filter web typecheck
+bun test apps/web/tests                     # the browser-side units, via Bun's runner
 bun run --filter shell tauri android dev
 ```
 
@@ -172,6 +173,8 @@ Stock value is `sum(qty_remaining × unit_cost)` over material batches plus `sto
 Waste is the sum of `waste` and `expired` movements in the window, valued at each movement's own `unit_cost`.
 
 Margin per unit is `sell_price − latest unit_cost`; a product that has never been produced has no cost and comes back flagged rather than estimated from its recipe. Historical margin is `revenue − cost_of_goods` from `sale_items.unit_cost`, so a sale written before that column existed makes the product's totals null and sets `cost_incomplete` instead of valuing the past at today's cost.
+
+Export is an entitlement, not a permission: `Plan::allows_export` is true for Pro and Business, and `GET /reports` returns `can_export` so the screen can say why the button is disabled instead of hiding it. The file is built in the browser (`apps/web/lib/report-csv.ts`) from the payload the screen is already showing, which is what makes "same filters as the view" true by construction. `apps/web/lib/csv.ts` owns quoting, CRLF, the formula guard, and the UTF-8 BOM Excel needs; the amounts stay raw so a spreadsheet can sum them, while the headers come from the same i18n block as the screen.
 
 ### Purchasing
 

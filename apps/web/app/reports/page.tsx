@@ -1,7 +1,7 @@
 "use client";
 
 import type { BusinessReport } from "@takar/api-client";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -20,11 +20,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 import {
   formatMoney,
   formatPercent,
   formatQty,
+  todayIso,
 } from "@/lib/format";
+import { reportCsv } from "@/lib/report-csv";
 import { fill, useI18n } from "@/lib/i18n";
 import { readToken } from "@/lib/session";
 import { useMe } from "@/lib/use-me";
@@ -103,15 +106,43 @@ export default function ReportsPage() {
       {session.status === "ready" && (
         <AppShell me={session.me} active="reports" onSignOut={signOut}>
           <div className="flex max-w-[1100px] flex-col gap-4">
-            <header>
-              <h1 className="text-xl font-extrabold tracking-tight sm:text-3xl">
-                {t.reports.title}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {data
-                  ? fill(t.reports.subtitle, { days: data.window_days })
-                  : t.reports.loading}
-              </p>
+            <header className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-xl font-extrabold tracking-tight sm:text-3xl">
+                  {t.reports.title}
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {data
+                    ? fill(t.reports.subtitle, { days: data.window_days })
+                    : t.reports.loading}
+                </p>
+
+                {data && !data.can_export && (
+                  <p className="mt-1 text-xs text-ink-3">
+                    {t.reports.export.locked}
+                  </p>
+                )}
+              </div>
+
+              {data && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  className="self-start"
+                  disabled={!data.can_export}
+                  title={data.can_export ? undefined : t.reports.export.locked}
+                  onClick={() =>
+                    downloadCsv(
+                      `takar-report-${todayIso()}.csv`,
+                      reportCsv(data, t.reports, new Date()),
+                    )
+                  }
+                >
+                  <Download size={14} />
+                  {t.reports.export.button}
+                </Button>
+              )}
             </header>
 
             {load.status === "loading" && (

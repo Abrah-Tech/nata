@@ -58,6 +58,20 @@ export function formatDateTime(value: string, locale: Locale): string {
   }).format(new Date(value));
 }
 
+/**
+ * Local date and time without a locale, for the header of an exported file:
+ * "2026-11-15 16:30". A file outlives the screen it came from, so the year is
+ * kept and the time is the user's own, not UTC.
+ */
+export function formatStamp(value: Date): string {
+  const pad = (part: number) => String(part).padStart(2, "0");
+
+  return (
+    `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ` +
+    `${pad(value.getHours())}:${pad(value.getMinutes())}`
+  );
+}
+
 export function todayIso(): string {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");

@@ -258,6 +258,8 @@ export type ProductMargin = {
 
 export type BusinessReport = {
   window_days: number;
+  /** Whether the plan includes taking the report away as a file. */
+  can_export: boolean;
   stock: StockValue;
   waste: WasteValue;
   products: ProductMargin[];

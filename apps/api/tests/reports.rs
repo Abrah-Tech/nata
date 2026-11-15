@@ -343,3 +343,30 @@ async fn a_viewer_can_read_the_report(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["products"].as_array().expect("products").len(), 0);
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn export_follows_the_plan(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant_id = common::tenant_of(&app, token).await;
+
+    // A new tenant is on the trial: the report is readable, the file is not.
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["can_export"], false);
+
+    for (plan, expected) in [("starter", false), ("pro", true), ("business", true)] {
+        sqlx::query("update tenants set plan = $2 where id = $1")
+            .bind(tenant_id)
+            .bind(plan)
+            .execute(&pool)
+            .await
+            .expect("plan");
+
+        let (status, body) = report(&app, token).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["can_export"], expected, "plan {plan}");
+    }
+}

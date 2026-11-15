@@ -12,6 +12,7 @@
 use axum::{extract::State, routing::get, Json, Router};
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::Serialize;
+use takar_domain::plan::Plan;
 use uuid::Uuid;
 
 use crate::auth::guard::{CanReadReports, Require};
@@ -26,6 +27,10 @@ const WASTE_LIMIT: i64 = 10;
 pub struct BusinessView {
     /// Window for sales and waste, taken from the tenant's usage setting.
     pub window_days: i32,
+    /// Whether the plan includes taking this view away as a file. The screen
+    /// shows the report to every plan and only offers the export when this is
+    /// true, so a refusal is explainable instead of a missing button.
+    pub can_export: bool,
     pub stock: StockValue,
     pub waste: WasteValue,
     pub products: Vec<ProductMargin>,
@@ -99,11 +104,16 @@ pub async fn business(
     let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     // The same window the shopping list uses: one setting, one explanation.
-    let (window_days,): (i32,) =
-        sqlx::query_as("select usage_window_days from tenants where id = $1")
+    // The plan comes along because export is an entitlement, and reading both
+    // from the same row keeps the button and the data from disagreeing.
+    let (window_days, plan): (i32, String) =
+        sqlx::query_as("select usage_window_days, plan from tenants where id = $1")
             .bind(auth.tenant_id)
             .fetch_one(&mut *tx)
             .await?;
+
+    let plan = Plan::parse(&plan)
+        .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("unknown plan {plan}")))?;
 
     let (material_value, product_value): (Decimal, Decimal) = sqlx::query_as(
         "with latest as (
@@ -229,6 +239,7 @@ pub async fn business(
 
     Ok(Json(BusinessView {
         window_days,
+        can_export: plan.allows_export(),
         stock: StockValue {
             materials: money(material_value),
             products: money(product_value),

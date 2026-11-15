@@ -19,7 +19,7 @@ This document turns `Rencana Produk PPIC + POS Ringan untuk UMKM F&B.md` into an
 | 0 | Technical foundation + validation | 3–5 prospects willing to try and pay; Android build runs on 2 low-end phones | code done; gate pending (P0-08) |
 | 1 | Stock, batches, expiry | 3 businesses use it instead of a notebook for 2 weeks | code done; gate pending |
 | 2 | Recipes, production, HPP | Users trust the HPP and use it to set prices | code done; gate pending |
-| 3 | Purchasing, sales, subscription | First paying customer | in progress — P3-06 open |
+| 3 | Purchasing, sales, subscription | First paying customer | code done; gate pending |
 | 4 | Expansion | Stable monthly retention | not started |
 
 ## Platform targets
@@ -146,7 +146,7 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 
 **Phase 3 gate:** first paying customer.
 
-**Status (2026-11-14):** P3-01 through P3-05 are built; P3-06 (report export) is open. Billing is manual, per D4: the owner records a transfer, the operator checks it and runs `cargo run -p takar-api --bin billing -- verify <payment-id>`, and access runs to the paid period plus a 7-day grace before the tenant goes read-only. Reads and the billing routes stay open in read-only mode so a tenant can always pay its way back.
+**Status (2026-11-15):** P3-01 through P3-06 are built. Report export is a Pro and Business entitlement: the report stays readable on every plan, the file is built in the browser from the payload the screen already shows, so the CSV cannot drift from the view, and the API reports `can_export` so the button can explain itself instead of disappearing. Billing is manual, per D4: the owner records a transfer, the operator checks it and runs `cargo run -p takar-api --bin billing -- verify <payment-id>`, and access runs to the paid period plus a 7-day grace before the tenant goes read-only. Reads and the billing routes stay open in read-only mode so a tenant can always pay its way back.
 
 ---
 
