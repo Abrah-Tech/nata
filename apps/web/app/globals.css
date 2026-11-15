@@ -106,10 +106,15 @@
    keep their browser margin, because a screen that stacks two of them without
    a gap expects the default. */
 @layer base {
+  /* Preflight normally writes `border: 0 solid`, which is what keeps an
+     element from drawing a border nobody asked for. Without the zero width,
+     the browser's `medium` width applies the moment the style becomes solid,
+     and every element outlines itself in its own text colour. */
   *,
   ::before,
   ::after,
   ::backdrop {
+    border-width: 0;
     border-style: solid;
   }
 
