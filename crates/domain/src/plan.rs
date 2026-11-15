@@ -112,6 +112,16 @@ impl Plan {
     pub const fn paid() -> [Plan; 3] {
         [Plan::Starter, Plan::Pro, Plan::Business]
     }
+
+    /// Whether the tenant may take the business report away as a file.
+    ///
+    /// The roadmap lists export under Pro, so the trial and Starter keep the
+    /// report on screen while Pro and Business add the file. This is an
+    /// entitlement, not a permission: the member still needs `report_read`,
+    /// and the trial is excluded so the gate has something to sell.
+    pub const fn allows_export(self) -> bool {
+        matches!(self, Plan::Pro | Plan::Business)
+    }
 }
 
 impl Resource {
@@ -188,6 +198,14 @@ mod tests {
         for plan in Plan::paid() {
             assert!(plan.monthly_price().is_some_and(|price| price > 0));
         }
+    }
+
+    #[test]
+    fn export_belongs_to_the_report_plans() {
+        assert!(!Plan::Trial.allows_export());
+        assert!(!Plan::Starter.allows_export());
+        assert!(Plan::Pro.allows_export());
+        assert!(Plan::Business.allows_export());
     }
 
     #[test]
