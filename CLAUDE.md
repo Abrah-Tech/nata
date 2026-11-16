@@ -165,7 +165,7 @@ symlink atomically, runs `nata-migrate`, restarts `nata-api`, and health-checks
 `/healthz` with automatic rollback.
 
 The host units, nginx vhost, ACME certificate, and `/etc/nata.env` live in the
-separate `arifinoid/nixos` repo (`nix/modules/nixos/vps-takar.nix`) — renaming
+separate `arifinoid/nixos` repo (`nix/modules/nixos/vps-nata.nix`) — renaming
 the units/roles/paths here requires the matching change there. See
 `deploy/vps/README.md` for the full procedure, role split (`nata_app` vs the
 Neon owner), backup, and rollback.
