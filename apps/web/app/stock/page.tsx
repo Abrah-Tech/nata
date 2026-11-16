@@ -6,7 +6,7 @@ import type {
   StockLevel,
   Supplier,
   Unit,
-} from "@takar/api-client";
+} from "@nata/api-client";
 import { Ellipsis, Plus, RotateCcw, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

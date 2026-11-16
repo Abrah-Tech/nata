@@ -3,9 +3,9 @@ use axum::{
     http::{header::AUTHORIZATION, request::Parts, Method},
 };
 use chrono::{DateTime, Utc};
+use nata_domain::billing::{access as access_state, Access};
+use nata_domain::Role;
 use sqlx::PgPool;
-use takar_domain::billing::{access as access_state, Access};
-use takar_domain::Role;
 use uuid::Uuid;
 
 use super::jwt::TokenScope;
@@ -58,7 +58,7 @@ struct SessionRow {
 
 /// Role and access in one round trip: both hang off the same membership row.
 async fn load_session(pool: &PgPool, tenant_id: Uuid, user_id: Uuid) -> Result<Session, ApiError> {
-    let mut tx = takar_db::begin_scoped(pool, Some(tenant_id), Some(user_id)).await?;
+    let mut tx = nata_db::begin_scoped(pool, Some(tenant_id), Some(user_id)).await?;
 
     let row: Option<SessionRow> = sqlx::query_as(
         "select m.role, t.trial_ends_at, t.paid_until

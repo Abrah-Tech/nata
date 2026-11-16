@@ -1,5 +1,5 @@
 [package]
-name = "takar-db"
+name = "nata-db"
 version.workspace = true
 edition.workspace = true
 

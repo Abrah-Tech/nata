@@ -1,5 +1,5 @@
 [package]
-name = "takar-core"
+name = "nata-core"
 version.workspace = true
 edition.workspace = true
 

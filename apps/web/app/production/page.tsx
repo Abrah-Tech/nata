@@ -5,7 +5,7 @@ import {
   type Product,
   type ProductionOrder,
   type ProductionPreview,
-} from "@takar/api-client";
+} from "@nata/api-client";
 import { AlertTriangle, CheckCircle2, ChefHat } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";

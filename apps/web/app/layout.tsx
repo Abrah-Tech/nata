@@ -5,7 +5,7 @@ import { I18nProvider } from "@/lib/i18n";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Takar",
+  title: "Nata",
   description: "Production planning and cost control for small F&B businesses",
 };
 

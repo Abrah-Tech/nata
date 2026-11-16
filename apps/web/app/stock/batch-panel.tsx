@@ -1,6 +1,6 @@
 "use client";
 
-import type { Batch, Movement, StockLevel, Supplier } from "@takar/api-client";
+import type { Batch, Movement, StockLevel, Supplier } from "@nata/api-client";
 import { CalendarClock, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 

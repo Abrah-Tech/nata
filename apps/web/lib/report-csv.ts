@@ -1,4 +1,4 @@
-import type { BusinessReport } from "@takar/api-client";
+import type { BusinessReport } from "@nata/api-client";
 
 import { toCsv } from "./csv";
 import { formatStamp } from "./format";

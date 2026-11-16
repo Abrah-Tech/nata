@@ -7,8 +7,8 @@
 use std::collections::BTreeMap;
 
 use chrono::NaiveDate;
+use nata_db::alert_delivery::{self, Outcome, PendingAlert};
 use sqlx::PgPool;
-use takar_db::alert_delivery::{self, Outcome, PendingAlert};
 use uuid::Uuid;
 
 use crate::notify::{Channel, Router};

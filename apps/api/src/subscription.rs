@@ -11,8 +11,8 @@ use serde::Serialize;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
-use takar_domain::billing::{ends_at, Access};
-use takar_domain::plan::{Plan, Resource};
+use nata_domain::billing::{ends_at, Access};
+use nata_domain::plan::{Plan, Resource};
 
 use crate::auth::AuthContext;
 use crate::{error::ApiError, AppState};
@@ -58,7 +58,7 @@ pub async fn get_subscription(
     auth: AuthContext,
 ) -> Result<Json<SubscriptionView>, ApiError> {
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let (plan, trial_ends_at, paid_until): (String, Option<DateTime<Utc>>, Option<DateTime<Utc>>) =
         sqlx::query_as("select plan, trial_ends_at, paid_until from tenants where id = $1")

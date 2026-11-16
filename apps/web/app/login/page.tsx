@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, type TenantSummary } from "@takar/api-client";
+import { ApiError, type TenantSummary } from "@nata/api-client";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -224,7 +224,7 @@ export default function LoginPage() {
           {t.login.help}{" "}
           <a
             className="font-semibold text-brand no-underline hover:underline"
-            href="mailto:halo@takar.id"
+            href="mailto:halo@nata.id"
           >
             {t.login.contactSupport}
           </a>

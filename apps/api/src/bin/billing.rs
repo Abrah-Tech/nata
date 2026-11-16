@@ -3,8 +3,8 @@
 //! D4 sells on the web with manual verification: the tenant records a transfer,
 //! the operator checks it against the bank, then runs:
 //!
-//!     cargo run -p takar-api --bin billing -- list
-//!     cargo run -p takar-api --bin billing -- verify <payment-id> --by <label>
+//!     cargo run -p nata-api --bin billing -- list
+//!     cargo run -p nata-api --bin billing -- verify <payment-id> --by <label>
 //!
 //! It needs the same role as alert_job: the pending list spans every tenant,
 //! and row level security hides them from a tenant-scoped role. The write itself
@@ -12,10 +12,10 @@
 
 use anyhow::{bail, Context};
 use chrono::{DateTime, NaiveDate, Utc};
+use nata_api::billing::activate;
+use nata_domain::plan::Plan;
 use rust_decimal::Decimal;
 use sqlx::PgPool;
-use takar_api::billing::activate;
-use takar_domain::plan::Plan;
 use uuid::Uuid;
 
 #[tokio::main]
@@ -23,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
     let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL is required")?;
-    let pool = takar_db::connect(&database_url)
+    let pool = nata_db::connect(&database_url)
         .await
         .context("connect to Postgres")?;
 
@@ -112,7 +112,7 @@ async fn verify(pool: &PgPool, id: Uuid, by: &str) -> anyhow::Result<()> {
 
     let plan = Plan::parse(&plan).context("the payment carries an unknown plan")?;
 
-    let mut tx = takar_db::begin_scoped(pool, Some(tenant_id), None).await?;
+    let mut tx = nata_db::begin_scoped(pool, Some(tenant_id), None).await?;
 
     activate(&mut tx, tenant_id, plan, period_end)
         .await

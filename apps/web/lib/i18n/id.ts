@@ -2,7 +2,7 @@ import type { Dictionary } from "./en";
 
 export const id: Dictionary = {
   common: {
-    appName: "Takar",
+    appName: "Nata",
     tagline: "PPIC + POS untuk UMKM F&B",
     language: "Bahasa",
     localeId: "Bahasa Indonesia",
@@ -91,7 +91,7 @@ export const id: Dictionary = {
       label: "UNTUK PRODUSEN KECIL YANG PRODUKSI PER BATCH",
       title: "Berhenti menghitung stok di buku tulis.",
       subtitle:
-        "Takar mencatat batch, tanggal expired, resep, dan HPP dalam satu alur. Input dari HP, laporan di desktop, alert lewat WhatsApp.",
+        "Nata mencatat batch, tanggal expired, resep, dan HPP dalam satu alur. Input dari HP, laporan di desktop, alert lewat WhatsApp.",
       features: {
         batch: {
           title: "Batch + FEFO",

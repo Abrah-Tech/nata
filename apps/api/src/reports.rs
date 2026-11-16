@@ -10,9 +10,9 @@
 //! and the response marks them instead of valuing them at today's cost.
 
 use axum::{extract::State, routing::get, Json, Router};
+use nata_domain::plan::Plan;
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::Serialize;
-use takar_domain::plan::Plan;
 use uuid::Uuid;
 
 use crate::auth::guard::{CanReadReports, Require};
@@ -101,7 +101,7 @@ pub async fn business(
 ) -> Result<Json<BusinessView>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     // The same window the shopping list uses: one setting, one explanation.
     // The plan comes along because export is an entitlement, and reading both

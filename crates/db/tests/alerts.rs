@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
+use nata_db::alerts::{run_on, seed_default_rules, AlertRun};
 use sqlx::types::Decimal;
 use sqlx::PgPool;
-use takar_db::alerts::{run_on, seed_default_rules, AlertRun};
 use uuid::Uuid;
 
 fn date(year: i32, month: u32, day: u32) -> NaiveDate {

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Material, Product, Recipe } from "@takar/api-client";
+import type { Material, Product, Recipe } from "@nata/api-client";
 import { Boxes, ChevronDown, ChevronUp, Pencil, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 

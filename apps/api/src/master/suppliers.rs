@@ -82,7 +82,7 @@ pub async fn list_suppliers(
 ) -> Result<Json<Vec<SupplierView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let rows: Vec<SupplierRow> = sqlx::query_as(&format!(
         "{SELECT} from suppliers where tenant_id = $1 and is_active order by name"
@@ -104,7 +104,7 @@ pub async fn create_supplier(
     let auth = guard.auth;
     let (name, lead_time_days) = validate(&body)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let row: SupplierRow = sqlx::query_as(
         "insert into suppliers (tenant_id, name, phone, lead_time_days, notes)
@@ -134,7 +134,7 @@ pub async fn update_supplier(
     let auth = guard.auth;
     let (name, lead_time_days) = validate(&body)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let row: Option<SupplierRow> = sqlx::query_as(
         "update suppliers
@@ -165,7 +165,7 @@ pub async fn remove_supplier(
 ) -> Result<StatusCode, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let result = sqlx::query(
         "update suppliers set is_active = false, updated_at = now()

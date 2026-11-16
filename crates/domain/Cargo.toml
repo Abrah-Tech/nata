@@ -1,5 +1,5 @@
 [package]
-name = "takar-domain"
+name = "nata-domain"
 version.workspace = true
 edition.workspace = true
 

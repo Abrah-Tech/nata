@@ -151,7 +151,7 @@ pub async fn list_materials(
 ) -> Result<Json<Vec<MaterialView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let rows: Vec<MaterialRow> = sqlx::query_as(&format!(
         "{SELECT} where m.tenant_id = $1 and m.is_active order by m.name"
@@ -173,7 +173,7 @@ pub async fn create_material(
     let auth = guard.auth;
     let (name, min_stock) = validate(&body)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     if let Some(supplier_id) = body.default_supplier_id {
         ensure_supplier(&mut tx, auth.tenant_id, supplier_id).await?;
@@ -182,7 +182,7 @@ pub async fn create_material(
     ensure_capacity(
         &mut tx,
         auth.tenant_id,
-        takar_domain::plan::Resource::Materials,
+        nata_domain::plan::Resource::Materials,
     )
     .await?;
 
@@ -217,7 +217,7 @@ pub async fn update_material(
     let auth = guard.auth;
     let (name, min_stock) = validate(&body)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     if let Some(supplier_id) = body.default_supplier_id {
         ensure_supplier(&mut tx, auth.tenant_id, supplier_id).await?;
@@ -257,7 +257,7 @@ pub async fn remove_material(
 ) -> Result<StatusCode, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let result = sqlx::query(
         "update materials set is_active = false, updated_at = now()

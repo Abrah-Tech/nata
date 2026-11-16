@@ -1,6 +1,6 @@
 "use client";
 
-import type { RecommendationList } from "@takar/api-client";
+import type { RecommendationList } from "@nata/api-client";
 import { ShoppingBasket } from "lucide-react";
 import { useEffect, useState } from "react";
 

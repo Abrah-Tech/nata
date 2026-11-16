@@ -25,7 +25,7 @@ impl HealthResponse {
     pub fn ok() -> Self {
         Self {
             status: "ok".to_string(),
-            service: "takar-api".to_string(),
+            service: "nata-api".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }

@@ -5,7 +5,7 @@ import {
   type Material,
   type Product,
   type Recipe,
-} from "@takar/api-client";
+} from "@nata/api-client";
 import { Plus, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 

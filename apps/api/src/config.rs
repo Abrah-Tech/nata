@@ -70,7 +70,7 @@ impl Config {
             .ok()
             .map(|value| value.trim().trim_end_matches('/').to_string())
             .filter(|value| !value.is_empty())
-            .unwrap_or_else(|| "https://takar.arifinoid.web.id".to_string());
+            .unwrap_or_else(|| "https://nata.arifinoid.web.id".to_string());
 
         let dev_otp_code = std::env::var("DEV_OTP_CODE")
             .ok()
@@ -115,7 +115,7 @@ fn email_provider() -> Option<EmailProvider> {
                 (Some(api_key), Some(from_email)) => Some(EmailProvider {
                     api_key,
                     from_email,
-                    from_name: env_string("EMAIL_FROM_NAME").unwrap_or_else(|| "Takar".to_string()),
+                    from_name: env_string("EMAIL_FROM_NAME").unwrap_or_else(|| "Nata".to_string()),
                 }),
                 _ => {
                     tracing::warn!(

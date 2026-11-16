@@ -1,6 +1,6 @@
 //! One-shot daily alert job.
 //!
-//! Run it from cron or a scheduler: `cargo run -p takar-api --bin alert_job`.
+//! Run it from cron or a scheduler: `cargo run -p nata-api --bin alert_job`.
 //! It is safe to re-run: alerts are deduplicated by open-alert unique indexes,
 //! tenants are claimed with `skip locked`, and delivery state is recorded, so a
 //! completed run sends nothing the second time. Do not overlap two runs while
@@ -8,7 +8,7 @@
 
 use anyhow::Context;
 use chrono::Utc;
-use takar_api::{alerts::send::send_pending, config::Config, notify};
+use nata_api::{alerts::send::send_pending, config::Config, notify};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[tokio::main]
@@ -22,11 +22,11 @@ async fn main() -> anyhow::Result<()> {
         .database_url
         .as_deref()
         .context("DATABASE_URL is required")?;
-    let pool = takar_db::connect(database_url)
+    let pool = nata_db::connect(database_url)
         .await
         .context("connect to Postgres")?;
 
-    let report = takar_db::alerts::run(&pool)
+    let report = nata_db::alerts::run(&pool)
         .await
         .context("run the alert job")?;
 

@@ -25,7 +25,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:takar.db", migrations())
+                .add_migrations("sqlite:nata.db", migrations())
                 .build(),
         )
         .run(tauri::generate_context!())

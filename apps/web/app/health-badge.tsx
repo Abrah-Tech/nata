@@ -1,6 +1,6 @@
 "use client";
 
-import type { HealthResponse } from "@takar/api-client";
+import type { HealthResponse } from "@nata/api-client";
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";

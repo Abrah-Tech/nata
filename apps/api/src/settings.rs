@@ -41,7 +41,7 @@ pub async fn get_settings(
     auth: AuthContext,
 ) -> Result<Json<SettingsView>, ApiError> {
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let (labor_rate_per_hour, usage_window_days): (Decimal, i32) =
         sqlx::query_as("select labor_rate_per_hour, usage_window_days from tenants where id = $1")
@@ -83,7 +83,7 @@ pub async fn update_settings(
     }
 
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let (labor_rate_per_hour, usage_window_days): (Decimal, i32) = sqlx::query_as(
         "update tenants

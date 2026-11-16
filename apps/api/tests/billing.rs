@@ -3,9 +3,9 @@ mod common;
 use axum::{http::StatusCode, Router};
 use chrono::{Duration, Utc};
 use common::{call, signup, test_app, CaptureOtp};
+use nata_domain::plan::Plan;
 use serde_json::{json, Value};
 use sqlx::PgPool;
-use takar_domain::plan::Plan;
 use uuid::Uuid;
 
 async fn billing(app: &Router, token: &str) -> (StatusCode, Value) {
@@ -138,10 +138,10 @@ async fn verifying_a_payment_activates_the_subscription(pool: PgPool) {
     assert_eq!(body["access"], "read_only");
 
     let end = Utc::now().date_naive() + Duration::days(30);
-    let mut tx = takar_db::begin_scoped(&pool, Some(tenant_id), None)
+    let mut tx = nata_db::begin_scoped(&pool, Some(tenant_id), None)
         .await
         .expect("begin");
-    takar_api::billing::activate(&mut tx, tenant_id, Plan::Starter, end)
+    nata_api::billing::activate(&mut tx, tenant_id, Plan::Starter, end)
         .await
         .expect("activate");
     tx.commit().await.expect("commit");
@@ -222,10 +222,10 @@ async fn a_verified_payment_is_never_shortened_by_a_later_one(pool: PgPool) {
     let today = Utc::now().date_naive();
 
     for end in [today + Duration::days(60), today + Duration::days(10)] {
-        let mut tx = takar_db::begin_scoped(&pool, Some(tenant_id), None)
+        let mut tx = nata_db::begin_scoped(&pool, Some(tenant_id), None)
             .await
             .expect("begin");
-        takar_api::billing::activate(&mut tx, tenant_id, Plan::Starter, end)
+        nata_api::billing::activate(&mut tx, tenant_id, Plan::Starter, end)
             .await
             .expect("activate");
         tx.commit().await.expect("commit");

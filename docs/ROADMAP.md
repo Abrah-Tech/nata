@@ -1,4 +1,4 @@
-# Execution Roadmap — Takar
+# Execution Roadmap — Nata
 
 This document turns `Rencana Produk PPIC + POS Ringan untuk UMKM F&B.md` into an order of work that an agent can execute. The product specification stays in that document; this one defines **what gets built first, when a task counts as done, and when it is safe to move on**.
 
@@ -24,7 +24,7 @@ This document turns `Rencana Produk PPIC + POS Ringan untuk UMKM F&B.md` into an
 
 ## Platform targets
 
-Tauri 2 ships one UI (Next.js) and one Rust shell to desktop, Android, and iOS, but "one codebase" does not mean "no platform work". Shared: the React UI, `takar-core`, the API contract, and sync logic. Different: build toolchain, native permissions, app lifecycle, store review, and billing rules.
+Tauri 2 ships one UI (Next.js) and one Rust shell to desktop, Android, and iOS, but "one codebase" does not mean "no platform work". Shared: the React UI, `nata-core`, the API contract, and sync logic. Different: build toolchain, native permissions, app lifecycle, store review, and billing rules.
 
 | Target | Delivery | Toolchain | Notes |
 | --- | --- | --- | --- |
@@ -37,11 +37,11 @@ Rules:
 
 - Core flows must not depend on a platform-only plugin. Native features sit behind a capability check with a web fallback.
 - Billing is sold on the web; do not add in-app purchase before the store rules are decided (D11).
-- The server stays the source of truth. The client may run `takar-core` for previews only.
+- The server stays the source of truth. The client may run `nata-core` for previews only.
 
 ## UI source of truth
 
-The UI design lives in pen.dev (`takar.pen`, 25 top-level frames). Implement screens from that file; do not invent layouts. Desktop frames are 1440 wide, mobile frames are 390 wide.
+The UI design lives in pen.dev (`nata.pen`, 25 top-level frames). Implement screens from that file; do not invent layouts. Desktop frames are 1440 wide, mobile frames are 390 wide.
 
 | Group | Frames | Phase |
 | --- | --- | --- |
@@ -74,7 +74,7 @@ Goal: the repo builds, multi-tenant auth works, and the Android app installs on 
 | P0-06 | OTP + JWT auth: provider abstraction (dev stub), OTP request/verify, JWT carrying `user_id` + `tenant_id`, tenant selection endpoint | End-to-end login in dev; tokens without `tenant_id` are rejected; multi-tenant users can switch tenants |
 | P0-07 | Bootstrap web + shell: Next static export, login page, generated TS client, Tauri Android init | `bun run --filter web build` produces `out/`; the debug APK installs and runs on 2 low-end Android phones |
 | P0-08 | Validation interviews with 10–15 F&B producers **(owner: user)** | 3–5 agree to try the product and pay |
-| P0-09 | RBAC matrix in `takar-domain`: `Role`, `Permission`, `can()` | Matrix covers owner/admin/production/viewer; pure, no IO, covered by golden tests |
+| P0-09 | RBAC matrix in `nata-domain`: `Role`, `Permission`, `can()` | Matrix covers owner/admin/production/viewer; pure, no IO, covered by golden tests |
 | P0-10 | `AuthContext` extractor and `/me`: JWT → active membership → role | Suspended membership gets 403; a role change applies on the next request without re-login; `/me` returns the effective permissions |
 | P0-11 | Permission-gated routes + invitation flow | Every mutating route declares a permission; removing or demoting the last owner fails inside the transaction; 403 paths have integration tests |
 | P0-12 | UI i18n foundation: `id` and `en` dictionaries, locale switch, no hardcoded copy | Login and dashboard render in both locales; a missing key fails the build |
@@ -94,7 +94,7 @@ Goal: replace the notebook for material stock and expiry dates.
 | P1-01 | Master data: `units`, `unit_conversions`, `suppliers`, `materials` (CRUD + base unit validation) | Materials have a base unit, `min_stock`, and `shelf_life_days`; conversions round-trip consistently |
 | P1-02 | Batch stock-in: short form → insert `material_batches` + a `purchase` movement in one transaction | `qty_remaining = qty_received`; the movement is recorded; entry takes under 15 seconds on a phone |
 | P1-03 | Stock queries: on-hand per material, active batches, movement history | On-hand equals `sum(qty_remaining)`; depleted batches do not appear in the active list |
-| P1-04 | FEFO allocator in `takar-core` (pure function, no IO) | Golden tests: ordered by `expires_at`, nulls last, `received_at` as tie-break, insufficient stock returns an explicit shortfall |
+| P1-04 | FEFO allocator in `nata-core` (pure function, no IO) | Golden tests: ordered by `expires_at`, nulls last, `received_at` as tie-break, insufficient stock returns an explicit shortfall |
 | P1-05 | Stock corrections: waste, expired, adjustment | Every change goes through `stock_movements`; no quantity changes without a trail |
 | P1-06 | Daily alert job: `alert_rules`, fills `alerts`, uses `SKIP LOCKED` | Running it twice produces no duplicates; H-7/H-3 follow the configured rules |
 | P1-07 | WhatsApp sender: provider abstraction, message templates, retry, delivery status | A message is delivered in staging; failures are recorded and can be retried |
@@ -102,7 +102,7 @@ Goal: replace the notebook for material stock and expiry dates.
 | P1-09 | Phase 1 dashboard: critical stock + expiring materials | Single screen; loads in under 2 seconds on a slow network |
 | P1-10 | Onboarding: F&B material/recipe templates + Excel import (see D1) | A new tenant can reach 20 materials within 10 minutes |
 
-**Alert job.** Run `cargo run -p takar-api --bin alert_job` daily from cron. It is idempotent and safe to re-run: tenants are claimed with `skip locked`, inserts are guarded by open-alert unique indexes, and alerts resolve when their condition stops holding. Alert creation is parallel-safe; delivery is not claimed, so do not overlap two runs while sending. The job needs a database role that can list every tenant (the migration role, or any role with `bypassrls`); the per-tenant work still runs inside a tenant-scoped transaction. Alerts store structured data, not prose; the sender composes one digest per tenant and effective channel (falling back to the owner's other contact), records every attempt, and retries failures on the next run.
+**Alert job.** Run `cargo run -p nata-api --bin alert_job` daily from cron. It is idempotent and safe to re-run: tenants are claimed with `skip locked`, inserts are guarded by open-alert unique indexes, and alerts resolve when their condition stops holding. Alert creation is parallel-safe; delivery is not claimed, so do not overlap two runs while sending. The job needs a database role that can list every tenant (the migration role, or any role with `bypassrls`); the per-tenant work still runs inside a tenant-scoped transaction. Alerts store structured data, not prose; the sender composes one digest per tenant and effective channel (falling back to the owner's other contact), records every attempt, and retries failures on the next run.
 
 **Phase 1 gate:** at least 3 businesses use the product instead of a notebook for 2 weeks.
 
@@ -146,7 +146,7 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 
 **Phase 3 gate:** first paying customer.
 
-**Status (2026-11-15):** P3-01 through P3-06 are built. Report export is a Pro and Business entitlement: the report stays readable on every plan, the file is built in the browser from the payload the screen already shows, so the CSV cannot drift from the view, and the API reports `can_export` so the button can explain itself instead of disappearing. Billing is manual, per D4: the owner records a transfer, the operator checks it and runs `cargo run -p takar-api --bin billing -- verify <payment-id>`, and access runs to the paid period plus a 7-day grace before the tenant goes read-only. Reads and the billing routes stay open in read-only mode so a tenant can always pay its way back.
+**Status (2026-11-15):** P3-01 through P3-06 are built. Report export is a Pro and Business entitlement: the report stays readable on every plan, the file is built in the browser from the payload the screen already shows, so the CSV cannot drift from the view, and the API reports `can_export` so the button can explain itself instead of disappearing. Billing is manual, per D4: the owner records a transfer, the operator checks it and runs `cargo run -p nata-api --bin billing -- verify <payment-id>`, and access runs to the paid period plus a 7-day grace before the tenant goes read-only. Reads and the billing routes stay open in read-only mode so a tenant can always pay its way back.
 
 ---
 
@@ -176,13 +176,13 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 
 ## Authorization model (RBAC)
 
-Decision: enforce in the API, define the matrix in `takar-domain`, and keep RLS for tenant isolation only. RBAC does not belong in `takar-core`: it needs database state and core must stay pure.
+Decision: enforce in the API, define the matrix in `nata-domain`, and keep RLS for tenant isolation only. RBAC does not belong in `nata-core`: it needs database state and core must stay pure.
 
 | Layer | Responsibility |
 | --- | --- |
 | Postgres RLS | Row isolation by `app.tenant_id`; never role logic |
-| `takar-domain` | `Role`, `Permission`, and the `can()` matrix; pure and unit-tested |
-| `takar-api` | JWT → active membership → `AuthContext`; a permission extractor guards routes |
+| `nata-domain` | `Role`, `Permission`, and the `can()` matrix; pure and unit-tested |
+| `nata-api` | JWT → active membership → `AuthContext`; a permission extractor guards routes |
 | Service/handler | Resource invariants: last owner, invitation limits, plan caps |
 | Web/Tauri UI | Renders from the permissions returned by `/me`; never the source of truth |
 
@@ -191,7 +191,7 @@ Rules:
 - The JWT carries `user_id` + `tenant_id` only. Resolve the role per request from `memberships` so suspension and role changes apply immediately.
 - `/me` returns the active tenant, role, and effective permissions. The UI does not duplicate the matrix.
 - Every mutating route declares a permission. No ad-hoc role checks inside handlers.
-- The declaration is part of the handler signature: `Require<CanManageMembers>` in `takar-api::auth::guard` resolves the role and rejects with `403 permission_denied`.
+- The declaration is part of the handler signature: `Require<CanManageMembers>` in `nata-api::auth::guard` resolves the role and rejects with `403 permission_denied`.
 - A member may only manage or grant roles strictly below their own; an owner may also manage another owner so a tenant can hand over. Invitations never carry the owner role.
 - Plan limits are entitlements, not permissions: check them in the service layer before creating a member, material, recipe, or warehouse.
 - Role checks never live in RLS policies; RLS only answers "which tenant owns this row".
@@ -236,7 +236,7 @@ Do not decide these alone. Ask the user, then record the outcome here.
 | D6 | Multi-warehouse: prepare now or later? | Nullable column now, UI in phase 4 |
 | D7 | HPP rounding: how many decimals are stored and displayed? | Store 4 decimals, display whole Rupiah, round up when setting a selling price |
 | D8 | Do finished goods need batches and expiry tracking? | Yes for cakes and frozen food, but defer to the end of phase 2 |
-| D9 | Crate and package naming: `takar-` prefix? | Confirm once at P0-01 so nothing gets renamed mid-flight |
+| D9 | Crate and package naming: `nata-` prefix? | **Decided (2026-11-16):** the workspace uses the `nata-` prefix across crates, binaries, packages, and the Android app id. |
 | D10 | RBAC: put the role in the JWT or resolve it per request? | Resolve per request from `memberships`; JWT stays `user_id` + `tenant_id` so revocation is immediate |
 | D11 | Mobile monetization: web checkout or in-app purchase? | Web checkout; keep billing read-only inside the app until store rules are settled |
 | D12 | UI copy language: the pen.dev frames use Indonesian, the project convention says English | **Decided:** UI copy is localized through i18n with `id` and `en`; code, API messages, and docs stay English |

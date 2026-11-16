@@ -101,7 +101,7 @@ pub async fn overview(
 ) -> Result<Json<DashboardView>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let (materials, below_min, out_of_stock, stock_value, active_batches, expiring, expired): SummaryRow =
         sqlx::query_as(

@@ -9,12 +9,12 @@ use axum::{
     Router,
 };
 use http_body_util::BodyExt;
-use serde_json::{json, Value};
-use sqlx::PgPool;
-use takar_api::{
+use nata_api::{
     auth::{contact::Contact, jwt::JwtConfig, otp::OtpSender},
     router, AppState,
 };
+use serde_json::{json, Value};
+use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 

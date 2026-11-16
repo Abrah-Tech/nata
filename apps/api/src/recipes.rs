@@ -217,7 +217,7 @@ pub async fn list_recipes(
 ) -> Result<Json<Vec<RecipeView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     ensure_product(&mut tx, auth.tenant_id, product_id).await?;
 
@@ -251,7 +251,7 @@ pub async fn get_recipe(
 ) -> Result<Json<RecipeView>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let recipe = fetch_recipe(&mut tx, auth.tenant_id, id).await?;
     tx.commit().await?;
@@ -268,7 +268,7 @@ pub async fn create_recipe(
     let auth = guard.auth;
     let (yield_qty, labor_minutes, items) = validate(&body)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     ensure_product(&mut tx, auth.tenant_id, product_id).await?;
     ensure_materials(&mut tx, auth.tenant_id, &items).await?;
@@ -291,7 +291,7 @@ pub async fn create_recipe(
         ensure_capacity(
             &mut tx,
             auth.tenant_id,
-            takar_domain::plan::Resource::Recipes,
+            nata_domain::plan::Resource::Recipes,
         )
         .await?;
     }

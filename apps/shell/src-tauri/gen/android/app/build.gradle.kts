@@ -17,10 +17,10 @@ val tauriProperties = Properties().apply {
 android {
     // nixpkgs androidenv ships platforms up to 36; Tauri's template defaults to 37.
     compileSdk = 36
-    namespace = "app.takar.desktop"
+    namespace = "app.nata.desktop"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "app.takar.desktop"
+        applicationId = "app.nata.desktop"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

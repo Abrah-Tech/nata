@@ -64,7 +64,7 @@ pub async fn sync_stock_in(
             continue;
         }
 
-        let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+        let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
         match insert_stock_in(&mut tx, auth.tenant_id, auth.user_id, &entry).await {
             Ok(record) => {

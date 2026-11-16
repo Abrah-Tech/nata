@@ -27,8 +27,8 @@ Rust:
 ```bash
 cargo build --workspace
 cargo test --workspace
-cargo test -p takar-core fefo              # single module
-cargo test -p takar-core -- --nocapture
+cargo test -p nata-core fefo              # single module
+cargo test -p nata-core -- --nocapture
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
 ```
@@ -52,20 +52,20 @@ Local Postgres for development and RLS tests:
 docker compose up -d db
 docker compose down                    # stop, keeps the volume
 
-DATABASE_URL=postgres://takar:takar@127.0.0.1:5432/takar cargo test -p takar-db
+DATABASE_URL=postgres://nata:nata@127.0.0.1:5432/nata cargo test -p nata-db
 ```
 
 Daily jobs (run from cron in deployment):
 
 ```bash
-cargo run -p takar-api --bin alert_job     # fills, resolves, and sends alerts; safe to re-run
+cargo run -p nata-api --bin alert_job     # fills, resolves, and sends alerts; safe to re-run
 ```
 
 Manual billing, run by the operator rather than from cron:
 
 ```bash
-cargo run -p takar-api --bin billing -- list
-cargo run -p takar-api --bin billing -- verify <payment-id> --by <label>
+cargo run -p nata-api --bin billing -- list
+cargo run -p nata-api --bin billing -- verify <payment-id> --by <label>
 ```
 
 The job claims tenants with `skip locked`, so it needs a database role that can see every tenant — the migration role or a role with `bypassrls`. Per-tenant work still runs in a tenant-scoped transaction.
@@ -98,11 +98,11 @@ Three runtimes, one calculation core:
 - `crates/db` — sqlx queries and data access.
 - `migrations/` — Postgres DDL, including RLS policies.
 
-Data flow: UI → generated TypeScript client → Axum → `takar-db`/`takar-core` → Postgres. Core may also run inside Tauri for local previews, but the server stays the source of truth.
+Data flow: UI → generated TypeScript client → Axum → `nata-db`/`nata-core` → Postgres. Core may also run inside Tauri for local previews, but the server stays the source of truth.
 
 ### Web UI
 
-Tailwind v4 runs through PostCSS and is loaded by `app/globals.css`, which is the only style entry: the takar.pen tokens, their `@theme` mapping, the layer order `theme, base, components, utilities`, and the global resets (`box-sizing`, border width, margins, body background and font) in `base`. Preflight is deliberately not loaded, so the reset is hand-written in `base`: box-sizing, the `html`/`body` margins, the body background and font, and the margins a browser gives headings and lists. Those are the ones that fight the gap-based layouts every screen uses — an `<h1>` with its default `0.67em` and an `<ol>` with its `40px` indent make a card look broken. Paragraphs keep their browser margin, because a screen that stacks two of them without a gap expects the default. A utility still wins over `base`.
+Tailwind v4 runs through PostCSS and is loaded by `app/globals.css`, which is the only style entry: the nata.pen tokens, their `@theme` mapping, the layer order `theme, base, components, utilities`, and the global resets (`box-sizing`, border width, margins, body background and font) in `base`. Preflight is deliberately not loaded, so the reset is hand-written in `base`: box-sizing, the `html`/`body` margins, the body background and font, and the margins a browser gives headings and lists. Those are the ones that fight the gap-based layouts every screen uses — an `<h1>` with its default `0.67em` and an `<ol>` with its `40px` indent make a card look broken. Paragraphs keep their browser margin, because a screen that stacks two of them without a gap expects the default. A utility still wins over `base`.
 
 Components live in `components/ui` and are copied shadcn source, not a dependency: `button`, `input`, `label`, `select` (native, for the Android WebView), `field`, `card`, `badge`, `dialog` (Radix, plus `DialogSheet` for the batch panel), `table`, `skeleton`. Do not add `@radix-ui/themes`, which ships its own look. `components/modal.tsx` is the thin wrapper every form dialog uses, so focus trap, Escape and scroll lock come from Radix rather than from each form. Style with the mapped tokens (`bg-card`, `text-ink-3`, `border-border`), never a raw palette class, or the design system drifts from the .pen file. Controls are 10px, surfaces 14px, and `text-sm` is the 12.5px body size.
 
@@ -120,7 +120,7 @@ Recipes are versioned, never edited in place. Creating a recipe version deactiva
 
 ### Production
 
-A production order is the only writer of `production_use` movements. It runs in one transaction: load the product's current recipe version, compute each material requirement, allocate batches FEFO with `takar_core::allocate`, and reject the whole run with `409 insufficient_stock` plus the shortage list (D3) before writing anything. On success it decrements `material_batches.qty_remaining`, appends a negative movement and a `production_consumptions` row per batch, and adds `actual_qty` to `products.stock_qty`.
+A production order is the only writer of `production_use` movements. It runs in one transaction: load the product's current recipe version, compute each material requirement, allocate batches FEFO with `nata_core::allocate`, and reject the whole run with `409 insufficient_stock` plus the shortage list (D3) before writing anything. On success it decrements `material_batches.qty_remaining`, appends a negative movement and a `production_consumptions` row per batch, and adds `actual_qty` to `products.stock_qty`.
 
 `POST /production-orders/preview` runs the same plan read-only and returns each material's requirement, the batches FEFO would take, and the HPP with margin. It returns null cost fields when any material is short, because a partial allocation would understate the HPP.
 
@@ -128,7 +128,7 @@ The order stores the `recipe_id` it consumed; creating a newer recipe version ne
 
 Cost is snapshotted in the same transaction: `material_cost` is the sum of `production_consumptions.qty × unit_cost`, and `unit_cost` is the total divided by `actual_qty` (four decimals, D7), so a later purchase at a different price never changes a past HPP.
 
-Labor is priced from `tenants.labor_rate_per_hour` (set through `PUT /settings`): a recipe's `labor_minutes` covers one batch, so a run of `qty` units costs `rate × minutes / 60 × (qty ÷ yield_qty)`. The rate is read once per plan and stored in the order, so changing it never rewrites history. A zero rate means labor is left out of the HPP. `overhead_cost` stays zero until a tenant overhead input exists; `takar_core::production_cost` already accepts the component.
+Labor is priced from `tenants.labor_rate_per_hour` (set through `PUT /settings`): a recipe's `labor_minutes` covers one batch, so a run of `qty` units costs `rate × minutes / 60 × (qty ÷ yield_qty)`. The rate is read once per plan and stored in the order, so changing it never rewrites history. A zero rate means labor is left out of the HPP. `overhead_cost` stays zero until a tenant overhead input exists; `nata_core::production_cost` already accepts the component.
 
 `/settings` is readable by any member because it explains the HPP and the shopping list they see; `PUT /settings` requires `tenant_manage` (owner, admin). Fields are optional: an omitted field keeps its stored value.
 
@@ -148,7 +148,7 @@ Both entry points call `sales::write_sale`, so a typed sale and an imported one 
 
 ### Plans
 
-Every tenant starts on `trial` with `trial_ends_at` set to 14 days after creation. The limits live in `takar-domain::plan` (`Plan::limits`) and are entitlements, not permissions: the role says what a member may do, the plan says how much of it the tenant may have. They are checked in the service layer before a create, never in RLS.
+Every tenant starts on `trial` with `trial_ends_at` set to 14 days after creation. The limits live in `nata-domain::plan` (`Plan::limits`) and are entitlements, not permissions: the role says what a member may do, the plan says how much of it the tenant may have. They are checked in the service layer before a create, never in RLS.
 
 `GET /subscription` returns the plan, the trial end, the limits, and current usage. Seats count active memberships plus pending invitations, because an invitation reserves a seat. Materials and recipes count only active rows: archiving a material frees a slot, and a new recipe version does not consume one. Warehouses have no table until P4-01, so that counter stays at zero.
 
@@ -156,7 +156,7 @@ A create over the limit is refused with `403 plan_limit_reached` and `details { 
 
 ### Billing
 
-Access is derived, never stored: `takar_domain::billing::access` reads `tenants.trial_ends_at` and `tenants.paid_until` and returns `active`, `grace` or `read_only`. It runs to the later of the two dates plus seven days of grace, so a support extension or an early payment can only lengthen access. A tenant with neither date stays active — locking out an account we cannot date would be a bug, not a policy.
+Access is derived, never stored: `nata_domain::billing::access` reads `tenants.trial_ends_at` and `tenants.paid_until` and returns `active`, `grace` or `read_only`. It runs to the later of the two dates plus seven days of grace, so a support extension or an early payment can only lengthen access. A tenant with neither date stays active — locking out an account we cannot date would be a bug, not a policy.
 
 Read-only is enforced once, in `AuthContext`: any non-GET request is refused with `403 subscription_expired` and `details { access }`. Reads stay open, and so do the `/billing` routes, because recording a payment is the way back. Nothing is deleted; a verified payment restores the account exactly as it was.
 
@@ -180,7 +180,7 @@ Export is an entitlement, not a permission: `Plan::allows_export` is true for Pr
 
 `GET /purchasing/recommendations` turns the movement ledger into a shopping list. Usage is the sum of `production_use`, `waste`, and `expired` movements over the tenant's usage window (`tenants.usage_window_days`, default 30, allowed 1–365), averaged per day; purchases and adjustments are excluded because neither says anything about consumption.
 
-`takar_core::reorder_plan` targets `average_daily_usage × lead_time_days + min_stock` and orders `max(0, target − on_hand)`, rounded up to three decimals. When the material has a shelf life, the order is capped at `average_daily_usage × shelf_life_days − on_hand` so a long lead time cannot push a tenant into buying stock that expires before it is used; the response flags that case. Lead time comes from the material's default supplier and is zero when none is set.
+`nata_core::reorder_plan` targets `average_daily_usage × lead_time_days + min_stock` and orders `max(0, target − on_hand)`, rounded up to three decimals. When the material has a shelf life, the order is capped at `average_daily_usage × shelf_life_days − on_hand` so a long lead time cannot push a tenant into buying stock that expires before it is used; the response flags that case. Lead time comes from the material's default supplier and is zero when none is set.
 
 A material with no outbound movement in the window comes back with `insufficient_history: true` and only closes the gap to `min_stock`; the shelf-life cap is skipped because a zero usage would cap every order to zero. Materials whose recommendation is zero are omitted.
 

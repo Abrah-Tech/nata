@@ -125,7 +125,7 @@ pub async fn import_sales(
     let db = state.db()?;
 
     let products = {
-        let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+        let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
         let rows: Vec<(Uuid, String, Option<String>, Decimal)> = sqlx::query_as(
             "select id, name, sku, sell_price from products where tenant_id = $1 and is_active",
@@ -206,7 +206,7 @@ pub async fn import_sales(
                 .collect(),
         };
 
-        let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+        let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
         match write_sale(&mut tx, auth.tenant_id, auth.user_id, &body).await {
             Ok((created, sale)) => {

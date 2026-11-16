@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "takar",
+      "name": "nata",
     },
     "apps/shell": {
       "name": "shell",
@@ -15,7 +15,7 @@
         "@radix-ui/react-label": "^2.1.17",
         "@radix-ui/react-slot": "^1.5.0",
         "@tailwindcss/postcss": "^4.3.5",
-        "@takar/api-client": "workspace:*",
+        "@nata/api-client": "workspace:*",
         "@tauri-apps/plugin-sql": "^2.6.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -35,7 +35,7 @@
       },
     },
     "packages/api-client": {
-      "name": "@takar/api-client",
+      "name": "@nata/api-client",
       "version": "0.1.0",
     },
   },
@@ -192,7 +192,7 @@
 
     "@tailwindcss/postcss": ["@tailwindcss/postcss@4.3.5", "", { "dependencies": { "@alloc/quick-lru": "^5.2.0", "@tailwindcss/node": "4.3.5", "@tailwindcss/oxide": "4.3.5", "postcss": "^8.5.25", "tailwindcss": "4.3.5" } }, "sha512-FAV37Tlx9wBiT/hkfgVD0Q6CWsP2oUX3lf28nrfjW8+ksILjnpuFulUqWDfNR4/ZiEHHDRBX8DUTzD1Rys687A=="],
 
-    "@takar/api-client": ["@takar/api-client@workspace:packages/api-client"],
+    "@nata/api-client": ["@nata/api-client@workspace:packages/api-client"],
 
     "@tauri-apps/api": ["@tauri-apps/api@2.12.4", "", {}, "sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg=="],
 

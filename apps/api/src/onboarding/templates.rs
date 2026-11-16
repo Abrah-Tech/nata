@@ -227,7 +227,7 @@ pub async fn apply_template(
         .ok_or(ApiError::NotFound("template_not_found"))?;
 
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let units = unit_ids(&mut tx, auth.tenant_id).await?;
     let mut taken = existing_names(&mut tx, auth.tenant_id).await?;

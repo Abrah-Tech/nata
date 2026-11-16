@@ -3,7 +3,7 @@
 
 export const en = {
   common: {
-    appName: "Takar",
+    appName: "Nata",
     tagline: "PPIC + light POS for F&B SMEs",
     language: "Language",
     localeId: "Bahasa Indonesia",
@@ -92,7 +92,7 @@ export const en = {
       label: "FOR SMALL PRODUCERS WHO WORK IN BATCHES",
       title: "Stop counting stock in a notebook.",
       subtitle:
-        "Takar records batches, expiry dates, recipes, and HPP in one flow. Input from the phone, reports on the desktop, alerts through WhatsApp.",
+        "Nata records batches, expiry dates, recipes, and HPP in one flow. Input from the phone, reports on the desktop, alerts through WhatsApp.",
       features: {
         batch: {
           title: "Batch + FEFO",

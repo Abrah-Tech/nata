@@ -1,9 +1,9 @@
-import type { StockInRequest } from "@takar/api-client";
+import type { StockInRequest } from "@nata/api-client";
 
 import { api } from "./api";
 
 // Same file name as the migration in `apps/shell/src-tauri/src/lib.rs`.
-const DATABASE = "sqlite:takar.db";
+const DATABASE = "sqlite:nata.db";
 
 export type QueuedStockIn = {
   client_ref: string;

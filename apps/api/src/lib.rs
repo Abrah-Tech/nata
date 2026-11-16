@@ -1,4 +1,4 @@
-//! HTTP layer for Takar. This is the only place that owns server behavior.
+//! HTTP layer for Nata. This is the only place that owns server behavior.
 
 pub mod alerts;
 pub mod auth;
@@ -25,8 +25,8 @@ pub mod sync;
 use std::sync::Arc;
 
 use axum::{extract::State, http::HeaderValue, routing::get, Json, Router};
+use nata_domain::HealthResponse;
 use sqlx::PgPool;
-use takar_domain::HealthResponse;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -103,7 +103,7 @@ fn cors() -> CorsLayer {
     let origins: Vec<HeaderValue> = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://takar.arifinoid.web.id",
+        "https://nata.arifinoid.web.id",
         "https://tauri.localhost",
         "http://tauri.localhost",
         "tauri://localhost",

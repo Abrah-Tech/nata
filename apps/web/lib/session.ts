@@ -1,4 +1,4 @@
-const TOKEN_KEY = "takar.token";
+const TOKEN_KEY = "nata.token";
 
 export function readToken(): string | null {
   if (typeof window === "undefined") {

@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
-use takar_core::{Allocation, Consumption, ProductionCost, StockBatch};
+use nata_core::{Allocation, Consumption, ProductionCost, StockBatch};
 
 use crate::auth::guard::{CanReadProduction, CanWriteProduction, Require};
 use crate::{error::ApiError, AppState};
@@ -285,7 +285,7 @@ async fn plan_order(
 
     for (material_id, material_name, unit_code, item_qty, waste_pct) in items {
         let required =
-            takar_core::material_requirement(item_qty, waste_pct, production_qty, yield_qty)
+            nata_core::material_requirement(item_qty, waste_pct, production_qty, yield_qty)
                 .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?
                 .round_dp_with_strategy(LEDGER_SCALE, RoundingStrategy::ToPositiveInfinity);
 
@@ -310,7 +310,7 @@ async fn plan_order(
             });
         }
 
-        let allocation = takar_core::allocate(&batches, required)
+        let allocation = nata_core::allocate(&batches, required)
             .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?;
 
         if !allocation.is_fully_allocated() {
@@ -380,7 +380,7 @@ fn order_cost(planned: &PlannedOrder, production_qty: Decimal) -> Result<Product
     let batches = production_qty / planned.yield_qty;
     let labor_cost = planned.labor_rate_per_hour * hours * batches;
 
-    takar_core::production_cost(
+    nata_core::production_cost(
         &consumption_costs,
         labor_cost,
         Decimal::ZERO,
@@ -397,7 +397,7 @@ pub async fn preview_order(
     let auth = guard.auth;
     let production_qty = normalized_qty(body.qty)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let planned = plan_order(
         &mut tx,
@@ -484,7 +484,7 @@ pub async fn create_order(
     let auth = guard.auth;
     let production_qty = normalized_qty(body.qty)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let planned = plan_order(
         &mut tx,

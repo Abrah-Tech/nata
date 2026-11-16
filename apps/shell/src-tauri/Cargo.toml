@@ -1,10 +1,10 @@
 [package]
-name = "takar-shell"
+name = "nata-shell"
 version.workspace = true
 edition.workspace = true
 
 [lib]
-name = "takar_shell_lib"
+name = "nata_shell_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

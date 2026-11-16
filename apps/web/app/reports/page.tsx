@@ -1,6 +1,6 @@
 "use client";
 
-import type { BusinessReport } from "@takar/api-client";
+import type { BusinessReport } from "@nata/api-client";
 import { BarChart3, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -134,7 +134,7 @@ export default function ReportsPage() {
                   title={data.can_export ? undefined : t.reports.export.locked}
                   onClick={() =>
                     downloadCsv(
-                      `takar-report-${todayIso()}.csv`,
+                      `nata-report-${todayIso()}.csv`,
                       reportCsv(data, t.reports, new Date()),
                     )
                   }

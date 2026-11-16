@@ -129,7 +129,7 @@ pub async fn list_products(
 ) -> Result<Json<Vec<ProductView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let rows: Vec<ProductRow> = sqlx::query_as(&format!(
         "{SELECT} where p.tenant_id = $1 and p.is_active order by p.name"
@@ -151,7 +151,7 @@ pub async fn create_product(
     let auth = guard.auth;
     let (name, sku, sell_price) = validate(&body)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let (id,): (Uuid,) = sqlx::query_as(
         "insert into products (tenant_id, name, sku, sell_price)
@@ -181,7 +181,7 @@ pub async fn update_product(
     let auth = guard.auth;
     let (name, sku, sell_price) = validate(&body)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let result = sqlx::query(
         "update products
@@ -214,7 +214,7 @@ pub async fn remove_product(
 ) -> Result<StatusCode, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let result = sqlx::query(
         "update products set is_active = false, updated_at = now()

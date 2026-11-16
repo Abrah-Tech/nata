@@ -1,6 +1,6 @@
 "use client";
 
-import type { OnboardingResult, OnboardingTemplate } from "@takar/api-client";
+import type { OnboardingResult, OnboardingTemplate } from "@nata/api-client";
 import { ArrowRight, CheckCircle2, Download, Upload } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -123,7 +123,7 @@ export default function OnboardingPage() {
     const anchor = document.createElement("a");
 
     anchor.href = url;
-    anchor.download = "takar-bahan.csv";
+    anchor.download = "nata-bahan.csv";
     anchor.click();
     URL.revokeObjectURL(url);
   }

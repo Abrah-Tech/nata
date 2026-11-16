@@ -1,9 +1,9 @@
-use std::net::SocketAddr;
-use takar_api::{
+use nata_api::{
     auth::{otp, JwtConfig},
     config::{Config, DEV_JWT_SECRET},
     router, AppState,
 };
+use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[tokio::main]
@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let db = match config.database_url.as_deref() {
-        Some(url) => match takar_db::connect(url).await {
+        Some(url) => match nata_db::connect(url).await {
             Ok(pool) => {
                 tracing::info!("database connection established");
                 Some(pool)
@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
-    tracing::info!(%addr, "takar-api listening");
+    tracing::info!(%addr, "nata-api listening");
     axum::serve(listener, router(state))
         .with_graceful_shutdown(shutdown_signal())
         .await?;

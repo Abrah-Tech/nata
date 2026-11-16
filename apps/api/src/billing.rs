@@ -6,7 +6,7 @@
 //! writes a subscription, so a gateway webhook later reuses it unchanged.
 //!
 //! Nothing here decides access. That is derived from dates in
-//! `takar_domain::billing`, so a late verification or a support extension
+//! `nata_domain::billing`, so a late verification or a support extension
 //! cannot leave a stale status behind.
 
 use axum::{
@@ -21,8 +21,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
-use takar_domain::billing::{access, ends_at, Access};
-use takar_domain::plan::Plan;
+use nata_domain::billing::{access, ends_at, Access};
+use nata_domain::plan::Plan;
 
 use crate::auth::guard::{CanManageBilling, Require};
 use crate::{error::ApiError, AppState};
@@ -96,7 +96,7 @@ pub async fn get_billing(
 ) -> Result<Json<BillingView>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let (plan, trial_ends_at, paid_until): (String, Option<DateTime<Utc>>, Option<DateTime<Utc>>) =
         sqlx::query_as("select plan, trial_ends_at, paid_until from tenants where id = $1")
@@ -183,7 +183,7 @@ pub async fn create_payment(
     amount.rescale(MONEY_SCALE);
 
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let paid_until: Option<DateTime<Utc>> =
         sqlx::query_scalar("select paid_until from tenants where id = $1")
@@ -233,7 +233,7 @@ pub async fn delete_payment(
 ) -> Result<StatusCode, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let deleted = sqlx::query(
         "delete from payments

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dashboard } from "@takar/api-client";
+import type { Dashboard } from "@nata/api-client";
 import {
   AlertTriangle,
   CalendarX2,

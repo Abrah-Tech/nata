@@ -222,7 +222,7 @@ pub async fn stock_in(
 ) -> Result<(StatusCode, Json<BatchView>), ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let record = insert_stock_in(&mut tx, auth.tenant_id, auth.user_id, &body).await?;
 

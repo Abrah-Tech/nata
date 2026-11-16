@@ -3,7 +3,7 @@
 //! Usage comes from the movement ledger over a fixed window, so every number on
 //! the page can be explained: this much was used per day, the supplier takes
 //! this long, and the minimum stock keeps a reserve. The arithmetic lives in
-//! `takar_core::reorder`; this module only gathers the inputs.
+//! `nata_core::reorder`; this module only gathers the inputs.
 
 use std::collections::HashMap;
 
@@ -12,7 +12,7 @@ use rust_decimal::Decimal;
 use serde::Serialize;
 use uuid::Uuid;
 
-use takar_core::reorder::{average_daily_usage, reorder_plan, ReorderInput};
+use nata_core::reorder::{average_daily_usage, reorder_plan, ReorderInput};
 
 use crate::auth::guard::{CanReadMaterials, Require};
 use crate::{error::ApiError, AppState};
@@ -61,7 +61,7 @@ pub async fn recommendations(
 ) -> Result<Json<RecommendationList>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     // The tenant decides how much history counts. Thirty days is the default.
     let (window_days,): (i32,) =

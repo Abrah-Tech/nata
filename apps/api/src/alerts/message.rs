@@ -7,8 +7,8 @@
 use std::collections::HashSet;
 
 use chrono::{Datelike, NaiveDate};
+use nata_db::alert_delivery::PendingAlert;
 use rust_decimal::Decimal;
-use takar_db::alert_delivery::PendingAlert;
 
 /// Long digests get cut; nobody reads twenty lines on a lock screen.
 const MAX_ITEMS_PER_SECTION: usize = 5;
@@ -27,7 +27,7 @@ pub struct Digest<'a> {
 /// One message per tenant and channel, not one per alert: five notifications
 /// about five ingredients is noise, and every message costs quota.
 pub fn compose(digest: &Digest<'_>) -> String {
-    let mut text = format!("Takar · {}\n{}\n", digest.tenant, long_date(digest.today));
+    let mut text = format!("Nata · {}\n{}\n", digest.tenant, long_date(digest.today));
 
     let (expiry, low_stock) = sections(digest.alerts);
 
@@ -52,7 +52,7 @@ pub fn compose(digest: &Digest<'_>) -> String {
 pub fn subject(digest: &Digest<'_>) -> String {
     let (expiry, low_stock) = sections(digest.alerts);
 
-    format!("Takar · {} peringatan stok", expiry.len() + low_stock.len())
+    format!("Nata · {} peringatan stok", expiry.len() + low_stock.len())
 }
 
 /// Splits alerts into sections, dropping repeats.
@@ -198,7 +198,7 @@ mod tests {
         Digest {
             tenant: "Dapur Uji",
             today: NaiveDate::from_ymd_opt(2026, 11, 9).expect("date"),
-            app_url: "https://takar.arifinoid.web.id/",
+            app_url: "https://nata.arifinoid.web.id/",
             alerts,
         }
     }
@@ -211,10 +211,10 @@ mod tests {
         ];
         let text = compose(&digest(&alerts));
 
-        assert!(text.starts_with("Takar · Dapur Uji\n9 Nov 2026\n"));
+        assert!(text.starts_with("Nata · Dapur Uji\n9 Nov 2026\n"));
         assert!(text.contains("Kedaluwarsa\n• Cokelat compound 2,5 kg · 10 Nov (H-2)"));
         assert!(text.contains("Stok minimum\n• Tepung terigu 2 kg · minimum 6 kg"));
-        assert!(text.contains("Buka stok: https://takar.arifinoid.web.id/stock"));
+        assert!(text.contains("Buka stok: https://nata.arifinoid.web.id/stock"));
     }
 
     #[test]
@@ -264,12 +264,12 @@ mod tests {
         let text = compose(&digest(&alerts));
 
         assert_eq!(text.matches("Cokelat compound").count(), 1);
-        assert_eq!(subject(&digest(&alerts)), "Takar · 1 peringatan stok");
+        assert_eq!(subject(&digest(&alerts)), "Nata · 1 peringatan stok");
     }
 
     #[test]
     fn subject_counts_the_alerts() {
         let alerts = vec![alert("expiry", "Cokelat compound"), alert("expiry", "Keju")];
-        assert_eq!(subject(&digest(&alerts)), "Takar · 2 peringatan stok");
+        assert_eq!(subject(&digest(&alerts)), "Nata · 2 peringatan stok");
     }
 }

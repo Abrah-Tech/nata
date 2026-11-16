@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-takar
+  group: deploy-nata
   cancel-in-progress: false
 
 permissions:
@@ -54,7 +54,7 @@ jobs:
         env:
           # Namespaced so the API never shadows a static page (/dashboard,
           # /stock). nginx strips /api before proxying to 127.0.0.1:3001.
-          NEXT_PUBLIC_API_URL: https://takar.arifinoid.web.id/api
+          NEXT_PUBLIC_API_URL: https://nata.arifinoid.web.id/api
         run: bun run --filter web build
 
       - name: Setup Rust
@@ -64,7 +64,7 @@ jobs:
 
       # No sqlx compile-time macros are used, so this does not need a database.
       - name: Build API
-        run: cargo build --release -p takar-api
+        run: cargo build --release -p nata-api
 
       - name: Configure SSH
         run: |
@@ -74,14 +74,14 @@ jobs:
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       # Every commit lands in its own release directory:
-      #   bin/takar-api, bin/alert_job, out/, migrations/, deploy/vps/grant.sql
+      #   bin/nata-api, bin/alert_job, out/, migrations/, deploy/vps/grant.sql
       # Both binaries ship: the systemd timer runs alert_job from the same
       # release directory the API is served from.
       - name: Stage release
         run: |
           rm -rf release
           mkdir -p release/bin release/deploy/vps
-          cp target/release/takar-api target/release/alert_job release/bin/
+          cp target/release/nata-api target/release/alert_job release/bin/
           cp -r apps/web/out release/out
           cp -r migrations release/migrations
           cp deploy/vps/grant.sql release/deploy/vps/
@@ -89,10 +89,10 @@ jobs:
       - name: Upload release
         run: |
           rsync -az --delete release/ \
-            "root@$VPS_HOST:/srv/takar/releases/${{ github.sha }}/"
+            "root@$VPS_HOST:/srv/nata/releases/${{ github.sha }}/"
 
       # The symlink flip is atomic. Migrations and grants run through a
-      # systemd oneshot (takar-migrate) so they use the same env file as the
+      # systemd oneshot (nata-migrate) so they use the same env file as the
       # API. If anything fails from here on, the previous release is restored
       # and the job exits red.
       - name: Activate release
@@ -100,24 +100,24 @@ jobs:
           ssh "root@$VPS_HOST" "SHA=${{ github.sha }}" bash -s <<'REMOTE'
           set -Eeuo pipefail
 
-          release="/srv/takar/releases/$SHA"
-          prev="$(readlink -f /srv/takar/current || true)"
+          release="/srv/nata/releases/$SHA"
+          prev="$(readlink -f /srv/nata/current || true)"
 
           rollback() {
             if [ -n "$prev" ] && [ "$prev" != "$release" ]; then
               echo "rolling back to $prev"
-              ln -sfn "$prev" /srv/takar/current.new
-              mv -Tf /srv/takar/current.new /srv/takar/current
-              systemctl restart takar-api || true
+              ln -sfn "$prev" /srv/nata/current.new
+              mv -Tf /srv/nata/current.new /srv/nata/current
+              systemctl restart nata-api || true
             fi
           }
           trap rollback ERR
 
-          ln -sfn "$release" /srv/takar/current.new
-          mv -Tf /srv/takar/current.new /srv/takar/current
+          ln -sfn "$release" /srv/nata/current.new
+          mv -Tf /srv/nata/current.new /srv/nata/current
 
-          systemctl start takar-migrate
-          systemctl restart takar-api
+          systemctl start nata-migrate
+          systemctl restart nata-api
 
           curl -fsS --retry 15 --retry-delay 2 --retry-connrefused \
             http://127.0.0.1:3001/healthz >/dev/null
@@ -125,10 +125,10 @@ jobs:
           trap - ERR
 
           # Keep the three newest releases; current is always the newest.
-          ls -1dt /srv/takar/releases/*/ | tail -n +4 | xargs -r rm -rf
+          ls -1dt /srv/nata/releases/*/ | tail -n +4 | xargs -r rm -rf
           REMOTE
 
       - name: Verify public endpoint
         run: |
           curl -fsS --retry 20 --retry-delay 5 \
-            https://takar.arifinoid.web.id/healthz >/dev/null
+            https://nata.arifinoid.web.id/healthz >/dev/null

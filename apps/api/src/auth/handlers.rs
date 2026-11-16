@@ -66,7 +66,7 @@ pub struct TenantView {
 pub struct MeResponse {
     pub user: UserView,
     pub tenant: TenantView,
-    pub role: takar_domain::Role,
+    pub role: nata_domain::Role,
     pub permissions: Vec<String>,
 }
 
@@ -242,7 +242,7 @@ pub async fn verify_otp(
             .execute(&mut *tx)
             .await?;
 
-        takar_db::alerts::seed_default_rules(&mut tx, tenant_id).await?;
+        nata_db::alerts::seed_default_rules(&mut tx, tenant_id).await?;
 
         sqlx::query("insert into memberships (tenant_id, user_id, role) values ($1, $2, 'owner')")
             .bind(tenant_id)
@@ -294,7 +294,7 @@ pub async fn list_tenants(
     selection: TenantSelection,
 ) -> Result<Json<Vec<TenantSummary>>, ApiError> {
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, None, Some(selection.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, None, Some(selection.user_id)).await?;
 
     let rows: Vec<(Uuid, String, String)> = sqlx::query_as(
         "select m.tenant_id, t.name, m.role
@@ -322,7 +322,7 @@ pub async fn select_tenant(
     Json(body): Json<SelectTenantBody>,
 ) -> Result<Json<AuthResponse>, ApiError> {
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, None, Some(selection.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, None, Some(selection.user_id)).await?;
 
     let row: Option<(String, String)> = sqlx::query_as(
         "select t.name, m.role
@@ -364,7 +364,7 @@ pub async fn me(
     auth: AuthContext,
 ) -> Result<Json<MeResponse>, ApiError> {
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let row: Option<(String, Option<String>, Option<String>, String)> = sqlx::query_as(
         "select u.name, u.email, u.phone, t.name

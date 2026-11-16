@@ -1,4 +1,4 @@
-//! Pure calculation core for Takar.
+//! Pure calculation core for Nata.
 //!
 //! This crate owns every number that must be identical on the client and the
 //! server: FEFO allocation, material requirements, HPP, unit conversion, and

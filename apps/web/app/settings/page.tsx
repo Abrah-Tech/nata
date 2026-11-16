@@ -5,7 +5,7 @@ import {
   type Access,
   type Billing,
   type Subscription,
-} from "@takar/api-client";
+} from "@nata/api-client";
 import { useEffect, useState } from "react";
 
 import {

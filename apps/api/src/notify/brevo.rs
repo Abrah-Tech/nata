@@ -89,7 +89,7 @@ mod tests {
         let payload = Payload {
             sender: Sender {
                 email: "from@example.test",
-                name: "Takar",
+                name: "Nata",
             },
             to: vec![Recipient {
                 email: "to@example.test",

@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, type MeResponse } from "@takar/api-client";
+import { ApiError, type MeResponse } from "@nata/api-client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 

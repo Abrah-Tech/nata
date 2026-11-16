@@ -1,6 +1,6 @@
 "use client";
 
-import type { Material, Supplier, Unit } from "@takar/api-client";
+import type { Material, Supplier, Unit } from "@nata/api-client";
 import { useState } from "react";
 
 import { Modal } from "@/components/modal";

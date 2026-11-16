@@ -1,14 +1,14 @@
 [package]
-name = "takar-api"
+name = "nata-api"
 version.workspace = true
 edition.workspace = true
 
 [lib]
-name = "takar_api"
+name = "nata_api"
 path = "src/lib.rs"
 
 [[bin]]
-name = "takar-api"
+name = "nata-api"
 path = "src/main.rs"
 
 [dependencies]
@@ -27,9 +27,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 sqlx = { workspace = true }
-takar-core = { workspace = true }
-takar-db = { workspace = true }
-takar-domain = { workspace = true }
+nata-core = { workspace = true }
+nata-db = { workspace = true }
+nata-domain = { workspace = true }
 tokio = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }

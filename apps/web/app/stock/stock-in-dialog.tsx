@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, type Batch, type Material, type Supplier } from "@takar/api-client";
+import { ApiError, type Batch, type Material, type Supplier } from "@nata/api-client";
 import { useRef, useState } from "react";
 
 import { Modal } from "@/components/modal";

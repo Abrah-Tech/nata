@@ -1,4 +1,4 @@
-//! Postgres access layer for Takar.
+//! Postgres access layer for Nata.
 
 pub mod alert_delivery;
 pub mod alerts;

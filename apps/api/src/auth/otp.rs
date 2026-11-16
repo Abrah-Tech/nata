@@ -9,7 +9,7 @@ use crate::notify::{self, LogTransport, Message, Transport};
 
 /// Transactional copy is Indonesian: the product ships to Indonesian kitchens
 /// first, and a sign-in code is read by the person holding the phone.
-const SUBJECT: &str = "Kode masuk Takar";
+const SUBJECT: &str = "Kode masuk Nata";
 
 #[async_trait]
 pub trait OtpSender: Send + Sync {
@@ -63,7 +63,7 @@ pub fn message(code: &str, ttl_seconds: i64) -> String {
     let minutes = (ttl_seconds / 60).max(1);
 
     format!(
-        "Kode masuk Takar: {code}\n\nBerlaku {minutes} menit. Jangan bagikan kode ini ke siapa pun."
+        "Kode masuk Nata: {code}\n\nBerlaku {minutes} menit. Jangan bagikan kode ini ke siapa pun."
     )
 }
 

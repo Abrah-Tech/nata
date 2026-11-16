@@ -3,20 +3,20 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: takar-db
+    container_name: nata-db
     environment:
-      POSTGRES_USER: takar
-      POSTGRES_PASSWORD: takar
-      POSTGRES_DB: takar
+      POSTGRES_USER: nata
+      POSTGRES_PASSWORD: nata
+      POSTGRES_DB: nata
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - takar-db-data:/var/lib/postgresql/data
+      - nata-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U takar -d takar"]
+      test: ["CMD-SHELL", "pg_isready -U nata -d nata"]
       interval: 5s
       timeout: 3s
       retries: 10
 
 volumes:
-  takar-db-data:
+  nata-db-data:

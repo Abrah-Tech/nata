@@ -2,12 +2,12 @@
 //!
 //! A handler declares the permission it needs in its signature, so a route
 //! cannot mutate state without naming one. The matrix itself lives in
-//! takar-domain; this module only applies it.
+//! nata-domain; this module only applies it.
 
 use std::marker::PhantomData;
 
 use axum::{extract::FromRequestParts, http::request::Parts};
-use takar_domain::Permission;
+use nata_domain::Permission;
 
 use super::extract::AuthContext;
 use crate::{error::ApiError, AppState};

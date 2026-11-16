@@ -1,4 +1,4 @@
-package app.takar.desktop
+package app.nata.desktop
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

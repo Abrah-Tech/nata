@@ -6,7 +6,7 @@ import {
   type Sale,
   type SaleImportSummary,
   type SaleRequest,
-} from "@takar/api-client";
+} from "@nata/api-client";
 import { Plus, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 

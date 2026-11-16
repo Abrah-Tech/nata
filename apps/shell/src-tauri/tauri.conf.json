@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Takar",
+  "productName": "Nata",
   "version": "0.1.0",
-  "identifier": "app.takar.desktop",
+  "identifier": "app.nata.desktop",
   "build": {
     "beforeDevCommand": "cd ../web && bun run dev",
     "devUrl": "http://localhost:3000",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Takar",
+        "title": "Nata",
         "width": 1100,
         "height": 760,
         "minWidth": 960,

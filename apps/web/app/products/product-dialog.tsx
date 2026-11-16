@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, type Product } from "@takar/api-client";
+import { ApiError, type Product } from "@nata/api-client";
 import { useState } from "react";
 
 import { Modal } from "@/components/modal";

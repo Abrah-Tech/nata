@@ -2,7 +2,7 @@
 //!
 //! This module is pure: it maps a role to the permissions it holds. The API
 //! enforces the result; Postgres RLS only isolates tenants. Keep role checks
-//! out of `takar-core`, which owns calculation only.
+//! out of `nata-core`, which owns calculation only.
 
 use std::{fmt, str::FromStr};
 

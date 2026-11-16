@@ -4,12 +4,12 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
+use nata_api::alerts::send::{send_pending, SendReport};
+use nata_api::notify::{Message, Router, Transport, TransportError};
+use nata_db::alert_delivery::{self, MAX_ATTEMPTS};
+use nata_db::alerts::{run_on, seed_default_rules};
 use sqlx::types::Decimal;
 use sqlx::PgPool;
-use takar_api::alerts::send::{send_pending, SendReport};
-use takar_api::notify::{Message, Router, Transport, TransportError};
-use takar_db::alert_delivery::{self, MAX_ATTEMPTS};
-use takar_db::alerts::{run_on, seed_default_rules};
 use uuid::Uuid;
 
 fn date(year: i32, month: u32, day: u32) -> NaiveDate {
@@ -227,7 +227,7 @@ async fn one_digest_carries_every_alert_and_all_are_marked_sent(pool: PgPool) {
     let report = send_pending(
         &pool,
         &whatsapp_router(&recorder),
-        "https://takar.test/",
+        "https://nata.test/",
         today,
     )
     .await
@@ -246,7 +246,7 @@ async fn one_digest_carries_every_alert_and_all_are_marked_sent(pool: PgPool) {
     assert_eq!(messages.len(), 1, "one message per tenant, not per alert");
     assert_eq!(messages[0].to, "+6281234567890");
     assert_eq!(
-        messages[0].subject, "Takar · 2 peringatan stok",
+        messages[0].subject, "Nata · 2 peringatan stok",
         "the H-7 and H-3 rules describe the same batch"
     );
     assert!(messages[0].text.contains("Dapur Uji"));
@@ -256,7 +256,7 @@ async fn one_digest_carries_every_alert_and_all_are_marked_sent(pool: PgPool) {
     assert!(messages[0].text.contains("minimum 5 kg"));
     assert!(messages[0]
         .text
-        .contains("Buka stok: https://takar.test/stock"));
+        .contains("Buka stok: https://nata.test/stock"));
 
     let rows = deliveries(&pool, tenant_id).await;
     assert_eq!(rows.len(), 3);
@@ -294,7 +294,7 @@ async fn a_failed_send_stays_pending_and_is_retried(pool: PgPool) {
     let failed = send_pending(
         &pool,
         &whatsapp_router(&recorder),
-        "https://takar.test/",
+        "https://nata.test/",
         today,
     )
     .await
@@ -324,7 +324,7 @@ async fn a_failed_send_stays_pending_and_is_retried(pool: PgPool) {
     let retried = send_pending(
         &pool,
         &whatsapp_router(&recorder),
-        "https://takar.test/",
+        "https://nata.test/",
         today,
     )
     .await
@@ -354,7 +354,7 @@ async fn an_email_only_owner_gets_the_digest_by_email(pool: PgPool) {
     let phone = Arc::new(Recorder::default());
     let router = Router::new(Some(email.clone()), Some(phone.clone()), None);
 
-    let report = send_pending(&pool, &router, "https://takar.test/", today)
+    let report = send_pending(&pool, &router, "https://nata.test/", today)
         .await
         .expect("send");
 
@@ -395,7 +395,7 @@ async fn a_phone_only_owner_gets_an_email_rule_by_whatsapp(pool: PgPool) {
     let phone = Arc::new(Recorder::default());
     let router = Router::new(Some(email.clone()), Some(phone.clone()), None);
 
-    let report = send_pending(&pool, &router, "https://takar.test/", today)
+    let report = send_pending(&pool, &router, "https://nata.test/", today)
         .await
         .expect("send");
 
@@ -422,7 +422,7 @@ async fn a_tenant_without_an_owner_is_skipped(pool: PgPool) {
     let report = send_pending(
         &pool,
         &whatsapp_router(&recorder),
-        "https://takar.test/",
+        "https://nata.test/",
         today,
     )
     .await
@@ -481,7 +481,7 @@ async fn an_alert_that_ran_out_of_attempts_is_not_offered_again(pool: PgPool) {
     let report = send_pending(
         &pool,
         &whatsapp_router(&recorder),
-        "https://takar.test/",
+        "https://nata.test/",
         today,
     )
     .await
@@ -514,14 +514,9 @@ async fn an_email_rule_uses_the_email_transport_and_recipient(pool: PgPool) {
     run_on(&pool, today).await.expect("run alerts");
 
     let recorder = Arc::new(Recorder::default());
-    let report = send_pending(
-        &pool,
-        &email_router(&recorder),
-        "https://takar.test/",
-        today,
-    )
-    .await
-    .expect("send");
+    let report = send_pending(&pool, &email_router(&recorder), "https://nata.test/", today)
+        .await
+        .expect("send");
 
     assert_eq!(report.sent, 1);
     assert_eq!(recorder.messages().len(), 1);

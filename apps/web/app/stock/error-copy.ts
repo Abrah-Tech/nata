@@ -1,4 +1,4 @@
-import { ApiError } from "@takar/api-client";
+import { ApiError } from "@nata/api-client";
 
 import type { Dictionary } from "@/lib/i18n";
 

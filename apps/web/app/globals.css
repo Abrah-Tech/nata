@@ -7,7 +7,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
-/* Design tokens from takar.pen (00 · Design System). -------------------- */
+/* Design tokens from nata.pen (00 · Design System). -------------------- */
 
 :root {
   color-scheme: light;

@@ -10,9 +10,9 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Duration, Utc};
+use nata_domain::Role;
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
-use takar_domain::Role;
 use uuid::Uuid;
 
 use super::{
@@ -204,7 +204,7 @@ pub async fn list_members(
 ) -> Result<Json<Vec<MemberView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let rows: Vec<MemberRow> = sqlx::query_as(
         "select m.user_id, u.name, u.email, u.phone, m.role, m.status, m.joined_at
@@ -249,7 +249,7 @@ pub async fn change_role(
 ) -> Result<Json<MemberView>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let current = fetch_member(&mut tx, auth.tenant_id, user_id).await?;
 
@@ -278,7 +278,7 @@ pub async fn change_status(
 ) -> Result<Json<MemberView>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let current = fetch_member(&mut tx, auth.tenant_id, user_id).await?;
 
@@ -310,7 +310,7 @@ pub async fn remove_member(
 ) -> Result<StatusCode, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let current = fetch_member(&mut tx, auth.tenant_id, user_id).await?;
 
@@ -339,7 +339,7 @@ pub async fn list_invitations(
 ) -> Result<Json<Vec<InvitationView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let rows: Vec<InvitationRow> = sqlx::query_as(
         "select id, email, phone, role, status, expires_at, created_at
@@ -386,7 +386,7 @@ pub async fn create_invitation(
 
     let contact = Contact::parse(&body.contact)?;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let existing: Option<(Uuid,)> = sqlx::query_as(
         "select m.user_id
@@ -406,7 +406,7 @@ pub async fn create_invitation(
 
     // Checked before the invitation is written: a pending invitation already
     // reserves a seat, so a tenant cannot over-invite and sort it out later.
-    ensure_capacity(&mut tx, auth.tenant_id, takar_domain::plan::Resource::Users).await?;
+    ensure_capacity(&mut tx, auth.tenant_id, nata_domain::plan::Resource::Users).await?;
 
     let token = secret::random_token();
     let token_hash = secret::hash(&state.jwt.secret, &token);
@@ -461,7 +461,7 @@ pub async fn revoke_invitation(
 ) -> Result<StatusCode, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let result = sqlx::query(
         "update invitations
@@ -511,7 +511,7 @@ pub async fn accept_invitation(
 
     let role = parse_role(&role)?;
 
-    let mut tx = takar_db::begin_scoped(db, Some(tenant_id), Some(identity.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(tenant_id), Some(identity.user_id)).await?;
 
     let user: Option<(Option<String>, Option<String>)> =
         sqlx::query_as("select email, phone from users where id = $1")

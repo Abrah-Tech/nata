@@ -18,7 +18,7 @@ export const LOCALES: readonly Locale[] = ["id", "en"];
 
 const dictionaries: Record<Locale, Dictionary> = { id, en };
 const DEFAULT_LOCALE: Locale = "id";
-const STORAGE_KEY = "takar.locale";
+const STORAGE_KEY = "nata.locale";
 
 type I18nValue = {
   locale: Locale;

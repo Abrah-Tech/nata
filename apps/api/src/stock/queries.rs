@@ -108,7 +108,7 @@ pub async fn on_hand(
 ) -> Result<Json<Vec<StockLevelView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let rows: Vec<OnHandRow> = sqlx::query_as(
         "select m.id, m.name, u.id, u.code, m.min_stock, m.last_cost,
@@ -172,7 +172,7 @@ pub async fn list_batches(
 ) -> Result<Json<Vec<BatchView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     if let Some(material_id) = filter.material_id {
         ensure_material(&mut tx, auth.tenant_id, material_id).await?;
@@ -208,7 +208,7 @@ pub async fn list_movements(
         .unwrap_or(DEFAULT_MOVEMENT_LIMIT)
         .clamp(1, MAX_MOVEMENT_LIMIT);
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     if let Some(material_id) = filter.material_id {
         ensure_material(&mut tx, auth.tenant_id, material_id).await?;

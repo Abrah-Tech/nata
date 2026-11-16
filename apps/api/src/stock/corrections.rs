@@ -79,7 +79,7 @@ pub async fn correct(
         .filter(|value| !value.is_empty());
 
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     // Lock the batch: the check below is only meaningful while no one else can
     // change the same remaining quantity.

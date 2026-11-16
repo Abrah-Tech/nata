@@ -122,7 +122,7 @@ pub async fn create_sale(
 ) -> Result<(StatusCode, Json<SaleView>), ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let (created, sale) = write_sale(&mut tx, auth.tenant_id, auth.user_id, &body).await?;
 
@@ -324,7 +324,7 @@ pub async fn list_sales(
     let auth = guard.auth;
     let limit = query.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
     let db = state.db()?;
-    let mut tx = takar_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let rows: Vec<SaleRow> = sqlx::query_as(&format!(
         "{SALE_COLUMNS}

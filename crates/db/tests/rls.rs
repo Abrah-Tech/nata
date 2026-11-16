@@ -1,7 +1,7 @@
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
-const APP_ROLE: &str = "takar_app";
+const APP_ROLE: &str = "nata_app";
 
 async fn install_app_role(pool: &PgPool) {
     // Roles are cluster-wide, so every test database races to create the same

@@ -2,9 +2,9 @@ mod common;
 
 use axum::http::StatusCode;
 use common::{call, login, signup, state, tenant_of, test_app, user_of, CaptureOtp};
+use nata_api::router;
 use serde_json::json;
 use sqlx::PgPool;
-use takar_api::router;
 use uuid::Uuid;
 
 #[sqlx::test(migrations = "../../migrations")]

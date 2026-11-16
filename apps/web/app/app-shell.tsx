@@ -1,6 +1,6 @@
 "use client";
 
-import type { MeResponse } from "@takar/api-client";
+import type { MeResponse } from "@nata/api-client";
 import {
   BarChart3,
   Boxes,
@@ -137,7 +137,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
             <ChefHat size={17} />
           </span>
           <span className="flex flex-col leading-[1.2]">
-            <strong className="text-base font-bold">Takar</strong>
+            <strong className="text-base font-bold">Nata</strong>
             <span className="text-[9px] font-semibold tracking-[0.08em] text-ink-3">
               PPIC + POS
             </span>
