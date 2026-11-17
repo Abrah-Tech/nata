@@ -403,6 +403,42 @@ export type Batch = {
   created_at: string;
 };
 
+export type ProductBatch = {
+  id: string;
+  product_id: string;
+  product_name: string;
+  production_order_id: string | null;
+  produced_on: string;
+  expires_at: string | null;
+  qty_received: string;
+  qty_remaining: string;
+  unit_cost: string | null;
+  created_at: string;
+};
+
+export type ProductCorrectionType = "waste" | "expired" | "adjustment";
+
+export type ProductCorrectionRequest = {
+  product_batch_id: string;
+  type: ProductCorrectionType;
+  /** Signed like every movement: outbound is negative, inbound positive. */
+  qty: string;
+  note?: string | null;
+};
+
+export type ProductCorrection = {
+  id: string;
+  product_batch_id: string;
+  product_id: string;
+  type: ProductCorrectionType;
+  qty: string;
+  unit_cost: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  batch_qty_remaining: string;
+};
+
 export type MovementType =
   | "purchase"
   | "production_use"
@@ -893,6 +929,23 @@ export class ApiClient {
 
   stockIn(token: string, body: StockInRequest): Promise<Batch> {
     return this.request<Batch>("/stock/batches", {
+      method: "POST",
+      token,
+      body,
+    });
+  }
+
+  listProductBatches(token: string, productId?: string): Promise<ProductBatch[]> {
+    const query = productId ? `?product_id=${encodeURIComponent(productId)}` : "";
+
+    return this.request<ProductBatch[]>(`/stock/product-batches${query}`, { token });
+  }
+
+  correctProduct(
+    token: string,
+    body: ProductCorrectionRequest,
+  ): Promise<ProductCorrection> {
+    return this.request<ProductCorrection>("/stock/product-corrections", {
       method: "POST",
       token,
       body,

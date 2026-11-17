@@ -2,6 +2,7 @@
 
 pub mod batches;
 pub mod corrections;
+pub mod product_corrections;
 pub mod queries;
 
 use axum::{
@@ -20,4 +21,12 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/stock/movements", get(queries::list_movements))
         .route("/stock/corrections", post(corrections::correct))
+        .route(
+            "/stock/product-batches",
+            get(product_corrections::list_batches),
+        )
+        .route(
+            "/stock/product-corrections",
+            post(product_corrections::correct),
+        )
 }

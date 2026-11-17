@@ -25,7 +25,7 @@ pub enum CorrectionType {
 }
 
 impl CorrectionType {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             CorrectionType::Waste => "waste",
             CorrectionType::Expired => "expired",
@@ -52,7 +52,7 @@ pub struct CorrectionView {
     pub batch_qty_remaining: Decimal,
 }
 
-fn validate(kind: CorrectionType, qty: Decimal) -> Result<(), ApiError> {
+pub(crate) fn validate(kind: CorrectionType, qty: Decimal) -> Result<(), ApiError> {
     match kind {
         CorrectionType::Waste | CorrectionType::Expired if qty >= Decimal::ZERO => {
             Err(ApiError::BadRequest("invalid_quantity"))
