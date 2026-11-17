@@ -112,7 +112,7 @@ Loading uses skeletons, never a spinner or a "Memuat…" line: `components/skele
 
 ### Stock model
 
-Stock is a batch ledger, not a scalar. `material_batches.qty_remaining` is on-hand per batch; `stock_movements` is the audit trail. Never add a single `stock` column to `materials`. Finished goods currently rely on `products.stock_qty` — see the open decision about batch-tracking finished goods before extending it.
+Stock is a batch ledger, not a scalar. `material_batches.qty_remaining` is on-hand per batch; `stock_movements` is the audit trail. Never add a single `stock` column to `materials`. Finished goods are a batch ledger too: `product_batches.qty_remaining` is on-hand per batch and `products.stock_qty` is only a read-only cache written in the same transaction. `product_batches.unit_cost` is null when the cost cannot be known (stock migrated from the scalar column with no production order), and a sale that takes such a batch is reported as cost incomplete instead of valued at a made-up number.
 
 ### Recipes
 
@@ -120,7 +120,7 @@ Recipes are versioned, never edited in place. Creating a recipe version deactiva
 
 ### Production
 
-A production order is the only writer of `production_use` movements. It runs in one transaction: load the product's current recipe version, compute each material requirement, allocate batches FEFO with `nata_core::allocate`, and reject the whole run with `409 insufficient_stock` plus the shortage list (D3) before writing anything. On success it decrements `material_batches.qty_remaining`, appends a negative movement and a `production_consumptions` row per batch, and adds `actual_qty` to `products.stock_qty`.
+A production order is the only writer of `production_use` movements. It runs in one transaction: load the product's current recipe version, compute each material requirement, allocate batches FEFO with `nata_core::allocate`, and reject the whole run with `409 insufficient_stock` plus the shortage list (D3) before writing anything. On success it decrements `material_batches.qty_remaining`, appends a negative movement and a `production_consumptions` row per batch, then writes one `product_batches` row for the run. Its expiry is `produced_on + products.shelf_life_days`, or null when the product has no shelf life. A `production` movement records the inbound finished goods, and `products.stock_qty` is updated as a cache.
 
 `POST /production-orders/preview` runs the same plan read-only and returns each material's requirement, the batches FEFO would take, and the HPP with margin. It returns null cost fields when any material is short, because a partial allocation would understate the HPP.
 
@@ -134,7 +134,7 @@ Labor is priced from `tenants.labor_rate_per_hour` (set through `PUT /settings`)
 
 ### Sales
 
-A sale is the only writer that removes finished goods. `POST /sales` runs in one transaction: it locks the products it sells (`select … for update`), rejects the whole document with `409 insufficient_stock` plus every shortage when any line is short, then inserts `sales` and `sale_items` and subtracts `products.stock_qty`. Nothing is written before the check passes, so stock never drifts from the recorded sales.
+A sale is the only writer that removes finished goods. `POST /sales` runs in one transaction: it locks the products it sells (`select … for update`), allocates each line's `product_batches` FEFO with `nata_core::allocate`, rejects the whole document with `409 insufficient_stock` plus every shortage when any line is short, then inserts `sales` and `sale_items`, decrements `product_batches.qty_remaining`, appends a `sale` movement per batch, and updates the `products.stock_qty` cache. Nothing is written before the check passes, so stock never drifts from the recorded sales. `sale_items.unit_cost` is the quantity-weighted cost of the batches the line took (`nata_core::sold_unit_cost`), null when any of them has no known cost.
 
 `sale_items.price` is snapshotted at sale time. Changing `products.sell_price` later never rewrites past revenue, the same way a new purchase never rewrites a past HPP. `sale_items.unit_cost` snapshots the product's latest production cost at the same moment, so a later run at a different cost never rewrites an earned margin; it is null when the product had never been produced.
 
@@ -168,7 +168,7 @@ The bin needs the same role as `alert_job`: the pending list spans every tenant,
 
 `GET /reports` returns stock value, waste, and margin per product over the tenant's usage window.
 
-Stock value is `sum(qty_remaining × unit_cost)` over material batches plus `stock_qty × latest production unit_cost` for finished goods. It never uses `materials.last_cost`: a new purchase at a different price must not revalue stock already on the shelf.
+Stock value is `sum(qty_remaining × unit_cost)` over material batches plus the same sum over `product_batches` for finished goods. It never uses `materials.last_cost`: a new purchase at a different price must not revalue stock already on the shelf.
 
 Waste is the sum of `waste` and `expired` movements in the window, valued at each movement's own `unit_cost`.
 
@@ -201,7 +201,8 @@ Every business row carries `tenant_id`. Postgres RLS is the enforcement layer; a
 3. HPP per unit = (material cost from `production_consumptions` + labor + allocated overhead) ÷ `actual_qty`.
 4. Material requirement = `qty × (1 + waste_pct) × (production qty ÷ yield_qty)`.
 5. The daily job fills `alerts` for expiring batches and below-min-stock materials, and must be idempotent.
-6. Costs are snapshotted (`production_consumptions.unit_cost`, `production_orders.unit_cost`). Never recompute history from current prices.
+6. Costs are snapshotted (`production_consumptions.unit_cost`, `production_orders.unit_cost`, `product_batches.unit_cost`, `sale_items.unit_cost`). Never recompute history from current prices.
+7. Finished goods are a batch ledger too: a sale allocates `product_batches` FEFO, and `products.stock_qty` is a cache written in the same transaction, never the source of truth.
 
 Use `rust_decimal` and Postgres `NUMERIC` end to end. Never `f64` for money or quantities.
 

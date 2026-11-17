@@ -13,7 +13,7 @@
 use std::collections::HashMap;
 
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
@@ -131,6 +131,7 @@ type ProductRow = (
     Option<i32>,
     Option<Decimal>,
     Option<i32>,
+    Option<i32>,
 );
 type ItemRow = (Uuid, String, String, Decimal, Decimal);
 type BatchRow = (Uuid, NaiveDate, Option<NaiveDate>, Decimal, Decimal);
@@ -163,6 +164,8 @@ struct PlannedOrder {
     yield_qty: Decimal,
     labor_minutes: i32,
     labor_rate_per_hour: Decimal,
+    /// Days from production until a batch expires; null means it does not.
+    shelf_life_days: Option<i32>,
     materials: Vec<MaterialPlan>,
     shortages: Vec<ShortageView>,
 }
@@ -197,14 +200,16 @@ async fn plan_order(
 ) -> Result<PlannedOrder, ApiError> {
     let product_sql = if lock {
         "select p.id, p.name, p.sell_price, p.stock_qty,
-                p.current_recipe_id, r.version, r.yield_qty, r.labor_minutes
+                p.current_recipe_id, r.version, r.yield_qty, r.labor_minutes,
+                p.shelf_life_days
          from products p
          left join recipes r on r.id = p.current_recipe_id
          where p.id = $1 and p.tenant_id = $2 and p.is_active
          for update of p"
     } else {
         "select p.id, p.name, p.sell_price, p.stock_qty,
-                p.current_recipe_id, r.version, r.yield_qty, r.labor_minutes
+                p.current_recipe_id, r.version, r.yield_qty, r.labor_minutes,
+                p.shelf_life_days
          from products p
          left join recipes r on r.id = p.current_recipe_id
          where p.id = $1 and p.tenant_id = $2 and p.is_active"
@@ -225,6 +230,7 @@ async fn plan_order(
         current_version,
         current_yield,
         current_labor_minutes,
+        shelf_life_days,
     ) = product.ok_or(ApiError::NotFound("product_not_found"))?;
 
     let (recipe_id, recipe_version, yield_qty, labor_minutes) = match (
@@ -354,6 +360,7 @@ async fn plan_order(
         yield_qty,
         labor_minutes,
         labor_rate_per_hour,
+        shelf_life_days,
         materials,
         shortages,
     })
@@ -593,6 +600,43 @@ pub async fn create_order(
             });
         }
     }
+
+    // The run becomes one finished-goods batch. Its expiry is the product's
+    // shelf life from the day it was produced; a product without a shelf life
+    // never expires.
+    let expires_at = planned
+        .shelf_life_days
+        .map(|days| produced_on + Duration::days(i64::from(days)));
+
+    let (product_batch_id,): (Uuid,) = sqlx::query_as(
+        "insert into product_batches
+             (tenant_id, product_id, production_order_id, produced_on, expires_at,
+              qty_received, qty_remaining, unit_cost)
+         values ($1, $2, $3, $4, $5, $6, $6, $7)
+         returning id",
+    )
+    .bind(auth.tenant_id)
+    .bind(body.product_id)
+    .bind(order_id)
+    .bind(produced_on)
+    .bind(expires_at)
+    .bind(production_qty)
+    .bind(cost.unit_cost)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    sqlx::query(
+        "insert into stock_movements
+             (tenant_id, product_batch_id, type, qty, unit_cost, created_by)
+         values ($1, $2, 'production', $3, $4, $5)",
+    )
+    .bind(auth.tenant_id)
+    .bind(product_batch_id)
+    .bind(production_qty)
+    .bind(cost.unit_cost)
+    .bind(auth.user_id)
+    .execute(&mut *tx)
+    .await?;
 
     sqlx::query(
         "update products

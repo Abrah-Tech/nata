@@ -25,6 +25,8 @@ pub struct ProductView {
     pub name: String,
     pub sku: Option<String>,
     pub sell_price: Decimal,
+    /// Days from production until a batch expires; null means it does not.
+    pub shelf_life_days: Option<i32>,
     pub stock_qty: Decimal,
     /// Null until the product has a recipe; a product without one cannot be
     /// produced.
@@ -39,6 +41,7 @@ pub struct ProductBody {
     pub name: String,
     pub sku: Option<String>,
     pub sell_price: Option<Decimal>,
+    pub shelf_life_days: Option<i32>,
 }
 
 type ProductRow = (
@@ -49,12 +52,14 @@ type ProductRow = (
     Decimal,
     Option<Uuid>,
     Option<i32>,
+    Option<i32>,
     DateTime<Utc>,
     DateTime<Utc>,
 );
 
 const SELECT: &str = "select p.id, p.name, p.sku, p.sell_price, p.stock_qty,
-            p.current_recipe_id, r.version, p.created_at, p.updated_at
+            p.current_recipe_id, r.version, p.shelf_life_days,
+            p.created_at, p.updated_at
      from products p
      left join recipes r on r.id = p.current_recipe_id";
 
@@ -67,6 +72,7 @@ fn view(row: ProductRow) -> ProductView {
         stock_qty,
         current_recipe_id,
         current_recipe_version,
+        shelf_life_days,
         created_at,
         updated_at,
     ) = row;
@@ -76,6 +82,7 @@ fn view(row: ProductRow) -> ProductView {
         name,
         sku,
         sell_price,
+        shelf_life_days,
         stock_qty,
         current_recipe_id,
         current_recipe_version,
@@ -84,7 +91,9 @@ fn view(row: ProductRow) -> ProductView {
     }
 }
 
-fn validate(body: &ProductBody) -> Result<(&str, Option<String>, Decimal), ApiError> {
+type ValidatedProduct<'a> = (&'a str, Option<String>, Decimal, Option<i32>);
+
+fn validate(body: &ProductBody) -> Result<ValidatedProduct<'_>, ApiError> {
     let name = body.name.trim();
 
     if name.is_empty() {
@@ -104,7 +113,11 @@ fn validate(body: &ProductBody) -> Result<(&str, Option<String>, Decimal), ApiEr
         return Err(ApiError::BadRequest("invalid_sell_price"));
     }
 
-    Ok((name, sku, sell_price))
+    if body.shelf_life_days.is_some_and(|days| days <= 0) {
+        return Err(ApiError::BadRequest("invalid_shelf_life"));
+    }
+
+    Ok((name, sku, sell_price, body.shelf_life_days))
 }
 
 async fn fetch_product(
@@ -149,19 +162,20 @@ pub async fn create_product(
     Json(body): Json<ProductBody>,
 ) -> Result<(StatusCode, Json<ProductView>), ApiError> {
     let auth = guard.auth;
-    let (name, sku, sell_price) = validate(&body)?;
+    let (name, sku, sell_price, shelf_life_days) = validate(&body)?;
     let db = state.db()?;
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let (id,): (Uuid,) = sqlx::query_as(
-        "insert into products (tenant_id, name, sku, sell_price)
-         values ($1, $2, $3, $4)
+        "insert into products (tenant_id, name, sku, sell_price, shelf_life_days)
+         values ($1, $2, $3, $4, $5)
          returning id",
     )
     .bind(auth.tenant_id)
     .bind(name)
     .bind(&sku)
     .bind(sell_price)
+    .bind(shelf_life_days)
     .fetch_one(&mut *tx)
     .await
     .map_err(|error| ApiError::from_write(error, "product_exists"))?;
@@ -179,13 +193,14 @@ pub async fn update_product(
     Json(body): Json<ProductBody>,
 ) -> Result<Json<ProductView>, ApiError> {
     let auth = guard.auth;
-    let (name, sku, sell_price) = validate(&body)?;
+    let (name, sku, sell_price, shelf_life_days) = validate(&body)?;
     let db = state.db()?;
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     let result = sqlx::query(
         "update products
-         set name = $3, sku = $4, sell_price = $5, updated_at = now()
+         set name = $3, sku = $4, sell_price = $5, shelf_life_days = $6,
+             updated_at = now()
          where id = $1 and tenant_id = $2 and is_active",
     )
     .bind(id)
@@ -193,6 +208,7 @@ pub async fn update_product(
     .bind(name)
     .bind(&sku)
     .bind(sell_price)
+    .bind(shelf_life_days)
     .execute(&mut *tx)
     .await
     .map_err(|error| ApiError::from_write(error, "product_exists"))?;

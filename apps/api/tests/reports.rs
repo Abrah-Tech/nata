@@ -52,9 +52,25 @@ async fn stock(app: &Router, token: &str, material_id: Uuid, qty: &str, cost: &s
 }
 
 async fn set_stock(pool: &PgPool, product_id: Uuid, qty: &str) {
+    let qty = qty.parse::<rust_decimal::Decimal>().expect("qty");
+
+    // A batch with a null cost is the "never produced" case: the stock is
+    // there, but its cost is unknown.
+    sqlx::query(
+        "insert into product_batches
+             (tenant_id, product_id, produced_on, qty_received, qty_remaining, unit_cost)
+         select tenant_id, $1, current_date, $2, $2, null
+         from products where id = $1",
+    )
+    .bind(product_id)
+    .bind(qty)
+    .execute(pool)
+    .await
+    .expect("batch");
+
     sqlx::query("update products set stock_qty = $2 where id = $1")
         .bind(product_id)
-        .bind(qty.parse::<rust_decimal::Decimal>().expect("qty"))
+        .bind(qty)
         .execute(pool)
         .await
         .expect("stock");
@@ -66,6 +82,7 @@ async fn produced(
     pool: &PgPool,
     tenant_id: Uuid,
     product_id: Uuid,
+    qty: &str,
     unit_cost: &str,
     produced_on: NaiveDate,
 ) {
@@ -91,19 +108,61 @@ async fn produced(
         .expect("recipe"),
     };
 
-    sqlx::query(
+    let qty = qty.parse::<rust_decimal::Decimal>().expect("qty");
+    let unit_cost = unit_cost.parse::<rust_decimal::Decimal>().expect("cost");
+
+    let order_id: Uuid = sqlx::query_scalar(
         "insert into production_orders
              (tenant_id, product_id, recipe_id, planned_qty, actual_qty, produced_on, unit_cost)
-         values ($1, $2, $3, 1, 1, $4, $5)",
+         values ($1, $2, $3, $4, $4, $5, $6)
+         returning id",
     )
     .bind(tenant_id)
     .bind(product_id)
     .bind(recipe_id)
+    .bind(qty)
     .bind(produced_on)
-    .bind(unit_cost.parse::<rust_decimal::Decimal>().expect("cost"))
-    .execute(pool)
+    .bind(unit_cost)
+    .fetch_one(pool)
     .await
     .expect("production order");
+
+    let batch_id: Uuid = sqlx::query_scalar(
+        "insert into product_batches
+             (tenant_id, product_id, production_order_id, produced_on,
+              qty_received, qty_remaining, unit_cost)
+         values ($1, $2, $3, $4, $5, $5, $6)
+         returning id",
+    )
+    .bind(tenant_id)
+    .bind(product_id)
+    .bind(order_id)
+    .bind(produced_on)
+    .bind(qty)
+    .bind(unit_cost)
+    .fetch_one(pool)
+    .await
+    .expect("batch");
+
+    sqlx::query(
+        "insert into stock_movements
+             (tenant_id, product_batch_id, type, qty, unit_cost)
+         values ($1, $2, 'production', $3, $4)",
+    )
+    .bind(tenant_id)
+    .bind(batch_id)
+    .bind(qty)
+    .bind(unit_cost)
+    .execute(pool)
+    .await
+    .expect("movement");
+
+    sqlx::query("update products set stock_qty = stock_qty + $2 where id = $1")
+        .bind(product_id)
+        .bind(qty)
+        .execute(pool)
+        .await
+        .expect("stock cache");
 }
 
 async fn sell(app: &Router, token: &str, body: Value) -> (StatusCode, Value) {
@@ -199,9 +258,16 @@ async fn margin_uses_the_cost_snapshotted_at_sale_time(pool: PgPool) {
     let tenant_id = common::tenant_of(&app, token).await;
 
     let cake = product(&app, token, "Bolu pandan", "20000").await;
-    set_stock(&pool, cake, "5").await;
 
-    produced(&pool, tenant_id, cake, "12000", Utc::now().date_naive()).await;
+    produced(
+        &pool,
+        tenant_id,
+        cake,
+        "5",
+        "12000",
+        Utc::now().date_naive(),
+    )
+    .await;
 
     let (status, body) = sell(
         &app,
@@ -231,6 +297,7 @@ async fn margin_uses_the_cost_snapshotted_at_sale_time(pool: PgPool) {
         &pool,
         tenant_id,
         cake,
+        "1",
         "15000",
         Utc::now().date_naive() + Duration::days(1),
     )

@@ -100,6 +100,44 @@ pub fn production_cost(
     })
 }
 
+/// One batch a sale took, with the cost it had at that moment. A `None` cost
+/// means the batch's cost is unknown, so the sale cannot be valued.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SoldBatch {
+    pub qty: Decimal,
+    pub unit_cost: Option<Decimal>,
+}
+
+/// Weighted cost per sold unit across the batches a sale took.
+///
+/// Returns `None` when any batch has no known cost, so the caller marks the
+/// sale as cost incomplete instead of inventing a number. Four decimals, the
+/// same scale as every other unit cost (D7).
+pub fn sold_unit_cost(
+    lines: &[SoldBatch],
+    sold_qty: Decimal,
+) -> Result<Option<Decimal>, CostError> {
+    if sold_qty <= Decimal::ZERO {
+        return Err(CostError::InvalidQuantity);
+    }
+
+    let mut total = Decimal::ZERO;
+
+    for line in lines {
+        if line.qty.is_sign_negative() {
+            return Err(CostError::NegativeCost);
+        }
+
+        match line.unit_cost {
+            Some(cost) if cost.is_sign_negative() => return Err(CostError::NegativeCost),
+            Some(cost) => total += line.qty * cost,
+            None => return Ok(None),
+        }
+    }
+
+    Ok(Some((total / sold_qty).round_dp(UNIT_COST_SCALE)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,6 +262,57 @@ mod tests {
                 Decimal::ZERO,
                 dec("1")
             ),
+            Err(CostError::NegativeCost)
+        );
+    }
+
+    fn sold(qty: &str, unit_cost: Option<&str>) -> SoldBatch {
+        SoldBatch {
+            qty: dec(qty),
+            unit_cost: unit_cost.map(dec),
+        }
+    }
+
+    #[test]
+    fn sold_cost_is_the_quantity_weighted_average() {
+        let cost = sold_unit_cost(
+            &[sold("1", Some("10000")), sold("1", Some("20000"))],
+            dec("2"),
+        )
+        .expect("cost");
+
+        assert_eq!(cost, Some(dec("15000.0000")));
+    }
+
+    #[test]
+    fn a_single_batch_keeps_its_own_cost() {
+        let cost = sold_unit_cost(&[sold("3", Some("12000"))], dec("3")).expect("cost");
+
+        assert_eq!(cost, Some(dec("12000.0000")));
+    }
+
+    #[test]
+    fn an_unknown_batch_cost_makes_the_sale_incomplete() {
+        let cost =
+            sold_unit_cost(&[sold("1", Some("10000")), sold("1", None)], dec("2")).expect("cost");
+
+        assert_eq!(cost, None);
+    }
+
+    #[test]
+    fn sold_cost_rejects_bad_quantities_and_costs() {
+        assert_eq!(
+            sold_unit_cost(&[sold("1", Some("10000"))], dec("0")),
+            Err(CostError::InvalidQuantity)
+        );
+
+        assert_eq!(
+            sold_unit_cost(&[sold("-1", Some("10000"))], dec("1")),
+            Err(CostError::NegativeCost)
+        );
+
+        assert_eq!(
+            sold_unit_cost(&[sold("1", Some("-10000"))], dec("1")),
             Err(CostError::NegativeCost)
         );
     }
