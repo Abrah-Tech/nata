@@ -16,7 +16,7 @@ create index otp_codes_active_idx on otp_codes (expires_at) where consumed_at is
 
 -- Resolve a user by exact contact before `app.user_id` is known.
 -- Deployment must grant execute to the application role:
---   grant execute on function auth_find_user_id(text) to nata_app;
+--   grant execute on function auth_find_user_id(text) to takar_app;
 create function auth_find_user_id(contact text) returns uuid
 language sql
 stable

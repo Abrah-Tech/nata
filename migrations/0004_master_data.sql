@@ -91,4 +91,4 @@ create policy materials_tenant on materials
 
 -- Reference data is readable by every tenant; only the system seeds it.
 -- Deployment must grant select to the application role:
---   grant select on units, unit_conversions to nata_app;
+--   grant select on units, unit_conversions to takar_app;

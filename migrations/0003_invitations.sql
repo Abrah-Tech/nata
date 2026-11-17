@@ -41,9 +41,9 @@ revoke all on function auth_find_invitation(text) from public;
 revoke all on function auth_has_pending_invitation(text) from public;
 
 -- Deployment must grant execute to the application role, because the API
--- connects as nata_app and both calls happen before a tenant is known:
---   grant execute on function auth_find_invitation(text) to nata_app;
---   grant execute on function auth_has_pending_invitation(text) to nata_app;
+-- connects as takar_app and both calls happen before a tenant is known:
+--   grant execute on function auth_find_invitation(text) to takar_app;
+--   grant execute on function auth_has_pending_invitation(text) to takar_app;
 --
 -- Invitations are created and revoked under normal RLS: both require an
 -- active membership, so app.tenant_id is already set.

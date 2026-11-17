@@ -101,7 +101,13 @@ jobs:
           set -Eeuo pipefail
 
           release="/srv/nata/releases/$SHA"
-          prev="$(readlink -f /srv/nata/current || true)"
+          # readlink -f canonicalizes a missing path too, so on the first deploy
+          # this returned /srv/nata/current and rollback created a
+          # current -> current loop. Only keep a directory that really exists.
+          prev="$(readlink -f /srv/nata/current 2>/dev/null || true)"
+          if [ -n "$prev" ] && [ ! -d "$prev" ]; then
+            prev=""
+          fi
 
           rollback() {
             if [ -n "$prev" ] && [ "$prev" != "$release" ]; then
