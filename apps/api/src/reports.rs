@@ -40,7 +40,7 @@ pub struct BusinessView {
 pub struct StockValue {
     /// Material batches at the cost they were received at.
     pub materials: Decimal,
-    /// Finished goods at their most recent production cost.
+    /// Finished goods at the cost of the batch they came from.
     pub products: Decimal,
     pub total: Decimal,
 }
@@ -116,20 +116,13 @@ pub async fn business(
         .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("unknown plan {plan}")))?;
 
     let (material_value, product_value): (Decimal, Decimal) = sqlx::query_as(
-        "with latest as (
-             select distinct on (product_id) product_id, unit_cost
-             from production_orders
-             where tenant_id = $1 and status = 'done' and unit_cost is not null
-             order by product_id, produced_on desc, created_at desc
-         )
-         select
+        "select
              (select coalesce(sum(b.qty_remaining * b.unit_cost), 0)::numeric(18,2)
               from material_batches b
               where b.tenant_id = $1 and b.qty_remaining > 0),
-             (select coalesce(sum(p.stock_qty * latest.unit_cost), 0)::numeric(18,2)
-              from products p
-              join latest on latest.product_id = p.id
-              where p.tenant_id = $1 and p.stock_qty > 0)",
+             (select coalesce(sum(pb.qty_remaining * pb.unit_cost), 0)::numeric(18,2)
+              from product_batches pb
+              where pb.tenant_id = $1 and pb.qty_remaining > 0)",
     )
     .bind(auth.tenant_id)
     .fetch_one(&mut *tx)

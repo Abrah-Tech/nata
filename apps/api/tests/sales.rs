@@ -21,9 +21,25 @@ async fn product(app: &Router, token: &str, name: &str, sell_price: &str) -> Uui
 }
 
 async fn set_stock(pool: &PgPool, product_id: Uuid, qty: &str) {
+    let qty = qty.parse::<rust_decimal::Decimal>().expect("qty");
+
+    // Finished goods are a batch ledger: stock exists only as a product batch.
+    // A null cost keeps the "never produced" case cost-incomplete.
+    sqlx::query(
+        "insert into product_batches
+             (tenant_id, product_id, produced_on, qty_received, qty_remaining, unit_cost)
+         select tenant_id, $1, current_date, $2, $2, null
+         from products where id = $1",
+    )
+    .bind(product_id)
+    .bind(qty)
+    .execute(pool)
+    .await
+    .expect("batch");
+
     sqlx::query("update products set stock_qty = $2 where id = $1")
         .bind(product_id)
-        .bind(qty.parse::<rust_decimal::Decimal>().expect("qty"))
+        .bind(qty)
         .execute(pool)
         .await
         .expect("stock");

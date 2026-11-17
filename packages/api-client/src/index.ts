@@ -48,6 +48,8 @@ export type Product = {
   name: string;
   sku: string | null;
   sell_price: string;
+  /** Days from production until a batch expires; null means it does not. */
+  shelf_life_days: number | null;
   stock_qty: string;
   /** Null until the product has a recipe; such a product cannot be produced. */
   current_recipe_id: string | null;
@@ -60,6 +62,7 @@ export type ProductRequest = {
   name: string;
   sku?: string | null;
   sell_price?: string;
+  shelf_life_days?: number | null;
 };
 
 export type RecipeItem = {

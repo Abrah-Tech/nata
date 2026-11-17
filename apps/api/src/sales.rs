@@ -1,9 +1,10 @@
 //! Sales.
 //!
-//! A sale is the only writer that removes finished goods. Production adds to
-//! `products.stock_qty`; this module subtracts from it. The whole document is
-//! written in one transaction: if any line is short, nothing is written, so
-//! stock never drifts from the recorded sales.
+//! A sale is the only writer that removes finished goods. Production adds a
+//! `product_batches` row; this module allocates those batches FEFO and
+//! subtracts from them, keeping `products.stock_qty` as a read-only cache. The
+//! whole document is written in one transaction: if any line is short, nothing
+//! is written, so stock never drifts from the recorded sales.
 //!
 //! The price on a line is snapshotted at sale time, exactly like a batch cost
 //! is snapshotted at production time. A later `sell_price` change must not
@@ -20,11 +21,13 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
+
+use nata_core::{allocate, sold_unit_cost, SoldBatch, StockBatch};
 
 use crate::auth::guard::{CanReadSales, CanWriteSales, Require};
 use crate::{error::ApiError, AppState};
@@ -95,10 +98,22 @@ struct Line {
     product_id: Uuid,
     qty: Decimal,
     price: Decimal,
-    /// The product's HPP when the sale was written. Null when it had never
-    /// been produced, because there is no cost to snapshot yet.
+    /// Weighted cost of the batches this line took. Null when any of them has
+    /// no known cost, so the report marks the sale as incomplete.
+    unit_cost: Option<Decimal>,
+    batches: Vec<AllocatedBatch>,
+}
+
+/// One finished-goods batch the line takes from, and how much.
+#[derive(Debug)]
+struct AllocatedBatch {
+    id: Uuid,
+    qty: Decimal,
     unit_cost: Option<Decimal>,
 }
+
+type ProductRow = (Uuid, String, Decimal);
+type BatchRow = (Uuid, NaiveDate, Option<NaiveDate>, Decimal, Option<Decimal>);
 
 type SaleRow = (
     Uuid,
@@ -192,13 +207,17 @@ pub(crate) async fn write_sale(
         }
     }
 
-    // Lock the rows so a concurrent sale cannot pass the same stock check.
-    let ids: Vec<Uuid> = body.items.iter().map(|item| item.product_id).collect();
+    // Lock the product rows so a concurrent sale or production run cannot pass
+    // the same stock check. Sorted by id so two sales always take the locks in
+    // the same order and cannot deadlock.
+    let mut ids: Vec<Uuid> = body.items.iter().map(|item| item.product_id).collect();
+    ids.sort_unstable();
 
-    let products: Vec<(Uuid, String, Decimal, Decimal)> = sqlx::query_as(
-        "select id, name, sell_price, stock_qty
+    let products: Vec<ProductRow> = sqlx::query_as(
+        "select id, name, sell_price
          from products
          where tenant_id = $1 and id = any($2) and is_active
+         order by id
          for update",
     )
     .bind(tenant_id)
@@ -206,53 +225,94 @@ pub(crate) async fn write_sale(
     .fetch_all(&mut **tx)
     .await?;
 
-    let by_id: HashMap<Uuid, (String, Decimal, Decimal)> = products
+    let by_id: HashMap<Uuid, (String, Decimal)> = products
         .into_iter()
-        .map(|(id, name, price, stock)| (id, (name, price, stock)))
+        .map(|(id, name, price)| (id, (name, price)))
         .collect();
-
-    // The newest finished cost per product. A sale stores it, so a later run at
-    // a different cost never rewrites this sale's margin.
-    let costs: HashMap<Uuid, Decimal> = sqlx::query_as(
-        "select distinct on (product_id) product_id, unit_cost
-         from production_orders
-         where tenant_id = $1 and product_id = any($2) and status = 'done'
-           and unit_cost is not null
-         order by product_id, produced_on desc, created_at desc",
-    )
-    .bind(tenant_id)
-    .bind(&ids)
-    .fetch_all(&mut **tx)
-    .await?
-    .into_iter()
-    .collect();
 
     let mut lines = Vec::with_capacity(body.items.len());
     let mut shortages = Vec::new();
 
     for item in &body.items {
-        let Some((name, sell_price, available)) = by_id.get(&item.product_id) else {
+        let Some((name, sell_price)) = by_id.get(&item.product_id) else {
             // Either another tenant's product or a deleted one. Both look the
             // same from here on purpose.
             return Err(ApiError::NotFound("product_not_found"));
         };
 
-        if *available < item.qty {
+        // Finished goods are a batch ledger: take from the earliest expiry
+        // first, and lock the batches in that same FEFO order.
+        let rows: Vec<BatchRow> = sqlx::query_as(
+            "select id, produced_on, expires_at, qty_remaining, unit_cost
+             from product_batches
+             where tenant_id = $1 and product_id = $2 and qty_remaining > 0
+             order by expires_at asc nulls last, produced_on asc
+             for update",
+        )
+        .bind(tenant_id)
+        .bind(item.product_id)
+        .fetch_all(&mut **tx)
+        .await?;
+
+        let costs: HashMap<Uuid, Option<Decimal>> = rows
+            .iter()
+            .map(|(id, _, _, _, unit_cost)| (*id, *unit_cost))
+            .collect();
+
+        let batches: Vec<StockBatch<Uuid>> = rows
+            .iter()
+            .map(
+                |(id, produced_on, expires_at, qty_remaining, _)| StockBatch {
+                    id: *id,
+                    received_at: *produced_on,
+                    expires_at: *expires_at,
+                    qty_remaining: *qty_remaining,
+                },
+            )
+            .collect();
+
+        let allocation = allocate(&batches, item.qty)
+            .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?;
+
+        if !allocation.is_fully_allocated() {
             // Three decimals, the ledger scale, so the client can show the
             // numbers without reformatting them.
             shortages.push(serde_json::json!({
                 "product_id": item.product_id,
                 "product_name": name,
-                "available": format!("{available:.3}"),
+                "available": format!("{:.3}", allocation.allocated),
                 "requested": format!("{:.3}", item.qty),
             }));
         }
+
+        // The cost snapshot is the weighted cost of the batches this line
+        // actually takes, so a later run at a different cost never rewrites it.
+        let sold_batches: Vec<SoldBatch> = allocation
+            .lines
+            .iter()
+            .map(|line| SoldBatch {
+                qty: line.qty,
+                unit_cost: costs[&line.id],
+            })
+            .collect();
+
+        let unit_cost = sold_unit_cost(&sold_batches, item.qty)
+            .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?;
 
         lines.push(Line {
             product_id: item.product_id,
             qty: item.qty,
             price: item.price.unwrap_or(*sell_price),
-            unit_cost: costs.get(&item.product_id).copied(),
+            unit_cost,
+            batches: allocation
+                .lines
+                .iter()
+                .map(|line| AllocatedBatch {
+                    id: line.id,
+                    qty: line.qty,
+                    unit_cost: costs[&line.id],
+                })
+                .collect(),
         });
     }
 
@@ -298,6 +358,32 @@ pub(crate) async fn write_sale(
         .bind(line.unit_cost)
         .execute(&mut **tx)
         .await?;
+
+        for batch in &line.batches {
+            sqlx::query(
+                "update product_batches
+                 set qty_remaining = qty_remaining - $3
+                 where id = $1 and tenant_id = $2",
+            )
+            .bind(batch.id)
+            .bind(tenant_id)
+            .bind(batch.qty)
+            .execute(&mut **tx)
+            .await?;
+
+            sqlx::query(
+                "insert into stock_movements
+                     (tenant_id, product_batch_id, type, qty, unit_cost, created_by)
+                 values ($1, $2, 'sale', $3, $4, $5)",
+            )
+            .bind(tenant_id)
+            .bind(batch.id)
+            .bind(-batch.qty)
+            .bind(batch.unit_cost)
+            .bind(user_id)
+            .execute(&mut **tx)
+            .await?;
+        }
 
         sqlx::query(
             "update products

@@ -129,7 +129,7 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 
 **Phase 2 gate:** users trust the HPP and start using it to set prices.
 
-**Status (2026-11-14):** P2-01 through P2-08 are built. D8 (batch tracking for finished goods) is still open and belongs at the end of this phase.
+**Status (2026-11-17):** P2-01 through P2-08 are built, and D8 is now built on the backend: `product_batches` is the finished-goods ledger, production writes one batch per run with `expires_at = produced_on + shelf_life_days`, a sale allocates batches FEFO and snapshots the weighted cost, and reports value finished goods from the batches. The batch screen still waits for a pen.dev design update.
 
 ---
 
@@ -213,7 +213,7 @@ The draft SQL in the product document is not ready to use as-is. Settle these in
 1. **Child tables without `tenant_id`** — `recipe_items`, `sale_items`, `production_consumptions`, `unit_conversions`. RLS cannot be attached directly. Choose either an added `tenant_id` column or an `EXISTS` policy against the parent table. `EXISTS` keeps the schema smaller but is slower and easier to get wrong.
 2. **`unit_conversions` has no `tenant_id`** while `units.tenant_id` is nullable. **Decided:** conversions are global and seeded with the system units (kg→g, l→ml, lusin→pcs); material-specific conversions such as "1 sack = 25 kg" are deferred until a customer needs them.
 3. **No `warehouse_id`** even though Pro sells 2 warehouses. Add a nullable column to batches and movements now, or accept a large migration in phase 4.
-4. **`products.stock_qty` is a single number** — finished goods cannot be FEFO-allocated or expiry-tracked. See D8.
+4. **`products.stock_qty` is a single number** — finished goods cannot be FEFO-allocated or expiry-tracked. **Decided (2026-11-17):** `product_batches` is the ledger and `products.stock_qty` stays as a read-only cache written in the same transaction; see D8.
 5. **`stock_movements.qty`** has no sign convention or constraint. **Decided:** inbound is positive and outbound is negative, enforced by the `stock_movements_sign` check added in `0005_batches.sql`; only `adjustment` may go either way.
 6. **`materials.last_cost`** is derived data that can drift. **Decided:** it is a read-only cache, written only by stock-in from the latest purchase; batches stay authoritative.
 7. **`tenants.plan` is free text** — make it an enum or check constraint so plan limits can be trusted.
@@ -235,7 +235,7 @@ Do not decide these alone. Ask the user, then record the outcome here.
 | D5 | OTP channel: WhatsApp, email, or both? | WhatsApp primary, email fallback |
 | D6 | Multi-warehouse: prepare now or later? | Nullable column now, UI in phase 4 |
 | D7 | HPP rounding: how many decimals are stored and displayed? | Store 4 decimals, display whole Rupiah, round up when setting a selling price |
-| D8 | Do finished goods need batches and expiry tracking? | Yes for cakes and frozen food, but defer to the end of phase 2 |
+| D8 | Do finished goods need batches and expiry tracking? | **Decided (2026-11-17):** yes. `product_batches` becomes the ledger and `products.stock_qty` stays only as a read-only cache written in the same transaction. Expiry comes from a new `products.shelf_life_days` (`expires_at = produced_on + shelf_life_days`, null when unset). Finished-goods movements extend `stock_movements` with a nullable `product_batch_id` and the `production`/`sale` types. First PR is backend + tests; the batch screen waits for a pen.dev design update. Existing stock is backfilled into one synthetic batch per product |
 | D9 | Crate and package naming: `nata-` prefix? | **Decided (2026-11-16):** the workspace uses the `nata-` prefix across crates, binaries, packages, and the Android app id. |
 | D10 | RBAC: put the role in the JWT or resolve it per request? | Resolve per request from `memberships`; JWT stays `user_id` + `tenant_id` so revocation is immediate |
 | D11 | Mobile monetization: web checkout or in-app purchase? | Web checkout; keep billing read-only inside the app until store rules are settled |
