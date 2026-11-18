@@ -136,14 +136,79 @@ Tiga release terakhir disimpan; sisanya dipangkas setelah deploy sukses.
 
 ---
 
-## 3. Backup
+## 3. Backup dan restore
 
 Neon menyimpan backup/PITR sendiri di dashboard (retention tergantung plan),
-jadi tidak ada timer `pg_dump` di VPS. Kalau butuh dump lokal, jalankan manual:
+jadi tidak ada timer `pg_dump` di VPS. Yang tidak otomatis adalah bukti bahwa
+dump itu benar-benar bisa dipakai. `deploy/vps/backup.sh` menjalankan drill:
+dump, restore ke database sementara, bandingkan, lalu hapus database itu.
+
+Yang dibandingkan:
+
+- **skema** — nama, tipe, dan nullability tiap kolom. `_sqlx_migrations` ikut,
+  jadi level migrasi yang berbeda akan gagal;
+- **RLS** — tabel mana yang memaksa RLS, dan setiap policy beserta perintah dan
+  ekspresinya. Batas tenansi harus bertahan dari restore; policy yang hilang
+  berarti kebocoran lintas-tenant, bukan sekadar kehilangan data;
+- **jumlah baris** persis per tabel;
+- **isi tiap kolom** — kolom `numeric` dijumlahkan persis, kolom lain di-hash per
+  baris lalu hash-nya dijumlahkan. Jadi nama atau tanggal yang berubah tertangkap
+  juga, bukan hanya amount.
+
+Major `pg_dump` harus **sama** dengan major server, dihitung sebelum dump jalan:
+
+- `pg_dump` **lebih tua** ditolak karena bisa melewatkan object; dump pendek baru
+  terasa saat dipakai.
+- `pg_dump` **lebih baru** juga ditolak, karena kebalikannya: pg_dump 17+
+  menulis `SET transaction_timeout = 0` apa pun versi servernya, dan server
+  lebih tua dari 17 menolaknya di tengah `pg_restore`. Jadi pasangan klien 18
+  dengan server 16 gagal, bukan lolos.
+
+CI memakai runner `ubuntu-24.04` (PostgreSQL 16) dengan service `postgres:16`
+supaya major-nya sama. Kalau majornya beda, script berhenti dengan pesan dan
+exit code 1 — pasang klien Postgres yang major-nya sama dengan server.
+
+Sumber hanya pernah dibaca. Ada perbedaan → script berhenti dengan diff dan exit
+code 1. Lolos → database scratch di-drop dan dump dihapus, kecuali `--keep`.
+
+### Lokal
 
 ```bash
-ssh root@VPS 'pg_dump "$MIGRATE_DATABASE_URL" -Fc -f /root/nata-$(date +%F).dump'
+docker compose up -d db
+DATABASE_URL=postgres://nata:nata@127.0.0.1:5432/nata sqlx migrate run
+DATABASE_URL=postgres://nata:nata@127.0.0.1:5432/nata deploy/vps/backup.sh
 ```
+
+### Di VPS
+
+`backup.sh` ikut dalam release (`/srv/nata/current/deploy/vps/`). Pakai role
+owner, karena drill membuat database sementara:
+
+```bash
+ssh root@VPS '
+  /srv/nata/current/deploy/vps/backup.sh \
+    --url "$MIGRATE_DATABASE_URL" --keep --output /root
+'
+```
+
+`--self-test` mengubah satu baris di salinan restore lalu menuntut perbandingan
+gagal. Jalankan sekali-sekala untuk memastikan drill-nya sendiri masih
+berfungsi, bukan cuma script-nya masih jalan.
+
+### Restore sungguhan
+
+Drill di atas membuktikan dump masuk ke Postgres dan datanya utuh. Untuk restore
+sebenernya, jalur tercepat di Neon adalah membuat branch atau project baru dari
+PITR di dashboard, lalu menunjuk `DATABASE_URL` ke sana. Kalau dashboard tidak
+memadai, restore dump ke database kosong:
+
+```bash
+pg_restore --dbname="$MIGRATE_DATABASE_URL" --no-owner --no-privileges \
+  /root/nata-<tanggal>.dump
+```
+
+Setelah restore, jalankan `grant.sql` lagi kalau role `nata_app` belum ada di
+target, dan cocokkan `_sqlx_migrations` sebelum `nata-api` diswitch.
 
 ---
 

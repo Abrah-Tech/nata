@@ -11,7 +11,13 @@ concurrency:
 
 jobs:
   rust:
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: the runner's Postgres client has to match the postgres:16
+    # service, because the restore drill refuses a client whose major version
+    # differs — a newer pg_dump writes `SET transaction_timeout`, which Postgres
+    # 16 rejects halfway through the restore. 24.04 ships PostgreSQL 16. The
+    # deploy job pins the same image for the same class of reason: a floating
+    # label should not change what the build tests.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -50,6 +56,20 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+
+      # The restore drill runs against the same Postgres service, so it cannot
+      # rot unnoticed. sqlx-cli writes the same SHA-384 checksums as the sqlx
+      # the workspace builds on, so the migrated fixture is one `nata_db::migrate`
+      # would accept. The runner is pinned to 24.04 so its pg_dump is 16, the
+      # same major as the service; backup.sh fails loudly on any other pair.
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres --locked
+
+      - name: Apply migrations
+        run: sqlx migrate run
+
+      - name: Backup restore drill
+        run: deploy/vps/backup.sh --self-test
 
   web:
     runs-on: ubuntu-latest

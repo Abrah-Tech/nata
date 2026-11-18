@@ -74,9 +74,11 @@ jobs:
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       # Every commit lands in its own release directory:
-      #   bin/nata-api, bin/alert_job, out/, migrations/, deploy/vps/grant.sql
+      #   bin/nata-api, bin/alert_job, out/, migrations/,
+      #   deploy/vps/grant.sql, deploy/vps/backup.sh
       # Both binaries ship: the systemd timer runs alert_job from the same
-      # release directory the API is served from.
+      # release directory the API is served from. backup.sh ships so the
+      # restore drill can be run from the release the host already has.
       - name: Stage release
         run: |
           rm -rf release
@@ -84,7 +86,7 @@ jobs:
           cp target/release/nata-api target/release/alert_job release/bin/
           cp -r apps/web/out release/out
           cp -r migrations release/migrations
-          cp deploy/vps/grant.sql release/deploy/vps/
+          cp deploy/vps/grant.sql deploy/vps/backup.sh release/deploy/vps/
 
       - name: Upload release
         run: |
