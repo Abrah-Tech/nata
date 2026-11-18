@@ -609,6 +609,56 @@ async fn preview_shows_requirements_batches_and_hpp(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn preview_reports_sellable_stock(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    // A one-day shelf life: a batch produced five days ago is already past its
+    // date, so it is on the shelf but cannot be sold.
+    let (status, cake) = call(
+        &app,
+        "POST",
+        "/products",
+        Some(json!({
+            "name": "Kue lapis",
+            "sell_price": "15000",
+            "shelf_life_days": 1
+        })),
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{cake}");
+    let cake_id = cake["id"].as_str().expect("id").parse().expect("uuid");
+
+    let flour = material(&app, token, "Tepung terigu").await;
+    let (status, recipe) = create_recipe(&app, token, cake_id, recipe_body(flour, "2.5")).await;
+    assert_eq!(status, StatusCode::CREATED, "{recipe}");
+    stocked_batch(&app, token, flour, "10", &date_from_now(30), "9000").await;
+
+    let (status, order) = produce(
+        &app,
+        token,
+        json!({
+            "product_id": cake_id,
+            "qty": "10",
+            "produced_on": date_from_now(-5)
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{order}");
+
+    let (status, body) = preview(&app, token, json!({ "product_id": cake_id, "qty": "10" })).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["stock_qty"], "10.000", "the cache counts the batch");
+    assert_eq!(
+        body["sellable_qty"], "0",
+        "a batch past its expiry date cannot be sold"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn preview_blocks_a_short_run_without_a_cost(pool: PgPool) {
     let otp = CaptureOtp::default();
     let app = test_app(pool.clone(), otp.clone());
