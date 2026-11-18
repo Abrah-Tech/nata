@@ -117,6 +117,7 @@ async fn expiry_alerts_fire_at_the_configured_thresholds(pool: PgPool) {
     let later = add_batch(&pool, tenant_id, material_id, "1", Some(date(2026, 1, 21))).await;
 
     let report: AlertRun = run_on(&pool, today).await.expect("run");
+
     assert_eq!(
         report,
         AlertRun {

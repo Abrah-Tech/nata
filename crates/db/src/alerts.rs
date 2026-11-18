@@ -174,6 +174,57 @@ async fn expiry_rule(
     .await?
     .rows_affected();
 
+    let (products_created, products_resolved) =
+        product_expiry_rule(tx, tenant_id, rule_id, days_before, today).await?;
+
+    Ok((created + products_created, resolved + products_resolved))
+}
+
+/// The finished-goods counterpart of the material scan: warn for every active
+/// product batch that expires within `days_before` days, and resolve the alert
+/// once the batch is sold or written off.
+async fn product_expiry_rule(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant_id: Uuid,
+    rule_id: Uuid,
+    days_before: i32,
+    today: NaiveDate,
+) -> Result<(u64, u64), sqlx::Error> {
+    let created = sqlx::query(
+        "insert into alerts (tenant_id, rule_id, type, product_id, product_batch_id)
+         select $1, $2, 'expiry', b.product_id, b.id
+         from product_batches b
+         where b.tenant_id = $1
+           and b.qty_remaining > 0
+           and b.expires_at is not null
+           and b.expires_at <= $3::date + $4::int
+         on conflict do nothing",
+    )
+    .bind(tenant_id)
+    .bind(rule_id)
+    .bind(today)
+    .bind(days_before)
+    .execute(&mut **tx)
+    .await?
+    .rows_affected();
+
+    let resolved = sqlx::query(
+        "update alerts a set resolved_at = now()
+         where a.tenant_id = $1
+           and a.rule_id = $2
+           and a.resolved_at is null
+           and a.product_batch_id is not null
+           and not exists (
+             select 1 from product_batches b
+             where b.id = a.product_batch_id and b.qty_remaining > 0
+           )",
+    )
+    .bind(tenant_id)
+    .bind(rule_id)
+    .execute(&mut **tx)
+    .await?
+    .rows_affected();
+
     Ok((created, resolved))
 }
 

@@ -184,6 +184,51 @@ async fn add_batch(
     id
 }
 
+async fn add_product(pool: &PgPool, tenant_id: Uuid, name: &str) -> Uuid {
+    let id = Uuid::new_v4();
+
+    sqlx::query(
+        "insert into products (id, tenant_id, name, sell_price) values ($1, $2, $3, 15000)",
+    )
+    .bind(id)
+    .bind(tenant_id)
+    .bind(name)
+    .execute(pool)
+    .await
+    .expect("product");
+
+    id
+}
+
+async fn add_product_batch(
+    pool: &PgPool,
+    tenant_id: Uuid,
+    product_id: Uuid,
+    qty: &str,
+    expires_at: Option<NaiveDate>,
+) -> Uuid {
+    let id = Uuid::new_v4();
+    let qty: Decimal = qty.parse().expect("decimal");
+
+    sqlx::query(
+        "insert into product_batches
+             (id, tenant_id, product_id, produced_on, expires_at,
+              qty_received, qty_remaining, unit_cost)
+         values ($1, $2, $3, $4, $5, $6, $6, 12000)",
+    )
+    .bind(id)
+    .bind(tenant_id)
+    .bind(product_id)
+    .bind(date(2026, 1, 1))
+    .bind(expires_at)
+    .bind(qty)
+    .execute(pool)
+    .await
+    .expect("product batch");
+
+    id
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct DeliveryRow {
     status: String,
@@ -525,4 +570,115 @@ async fn an_email_rule_uses_the_email_transport_and_recipient(pool: PgPool) {
     let rows = deliveries(&pool, tenant_id).await;
     assert_eq!(rows[0].channel.as_deref(), Some("email"));
     assert_eq!(rows[0].recipient.as_deref(), Some("owner@example.test"));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_product_batch_expiry_is_warned_once_and_delivered(pool: PgPool) {
+    let today = date(2026, 11, 9);
+    let tenant_id = tenant_with_defaults(&pool, "Dapur Uji").await;
+    add_owner(&pool, tenant_id, Some("+6281234567890"), None).await;
+    let cake = add_product(&pool, tenant_id, "Bolu pandan").await;
+    add_product_batch(&pool, tenant_id, cake, "3", Some(date(2026, 11, 11))).await;
+
+    let run = run_on(&pool, today).await.expect("run alerts");
+    assert_eq!(
+        run.created, 2,
+        "the H-7 and H-3 rules both cover two days out"
+    );
+
+    let recorder = Arc::new(Recorder::default());
+    let report = send_pending(
+        &pool,
+        &whatsapp_router(&recorder),
+        "https://nata.test/",
+        today,
+    )
+    .await
+    .expect("send");
+
+    assert_eq!(
+        report.sent, 2,
+        "both rules are recorded, one digest goes out"
+    );
+    let messages = recorder.messages();
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].to, "+6281234567890");
+    assert!(messages[0].text.contains("Kedaluwarsa"));
+    // The countdown comes from `current_date` at send time, so only the name,
+    // quantity, and expiry date are pinned here.
+    assert!(messages[0].text.contains("Bolu pandan 3 · 11 Nov ("));
+    assert!(
+        messages[0].text.matches("Bolu pandan").count() == 1,
+        "two rules describing one batch still read as one line"
+    );
+    assert!(
+        !messages[0].text.contains("kg"),
+        "finished goods carry no unit"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_depleted_product_batch_stops_warning(pool: PgPool) {
+    let today = date(2026, 11, 9);
+    let tenant_id = tenant_with_defaults(&pool, "Dapur Uji").await;
+    add_owner(&pool, tenant_id, Some("+6281234567890"), None).await;
+    let cake = add_product(&pool, tenant_id, "Bolu pandan").await;
+    let batch = add_product_batch(&pool, tenant_id, cake, "3", Some(date(2026, 11, 11))).await;
+
+    let first = run_on(&pool, today).await.expect("first run");
+    assert_eq!(first.created, 2);
+
+    // Selling or writing off the whole batch makes the warning untrue.
+    sqlx::query("update product_batches set qty_remaining = 0 where id = $1")
+        .bind(batch)
+        .execute(&pool)
+        .await
+        .expect("deplete");
+
+    let second = run_on(&pool, today).await.expect("second run");
+    assert_eq!(second.created, 0);
+    assert_eq!(second.resolved, 2);
+
+    assert!(alert_delivery::pending(&pool)
+        .await
+        .expect("pending")
+        .is_empty());
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn product_alerts_stay_inside_the_tenant(pool: PgPool) {
+    let today = date(2026, 11, 9);
+    let first = tenant_with_defaults(&pool, "Dapur Satu").await;
+    add_owner(&pool, first, Some("+6281234567890"), None).await;
+    let cake = add_product(&pool, first, "Bolu pandan").await;
+    add_product_batch(&pool, first, cake, "3", Some(date(2026, 11, 11))).await;
+
+    let second = tenant_with_defaults(&pool, "Dapur Dua").await;
+    add_owner(&pool, second, Some("+6281234567891"), None).await;
+
+    let run = run_on(&pool, today).await.expect("run alerts");
+    assert_eq!(
+        run.created, 2,
+        "only the first tenant has an expiring batch"
+    );
+
+    let recorder = Arc::new(Recorder::default());
+    send_pending(
+        &pool,
+        &whatsapp_router(&recorder),
+        "https://nata.test/",
+        today,
+    )
+    .await
+    .expect("send");
+
+    let messages = recorder.messages();
+    assert_eq!(
+        messages.len(),
+        1,
+        "the second tenant has nothing to warn about"
+    );
+    assert_eq!(messages[0].to, "+6281234567890");
+    assert!(messages[0].text.contains("Dapur Satu"));
+    assert!(messages[0].text.contains("Bolu pandan"));
 }
