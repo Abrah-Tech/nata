@@ -186,6 +186,8 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 | Performance | Test on low-end phones and 3G at the end of every phase | Phases 0, 1, and 2 |
 | Data | F&B seed templates, safe migrations, import/export | Phases 1 and 3 |
 
+**Status (2026-11-18):** the audit log is built (`audit_logs`, migration `0020_audit_log.sql`). It records the actions that have no other history: membership, role, invitation, and settings changes, plus payment creation, deletion, and operator verification. Domain documents keep their own author (`sales`, `production_orders`, `recipes`) and a stock correction is already a signed `stock_movements` row, so those are not duplicated. Reading it needs `AuditRead`, which only the owner holds, because the feed also reports on billing. Remaining in this track: JWT rotation.
+
 ---
 
 ## Authorization model (RBAC)

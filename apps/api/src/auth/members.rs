@@ -12,6 +12,7 @@ use axum::{
 use chrono::{DateTime, Duration, Utc};
 use nata_domain::Role;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
@@ -264,6 +265,19 @@ pub async fn change_role(
         .execute(&mut *tx)
         .await?;
 
+    // `memberships` keeps no history, so the audit log is the only record of
+    // who held which role before.
+    nata_db::audit::record(
+        &mut tx,
+        auth.tenant_id,
+        Some(auth.user_id),
+        "member.role_changed",
+        "member",
+        Some(user_id),
+        Some(json!({ "from": current.role.as_str(), "to": body.role.as_str() })),
+    )
+    .await?;
+
     let member = fetch_member(&mut tx, auth.tenant_id, user_id).await?;
     tx.commit().await?;
 
@@ -297,6 +311,17 @@ pub async fn change_status(
         .execute(&mut *tx)
         .await?;
 
+    nata_db::audit::record(
+        &mut tx,
+        auth.tenant_id,
+        Some(auth.user_id),
+        "member.status_changed",
+        "member",
+        Some(user_id),
+        Some(json!({ "from": current.status, "to": body.status.as_str() })),
+    )
+    .await?;
+
     let member = fetch_member(&mut tx, auth.tenant_id, user_id).await?;
     tx.commit().await?;
 
@@ -327,6 +352,19 @@ pub async fn remove_member(
         .bind(user_id)
         .execute(&mut *tx)
         .await?;
+
+    // The membership row is gone, so this is the only place the removal and
+    // the role it removed survive.
+    nata_db::audit::record(
+        &mut tx,
+        auth.tenant_id,
+        Some(auth.user_id),
+        "member.removed",
+        "member",
+        Some(user_id),
+        Some(json!({ "role": current.role.as_str() })),
+    )
+    .await?;
 
     tx.commit().await?;
 
@@ -435,6 +473,19 @@ pub async fn create_invitation(
         _ => error.into(),
     })?;
 
+    nata_db::audit::record(
+        &mut tx,
+        auth.tenant_id,
+        Some(auth.user_id),
+        "member.invited",
+        "invitation",
+        Some(id),
+        // The invitation row holds the contact; repeating it here would only
+        // give the audit log a second copy to keep in sync.
+        Some(json!({ "role": body.role.as_str() })),
+    )
+    .await?;
+
     tx.commit().await?;
 
     Ok((
@@ -476,6 +527,18 @@ pub async fn revoke_invitation(
     if result.rows_affected() == 0 {
         return Err(ApiError::NotFound("invitation_not_found"));
     }
+
+    // `invitations` records who sent it, never who withdrew it.
+    nata_db::audit::record(
+        &mut tx,
+        auth.tenant_id,
+        Some(auth.user_id),
+        "member.invitation_revoked",
+        "invitation",
+        Some(id),
+        None,
+    )
+    .await?;
 
     tx.commit().await?;
 
@@ -566,6 +629,17 @@ pub async fn accept_invitation(
     .bind(invitation_id)
     .bind(tenant_id)
     .execute(&mut *tx)
+    .await?;
+
+    nata_db::audit::record(
+        &mut tx,
+        tenant_id,
+        Some(identity.user_id),
+        "member.joined",
+        "member",
+        Some(identity.user_id),
+        Some(json!({ "role": role.as_str(), "invitation_id": invitation_id })),
+    )
     .await?;
 
     let (tenant_name,): (String,) = sqlx::query_as("select name from tenants where id = $1")

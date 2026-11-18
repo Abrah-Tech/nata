@@ -38,10 +38,11 @@ pub enum Permission {
     MemberRoleChange,
     BillingManage,
     TenantManage,
+    AuditRead,
 }
 
 impl Permission {
-    pub const ALL: [Permission; 17] = [
+    pub const ALL: [Permission; 18] = [
         Permission::MaterialRead,
         Permission::MaterialWrite,
         Permission::BatchWrite,
@@ -59,6 +60,7 @@ impl Permission {
         Permission::MemberRoleChange,
         Permission::BillingManage,
         Permission::TenantManage,
+        Permission::AuditRead,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -80,6 +82,7 @@ impl Permission {
             Permission::MemberRoleChange => "member_role_change",
             Permission::BillingManage => "billing_manage",
             Permission::TenantManage => "tenant_manage",
+            Permission::AuditRead => "audit_read",
         }
     }
 }
@@ -107,6 +110,9 @@ impl Role {
                 Permission::MemberRoleChange,
                 Permission::BillingManage,
                 Permission::TenantManage,
+                // The audit log spans roles, billing, and settings, so it is the
+                // owner's oversight tool rather than part of admin's daily work.
+                Permission::AuditRead,
             ],
             Role::Admin => &[
                 Permission::MaterialRead,
@@ -261,6 +267,9 @@ mod tests {
         assert!(!Role::Admin.can(Permission::MemberRoleChange));
         assert!(!Role::Admin.can(Permission::BillingManage));
         assert!(!Role::Admin.can(Permission::TenantManage));
+        // The audit log reports on billing and role changes, so it stays with
+        // the owner.
+        assert!(!Role::Admin.can(Permission::AuditRead));
     }
 
     #[test]

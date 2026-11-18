@@ -1,6 +1,7 @@
 //! HTTP layer for Nata. This is the only place that owns server behavior.
 
 pub mod alerts;
+pub mod audit;
 pub mod auth;
 pub mod billing;
 pub mod config;
@@ -64,6 +65,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api-docs/openapi.json", get(openapi))
         .route("/dashboard", get(dashboard::overview))
         .merge(alerts::routes())
+        .merge(audit::routes())
         .merge(auth::routes())
         .merge(billing::routes())
         .merge(master::routes())

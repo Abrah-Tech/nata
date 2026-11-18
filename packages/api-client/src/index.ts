@@ -508,6 +508,21 @@ export type Alert = {
   attempts: number;
 };
 
+/** One entry of the tenant's audit log. Owner-only on the server. */
+export type AuditEntry = {
+  id: string;
+  /** Null when the actor is not a member, such as the operator verifying a payment. */
+  actor_user_id: string | null;
+  actor_name: string | null;
+  /** Dotted action name, e.g. `member.role_changed`. */
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  /** Schemaless per-action detail; before/after values, the operator label, the amount. */
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 export type StockInRequest = {
   material_id: string;
   supplier_id?: string | null;
@@ -1037,5 +1052,14 @@ export class ApiClient {
 
   listAlertRules(token: string): Promise<AlertRule[]> {
     return this.request<AlertRule[]>("/alert-rules", { token });
+  }
+
+  listAuditLogs(token: string, limit?: number): Promise<AuditEntry[]> {
+    const query = new URLSearchParams();
+    if (limit) query.set("limit", String(limit));
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
+
+    return this.request<AuditEntry[]>(`/audit-logs${suffix}`, { token });
   }
 }

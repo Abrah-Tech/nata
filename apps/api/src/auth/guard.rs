@@ -76,6 +76,7 @@ permissions! {
     CanChangeRoles => MemberRoleChange,
     CanManageBilling => BillingManage,
     CanManageTenant => TenantManage,
+    CanReadAudit => AuditRead,
 }
 
 #[cfg(test)]
@@ -106,6 +107,7 @@ mod tests {
             permission_of(&CanChangeRoles),
             permission_of(&CanManageBilling),
             permission_of(&CanManageTenant),
+            permission_of(&CanReadAudit),
         ];
 
         assert_eq!(declared.len(), Permission::ALL.len());

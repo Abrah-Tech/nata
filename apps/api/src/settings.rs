@@ -7,6 +7,7 @@
 use axum::{extract::State, routing::get, Json, Router};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
 
 use crate::auth::guard::{CanManageTenant, Require};
 use crate::auth::AuthContext;
@@ -85,6 +86,15 @@ pub async fn update_settings(
     let db = state.db()?;
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
+    // Read the current values first: the audit entry is the only record of what
+    // the rate was before this change.
+    let (previous_rate, previous_window): (Decimal, i32) = sqlx::query_as(
+        "select labor_rate_per_hour, usage_window_days from tenants where id = $1 for update",
+    )
+    .bind(auth.tenant_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
     let (labor_rate_per_hour, usage_window_days): (Decimal, i32) = sqlx::query_as(
         "update tenants
          set labor_rate_per_hour = coalesce($2, labor_rate_per_hour),
@@ -97,6 +107,31 @@ pub async fn update_settings(
     .bind(rate)
     .bind(body.usage_window_days)
     .fetch_one(&mut *tx)
+    .await?;
+
+    let mut metadata = Map::new();
+    if let Some(new_rate) = rate {
+        metadata.insert(
+            "labor_rate_per_hour".to_string(),
+            json!({ "from": previous_rate.to_string(), "to": new_rate.to_string() }),
+        );
+    }
+    if let Some(new_window) = body.usage_window_days {
+        metadata.insert(
+            "usage_window_days".to_string(),
+            json!({ "from": previous_window, "to": new_window }),
+        );
+    }
+
+    nata_db::audit::record(
+        &mut tx,
+        auth.tenant_id,
+        Some(auth.user_id),
+        "settings.updated",
+        "tenant",
+        Some(auth.tenant_id),
+        Some(Value::Object(metadata)),
+    )
     .await?;
 
     tx.commit().await?;
