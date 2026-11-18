@@ -188,6 +188,8 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 
 **Status (2026-11-18):** the audit log is built (`audit_logs`, migration `0020_audit_log.sql`). It records the actions that have no other history: membership, role, invitation, and settings changes, plus payment creation, deletion, and operator verification. Domain documents keep their own author (`sales`, `production_orders`, `recipes`) and a stock correction is already a signed `stock_movements` row, so those are not duplicated. Reading it needs `AuditRead`, which only the owner holds, because the feed also reports on billing. Remaining in this track: JWT rotation.
 
+**Status (2026-11-18):** the promised end-to-end flow is now a test. `apps/api/tests/e2e_stock_to_hpp.rs` walks one tenant from two batches at different prices through FEFO consumption, the HPP snapshot (material plus labor), a sale, and the report, and checks the numbers still agree at the end: 3.375 kg × 9000 of material left, 6 × 4162.50 of finished goods, and 60,000 of revenue against 16,650 of cost. A second test writes a kilo of flour off after production and checks that the valuation and the waste report move while the order's snapshot does not.
+
 ---
 
 ## Authorization model (RBAC)
