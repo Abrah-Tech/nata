@@ -441,15 +441,24 @@ export type ProductCorrection = {
 
 export type MovementType =
   | "purchase"
+  | "production"
   | "production_use"
+  | "sale"
   | "waste"
   | "expired"
   | "adjustment";
 
 export type Movement = {
   id: string;
-  batch_id: string;
-  material_id: string;
+  /** Material batch; null for a finished-goods movement. */
+  batch_id: string | null;
+  material_id: string | null;
+  material_name: string | null;
+  unit_code: string | null;
+  /** Finished-goods batch; null for a material movement. */
+  product_batch_id: string | null;
+  product_id: string | null;
+  product_name: string | null;
   type: MovementType;
   qty: string;
   unit_cost: string | null;
@@ -914,12 +923,20 @@ export class ApiClient {
 
   listMovements(
     token: string,
-    filter: { materialId?: string; batchId?: string; limit?: number } = {},
+    filter: {
+      materialId?: string;
+      batchId?: string;
+      productId?: string;
+      productBatchId?: string;
+      limit?: number;
+    } = {},
   ): Promise<Movement[]> {
     const query = new URLSearchParams();
 
     if (filter.materialId) query.set("material_id", filter.materialId);
     if (filter.batchId) query.set("batch_id", filter.batchId);
+    if (filter.productId) query.set("product_id", filter.productId);
+    if (filter.productBatchId) query.set("product_batch_id", filter.productBatchId);
     if (filter.limit) query.set("limit", String(filter.limit));
 
     const suffix = query.size > 0 ? `?${query.toString()}` : "";

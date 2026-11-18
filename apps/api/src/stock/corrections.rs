@@ -83,18 +83,21 @@ pub async fn correct(
 
     // Lock the batch: the check below is only meaningful while no one else can
     // change the same remaining quantity.
-    let batch: Option<(Uuid, Decimal, Decimal, Decimal)> = sqlx::query_as(
-        "select material_id, qty_received, qty_remaining, unit_cost
-         from material_batches
-         where id = $1 and tenant_id = $2
-         for update",
+    let batch: Option<(Uuid, Decimal, Decimal, Decimal, String, String)> = sqlx::query_as(
+        "select b.material_id, b.qty_received, b.qty_remaining, b.unit_cost,
+                m.name, u.code
+         from material_batches b
+         join materials m on m.id = b.material_id
+         join units u on u.id = m.base_unit_id
+         where b.id = $1 and b.tenant_id = $2
+         for update of b",
     )
     .bind(body.batch_id)
     .bind(auth.tenant_id)
     .fetch_optional(&mut *tx)
     .await?;
 
-    let (material_id, qty_received, qty_remaining, unit_cost) =
+    let (material_id, qty_received, qty_remaining, unit_cost, material_name, unit_code) =
         batch.ok_or(ApiError::NotFound("batch_not_found"))?;
 
     let new_remaining = qty_remaining + body.qty;
@@ -141,8 +144,13 @@ pub async fn correct(
         Json(CorrectionView {
             movement: MovementView {
                 id: movement_id,
-                batch_id: body.batch_id,
-                material_id,
+                batch_id: Some(body.batch_id),
+                material_id: Some(material_id),
+                material_name: Some(material_name),
+                unit_code: Some(unit_code),
+                product_batch_id: None,
+                product_id: None,
+                product_name: None,
                 movement_type: body.correction_type.as_str().to_string(),
                 qty: body.qty,
                 unit_cost: Some(unit_cost),

@@ -514,6 +514,104 @@ async fn product_batches_never_leak_across_tenants(pool: PgPool) {
     assert_eq!(rows[0].1.to_string(), "10.000");
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn finished_goods_movements_are_in_the_trail(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool, otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let cake = product(&app, token, "Bolu pandan", None).await;
+    let flour = material(&app, token, "Tepung terigu").await;
+    create_recipe(&app, token, cake, flour).await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "10000").await;
+
+    let (status, order) = produce(&app, token, json!({ "product_id": cake, "qty": "10" })).await;
+    assert_eq!(status, StatusCode::CREATED, "{order}");
+
+    let (status, sale) = sell(
+        &app,
+        token,
+        json!({ "items": [{ "product_id": cake, "qty": "2" }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{sale}");
+
+    let (status, movements) = call(&app, "GET", "/stock/movements", None, Some(token)).await;
+    assert_eq!(status, StatusCode::OK, "{movements}");
+
+    let rows = movements.as_array().expect("movements");
+    let production = rows
+        .iter()
+        .find(|row| row["type"] == "production")
+        .expect("production movement");
+    assert_eq!(production["product_id"], cake.to_string());
+    assert_eq!(production["product_name"], "Bolu pandan");
+    assert!(production["product_batch_id"].is_string());
+    assert!(production["batch_id"].is_null());
+    assert!(production["material_id"].is_null());
+    assert_eq!(production["qty"], "10.000");
+
+    let sold = rows
+        .iter()
+        .find(|row| row["type"] == "sale")
+        .expect("sale movement");
+    assert_eq!(sold["product_id"], cake.to_string());
+    assert_eq!(sold["product_name"], "Bolu pandan");
+    assert_eq!(sold["qty"], "-2.000");
+
+    // Material movements keep the material side and gain a name and unit.
+    let purchase = rows
+        .iter()
+        .find(|row| row["type"] == "purchase")
+        .expect("purchase movement");
+    assert_eq!(purchase["material_id"], flour.to_string());
+    assert_eq!(purchase["material_name"], "Tepung terigu");
+    assert_eq!(purchase["unit_code"], "kg");
+    assert!(purchase["product_id"].is_null());
+
+    let product_batch_id = production["product_batch_id"]
+        .as_str()
+        .expect("product batch id")
+        .to_string();
+
+    let (status, by_product) = call(
+        &app,
+        "GET",
+        &format!("/stock/movements?product_id={cake}"),
+        None,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{by_product}");
+    let by_product = by_product.as_array().expect("movements");
+    assert_eq!(by_product.len(), 2, "one production and one sale");
+    assert!(by_product
+        .iter()
+        .all(|row| row["product_id"] == cake.to_string()));
+
+    let (status, by_batch) = call(
+        &app,
+        "GET",
+        &format!("/stock/movements?product_batch_id={product_batch_id}"),
+        None,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{by_batch}");
+    assert_eq!(by_batch.as_array().expect("movements").len(), 2);
+
+    let (status, body) = call(
+        &app,
+        "GET",
+        "/stock/movements?product_id=00000000-0000-0000-0000-000000000000",
+        None,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+}
+
 fn dec(value: &str) -> Decimal {
     value.parse().expect("decimal")
 }
