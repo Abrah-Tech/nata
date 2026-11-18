@@ -99,12 +99,15 @@ pub async fn pending(pool: &PgPool) -> Result<Vec<PendingAlert>, sqlx::Error> {
          left join material_batches b on b.id = a.batch_id
          left join products p on p.id = a.product_id
          left join product_batches pb on pb.id = a.product_batch_id
+         -- Usable stock only: expired batches cannot be used, so counting them
+         -- would show a material as healthy while the alert says it is short.
          left join lateral (
              select coalesce(sum(qty_remaining), 0) as on_hand
              from material_batches
              where tenant_id = m.tenant_id
                and material_id = m.id
                and qty_remaining > 0
+               and (expires_at is null or expires_at >= current_date)
          ) lv on m.id is not null
          where (a.material_id is not null or a.product_batch_id is not null)
            and a.resolved_at is null
