@@ -2,7 +2,7 @@ mod common;
 
 use axum::{http::StatusCode, Router};
 use chrono::NaiveDate;
-use common::{call, signup, stock_in, test_app, CaptureOtp};
+use common::{call, date_from_now, signup, stock_in, test_app, CaptureOtp};
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -169,7 +169,7 @@ async fn production_writes_a_batch_with_the_product_shelf_life(pool: PgPool) {
     let cake = product(&app, token, "Bolu pandan", Some(3)).await;
     let flour = material(&app, token, "Tepung terigu").await;
     create_recipe(&app, token, cake, flour).await;
-    stocked_batch(&app, token, flour, "5", "2026-06-01", "10000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "10000").await;
 
     let (status, order) = produce(
         &app,
@@ -236,7 +236,7 @@ async fn a_product_without_shelf_life_gets_a_batch_without_expiry(pool: PgPool) 
     let sauce = product(&app, token, "Saus sambal", None).await;
     let chilli = material(&app, token, "Cabe").await;
     create_recipe(&app, token, sauce, chilli).await;
-    stocked_batch(&app, token, chilli, "5", "2026-06-01", "10000").await;
+    stocked_batch(&app, token, chilli, "5", &date_from_now(30), "10000").await;
 
     let (status, order) = produce(
         &app,
@@ -261,11 +261,13 @@ async fn a_sale_takes_the_earliest_expiry_batch_first(pool: PgPool) {
     let cake = product(&app, token, "Bolu pandan", None).await;
 
     // The later-produced batch expires first, so FEFO takes it first.
+    let first_expires = date_from_now(10);
+    let second_expires = date_from_now(5);
     let first = add_batch(
         &pool,
         cake,
         "2026-01-01",
-        Some("2026-01-10"),
+        Some(first_expires.as_str()),
         "5",
         Some("10000"),
     )
@@ -274,7 +276,7 @@ async fn a_sale_takes_the_earliest_expiry_batch_first(pool: PgPool) {
         &pool,
         cake,
         "2026-01-02",
-        Some("2026-01-05"),
+        Some(second_expires.as_str()),
         "5",
         Some("20000"),
     )
@@ -309,6 +311,95 @@ async fn a_sale_takes_the_earliest_expiry_batch_first(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_sale_skips_an_expired_batch(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let cake = product(&app, token, "Bolu pandan", None).await;
+
+    // The expired batch sorts first by expiry, so a filter that only ordered
+    // by FEFO would hand it out before the fresh one.
+    let expired = add_batch(
+        &pool,
+        cake,
+        "2026-01-01",
+        Some(date_from_now(-1).as_str()),
+        "5",
+        Some("10000"),
+    )
+    .await;
+    let fresh = add_batch(
+        &pool,
+        cake,
+        "2026-01-02",
+        Some(date_from_now(5).as_str()),
+        "5",
+        Some("20000"),
+    )
+    .await;
+
+    let (status, sale) = sell(
+        &app,
+        token,
+        json!({ "items": [{ "product_id": cake, "qty": "3" }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{sale}");
+
+    let sale_id: Uuid = sale["id"].as_str().expect("id").parse().expect("uuid");
+    assert_eq!(
+        sale_unit_cost(&pool, sale_id).await,
+        Some(dec("20000.0000")),
+        "the sale must pay the fresh batch's cost, not the expired one's"
+    );
+
+    let rows = batches(&pool, cake).await;
+    let remaining: std::collections::HashMap<Uuid, Decimal> =
+        rows.into_iter().map(|(id, qty, _, _)| (id, qty)).collect();
+    assert_eq!(remaining[&expired].to_string(), "5.000");
+    assert_eq!(remaining[&fresh].to_string(), "2.000");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_sale_is_rejected_when_only_expired_stock_remains(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let cake = product(&app, token, "Bolu pandan", None).await;
+    add_batch(
+        &pool,
+        cake,
+        "2026-01-01",
+        Some(date_from_now(-1).as_str()),
+        "5",
+        Some("10000"),
+    )
+    .await;
+
+    let (status, body) = sell(
+        &app,
+        token,
+        json!({ "items": [{ "product_id": cake, "qty": "1" }] }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "insufficient_stock");
+    assert_eq!(
+        body["error"]["details"]["shortages"][0]["available"], "0.000",
+        "expired stock is not sellable stock"
+    );
+
+    // Nothing moved: a write-off is the only way the batch leaves the ledger.
+    let rows = batches(&pool, cake).await;
+    assert_eq!(rows[0].1.to_string(), "5.000");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_sale_spanning_two_batches_snapshots_the_weighted_cost(pool: PgPool) {
     let otp = CaptureOtp::default();
     let app = test_app(pool.clone(), otp.clone());
@@ -317,11 +408,13 @@ async fn a_sale_spanning_two_batches_snapshots_the_weighted_cost(pool: PgPool) {
 
     let cake = product(&app, token, "Bolu pandan", None).await;
 
+    let first_expires = date_from_now(5);
+    let second_expires = date_from_now(10);
     add_batch(
         &pool,
         cake,
         "2026-01-01",
-        Some("2026-01-05"),
+        Some(first_expires.as_str()),
         "2",
         Some("10000"),
     )
@@ -330,7 +423,7 @@ async fn a_sale_spanning_two_batches_snapshots_the_weighted_cost(pool: PgPool) {
         &pool,
         cake,
         "2026-01-02",
-        Some("2026-01-10"),
+        Some(second_expires.as_str()),
         "5",
         Some("20000"),
     )
@@ -389,7 +482,7 @@ async fn product_batches_never_leak_across_tenants(pool: PgPool) {
     let cake = product(&app, first_token, "Bolu pandan", None).await;
     let flour = material(&app, first_token, "Tepung terigu").await;
     create_recipe(&app, first_token, cake, flour).await;
-    stocked_batch(&app, first_token, flour, "5", "2026-06-01", "10000").await;
+    stocked_batch(&app, first_token, flour, "5", &date_from_now(30), "10000").await;
 
     let (status, order) = produce(
         &app,

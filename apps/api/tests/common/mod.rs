@@ -20,6 +20,15 @@ use uuid::Uuid;
 
 pub const SECRET: &str = "test-secret";
 
+/// A date `days` from today, formatted for both the API and the database.
+///
+/// A batch used in a test has to be inside its shelf life when the test runs,
+/// so a fixed date quietly expires as the calendar moves and the test starts
+/// failing for a reason that has nothing to do with the code.
+pub fn date_from_now(days: i64) -> String {
+    (chrono::Utc::now().date_naive() + chrono::Duration::days(days)).to_string()
+}
+
 #[derive(Clone, Default)]
 pub struct CaptureOtp {
     codes: Arc<Mutex<Vec<(String, String)>>>,

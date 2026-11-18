@@ -1,7 +1,7 @@
 mod common;
 
 use axum::{http::StatusCode, Router};
-use common::{call, signup, stock_in, test_app, CaptureOtp};
+use common::{call, date_from_now, signup, stock_in, test_app, CaptureOtp};
 use serde_json::{json, Value};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -151,8 +151,8 @@ async fn production_consumes_fefo_and_adds_finished_goods(pool: PgPool) {
     let (status, recipe) = create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
     assert_eq!(status, StatusCode::CREATED, "{recipe}");
 
-    let near = stocked_batch(&app, token, flour, "1", "2026-06-01", "12000").await;
-    let far = stocked_batch(&app, token, flour, "5", "2026-12-01", "9000").await;
+    let near = stocked_batch(&app, token, flour, "1", &date_from_now(5), "12000").await;
+    let far = stocked_batch(&app, token, flour, "5", &date_from_now(30), "9000").await;
 
     // 2.5 kg × 1.05 waste × 10/10 = 2.625 kg: one whole near batch plus part
     // of the far one.
@@ -234,6 +234,52 @@ async fn production_consumes_fefo_and_adds_finished_goods(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn production_does_not_consume_an_expired_batch(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let product_id = product(&app, token, "Kue lapis").await;
+    let flour = material(&app, token, "Tepung terigu").await;
+
+    let (status, recipe) = create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
+    assert_eq!(status, StatusCode::CREATED, "{recipe}");
+
+    let expired = stocked_batch(&app, token, flour, "5", &date_from_now(-1), "12000").await;
+
+    let (status, body) = produce(
+        &app,
+        token,
+        json!({ "product_id": product_id, "qty": "10" }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["error"]["code"], "insufficient_stock");
+    assert_eq!(
+        body["error"]["details"]["shortages"][0]["material_name"],
+        "Tepung terigu"
+    );
+    assert_eq!(
+        body["error"]["details"]["shortages"][0]["available"], "0.000",
+        "expired stock cannot be used up"
+    );
+
+    // The batch is untouched, so a correction can still write it off.
+    let remaining = batch_remaining(&app, token, flour).await;
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0].0, expired["id"].as_str().expect("expired id"));
+    assert_eq!(remaining[0].1, "5.000");
+
+    let (orders,): (i64,) = sqlx::query_as("select count(*) from production_orders")
+        .fetch_one(&pool)
+        .await
+        .expect("count orders");
+    assert_eq!(orders, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_shortage_blocks_the_whole_order(pool: PgPool) {
     let otp = CaptureOtp::default();
     let app = test_app(pool.clone(), otp.clone());
@@ -259,8 +305,8 @@ async fn a_shortage_blocks_the_whole_order(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::CREATED, "{recipe}");
 
-    stocked_batch(&app, token, flour, "10", "2026-12-01", "12000").await;
-    stocked_batch(&app, token, sugar, "1", "2026-12-01", "15000").await;
+    stocked_batch(&app, token, flour, "10", &date_from_now(30), "12000").await;
+    stocked_batch(&app, token, sugar, "1", &date_from_now(30), "15000").await;
 
     let (status, body) = produce(
         &app,
@@ -344,7 +390,7 @@ async fn production_is_scoped_to_the_tenant(pool: PgPool) {
     let flour = material(&app, token, "Tepung terigu").await;
     let (_, recipe) = create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
     assert_eq!(recipe["version"], 1);
-    stocked_batch(&app, token, flour, "5", "2026-12-01", "12000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
 
     let other = signup(&app, &otp, "other@example.test").await;
     let other_token = other["access_token"].as_str().expect("token");
@@ -375,7 +421,7 @@ async fn a_viewer_cannot_produce(pool: PgPool) {
     let product_id = product(&app, token, "Kue lapis").await;
     let flour = material(&app, token, "Tepung terigu").await;
     create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
-    stocked_batch(&app, token, flour, "5", "2026-12-01", "12000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
 
     sqlx::query("update memberships set role = 'viewer'")
         .execute(&pool)
@@ -414,7 +460,7 @@ async fn an_order_keeps_the_recipe_version_it_consumed(pool: PgPool) {
     let flour = material(&app, token, "Tepung terigu").await;
 
     let (_, first) = create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
-    stocked_batch(&app, token, flour, "5", "2026-12-01", "12000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
 
     let (status, order) = produce(
         &app,
@@ -456,7 +502,7 @@ async fn a_later_purchase_does_not_change_a_past_orders_hpp(pool: PgPool) {
     let flour = material(&app, token, "Tepung terigu").await;
     create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
 
-    stocked_batch(&app, token, flour, "5", "2026-12-01", "12000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
 
     let (status, first) = produce(
         &app,
@@ -470,7 +516,7 @@ async fn a_later_purchase_does_not_change_a_past_orders_hpp(pool: PgPool) {
     let first_id = first["id"].as_str().expect("order id");
 
     // A new purchase costs much more. The old order keeps its snapshot.
-    stocked_batch(&app, token, flour, "5", "2027-01-01", "20000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(60), "20000").await;
 
     let (status, second) = produce(
         &app,
@@ -504,8 +550,9 @@ async fn preview_shows_requirements_batches_and_hpp(pool: PgPool) {
     let flour = material(&app, token, "Tepung terigu").await;
     create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
 
-    let near = stocked_batch(&app, token, flour, "1", "2026-06-01", "12000").await;
-    let far = stocked_batch(&app, token, flour, "5", "2026-12-01", "9000").await;
+    let near_expires = date_from_now(5);
+    let near = stocked_batch(&app, token, flour, "1", &near_expires, "12000").await;
+    let far = stocked_batch(&app, token, flour, "5", &date_from_now(30), "9000").await;
 
     let (status, body) = preview(
         &app,
@@ -540,7 +587,10 @@ async fn preview_shows_requirements_batches_and_hpp(pool: PgPool) {
     let batches = materials[0]["batches"].as_array().expect("batches");
     assert_eq!(batches.len(), 2);
     assert_eq!(batches[0]["batch_id"], near["id"]);
-    assert_eq!(batches[0]["expires_at"], "2026-06-01");
+    assert_eq!(
+        batches[0]["expires_at"].as_str(),
+        Some(near_expires.as_str())
+    );
     assert_eq!(batches[0]["qty"], "1.000");
     assert_eq!(batches[0]["unit_cost"], "12000.0000");
     assert_eq!(batches[1]["batch_id"], far["id"]);
@@ -568,7 +618,7 @@ async fn preview_blocks_a_short_run_without_a_cost(pool: PgPool) {
     let product_id = product(&app, token, "Kue lapis").await;
     let flour = material(&app, token, "Tepung terigu").await;
     create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
-    stocked_batch(&app, token, flour, "1", "2026-12-01", "12000").await;
+    stocked_batch(&app, token, flour, "1", &date_from_now(30), "12000").await;
 
     let (status, body) = preview(
         &app,
@@ -617,7 +667,7 @@ async fn labor_is_priced_from_the_tenant_rate(pool: PgPool) {
     let product_id = product(&app, token, "Kue lapis").await;
     let flour = material(&app, token, "Tepung terigu").await;
     create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
-    stocked_batch(&app, token, flour, "5", "2026-12-01", "12000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
     set_labor_rate(&app, token, "60000").await;
 
     // 30 minutes at 60 000 an hour is 30 000 for one batch, and one batch
@@ -657,7 +707,7 @@ async fn labor_follows_the_number_of_batches(pool: PgPool) {
     let product_id = product(&app, token, "Kue lapis").await;
     let flour = material(&app, token, "Tepung terigu").await;
     create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
-    stocked_batch(&app, token, flour, "5", "2026-12-01", "12000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
     set_labor_rate(&app, token, "60000").await;
 
     // Half a batch: 1.3125 kg of flour rounds up to 1.313, and labor is
@@ -685,7 +735,7 @@ async fn a_rate_change_does_not_rewrite_a_past_order(pool: PgPool) {
     let product_id = product(&app, token, "Kue lapis").await;
     let flour = material(&app, token, "Tepung terigu").await;
     create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
-    stocked_batch(&app, token, flour, "5", "2026-12-01", "12000").await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
     set_labor_rate(&app, token, "60000").await;
 
     let (status, order) = produce(
