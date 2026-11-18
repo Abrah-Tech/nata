@@ -63,6 +63,7 @@ pub fn router(state: AppState) -> Router {
         .route("/healthz", get(health))
         .route("/api-docs/openapi.json", get(openapi))
         .route("/dashboard", get(dashboard::overview))
+        .merge(alerts::routes())
         .merge(auth::routes())
         .merge(billing::routes())
         .merge(master::routes())

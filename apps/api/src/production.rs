@@ -70,7 +70,11 @@ pub struct ProductionPreviewView {
     pub product_id: Uuid,
     pub product_name: String,
     pub sell_price: Decimal,
+    /// Cache of every non-empty batch; `sellable_qty` is what FEFO can ship.
     pub stock_qty: Decimal,
+    /// Stock that can still be sold, computed from the ledger. Expiry is a
+    /// function of the calendar, so the cache cannot be kept up to date.
+    pub sellable_qty: Decimal,
     pub recipe_id: Uuid,
     pub recipe_version: i32,
     pub yield_qty: Decimal,
@@ -127,6 +131,7 @@ type ProductRow = (
     String,
     Decimal,
     Decimal,
+    Decimal,
     Option<Uuid>,
     Option<i32>,
     Option<Decimal>,
@@ -159,6 +164,7 @@ struct PlannedOrder {
     product_name: String,
     sell_price: Decimal,
     stock_qty: Decimal,
+    sellable_qty: Decimal,
     recipe_id: Uuid,
     recipe_version: i32,
     yield_qty: Decimal,
@@ -198,24 +204,26 @@ async fn plan_order(
     production_qty: Decimal,
     lock: bool,
 ) -> Result<PlannedOrder, ApiError> {
-    let product_sql = if lock {
-        "select p.id, p.name, p.sell_price, p.stock_qty,
+    // `sellable_qty` is a correlated subquery over the batch ledger: expiry is
+    // time-based, so the `stock_qty` cache cannot be maintained incrementally
+    // and would go stale overnight.
+    let sellable = "(select coalesce(sum(b.qty_remaining), 0)::numeric(18,3)
+         from product_batches b
+         where b.tenant_id = p.tenant_id
+           and b.product_id = p.id
+           and b.qty_remaining > 0
+           and (b.expires_at is null or b.expires_at >= current_date)) as sellable_qty";
+    let product_sql = format!(
+        "select p.id, p.name, p.sell_price, p.stock_qty, {sellable},
                 p.current_recipe_id, r.version, r.yield_qty, r.labor_minutes,
                 p.shelf_life_days
          from products p
          left join recipes r on r.id = p.current_recipe_id
-         where p.id = $1 and p.tenant_id = $2 and p.is_active
-         for update of p"
-    } else {
-        "select p.id, p.name, p.sell_price, p.stock_qty,
-                p.current_recipe_id, r.version, r.yield_qty, r.labor_minutes,
-                p.shelf_life_days
-         from products p
-         left join recipes r on r.id = p.current_recipe_id
-         where p.id = $1 and p.tenant_id = $2 and p.is_active"
-    };
+         where p.id = $1 and p.tenant_id = $2 and p.is_active{}",
+        if lock { " for update of p" } else { "" }
+    );
 
-    let product: Option<ProductRow> = sqlx::query_as(product_sql)
+    let product: Option<ProductRow> = sqlx::query_as(&product_sql)
         .bind(product_id)
         .bind(tenant_id)
         .fetch_optional(&mut **tx)
@@ -226,6 +234,7 @@ async fn plan_order(
         product_name,
         sell_price,
         stock_qty,
+        sellable_qty,
         current_recipe_id,
         current_version,
         current_yield,
@@ -360,6 +369,7 @@ async fn plan_order(
         product_name,
         sell_price,
         stock_qty,
+        sellable_qty,
         recipe_id,
         recipe_version,
         yield_qty,
@@ -471,6 +481,7 @@ pub async fn preview_order(
         product_name: planned.product_name,
         sell_price: planned.sell_price,
         stock_qty: planned.stock_qty,
+        sellable_qty: planned.sellable_qty,
         recipe_id: planned.recipe_id,
         recipe_version: planned.recipe_version,
         yield_qty: planned.yield_qty,

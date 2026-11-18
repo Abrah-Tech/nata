@@ -287,7 +287,7 @@ export default function ProductsPage() {
                             {t.products.card.stock}
                           </span>
                           <strong className="truncate text-sm font-semibold tabular-nums">
-                            {formatQty(product.stock_qty, locale)}
+                            {formatQty(product.sellable_qty, locale)}
                           </strong>
                         </div>
 

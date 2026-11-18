@@ -27,7 +27,13 @@ pub struct ProductView {
     pub sell_price: Decimal,
     /// Days from production until a batch expires; null means it does not.
     pub shelf_life_days: Option<i32>,
+    /// Cache of every non-empty batch, including expired stock waiting for a
+    /// write-off. Prefer `sellable_qty` wherever stock is shown.
     pub stock_qty: Decimal,
+    /// What can actually be sold: batches with quantity left that are not past
+    /// their expiry date. Computed from the ledger, because expiry is a
+    /// function of the calendar and no write happens when a batch goes bad.
+    pub sellable_qty: Decimal,
     /// Null until the product has a recipe; a product without one cannot be
     /// produced.
     pub current_recipe_id: Option<Uuid>,
@@ -50,6 +56,7 @@ type ProductRow = (
     Option<String>,
     Decimal,
     Decimal,
+    Decimal,
     Option<Uuid>,
     Option<i32>,
     Option<i32>,
@@ -58,6 +65,12 @@ type ProductRow = (
 );
 
 const SELECT: &str = "select p.id, p.name, p.sku, p.sell_price, p.stock_qty,
+            (select coalesce(sum(b.qty_remaining), 0)::numeric(18,3)
+             from product_batches b
+             where b.tenant_id = p.tenant_id
+               and b.product_id = p.id
+               and b.qty_remaining > 0
+               and (b.expires_at is null or b.expires_at >= current_date)) as sellable_qty,
             p.current_recipe_id, r.version, p.shelf_life_days,
             p.created_at, p.updated_at
      from products p
@@ -70,6 +83,7 @@ fn view(row: ProductRow) -> ProductView {
         sku,
         sell_price,
         stock_qty,
+        sellable_qty,
         current_recipe_id,
         current_recipe_version,
         shelf_life_days,
@@ -84,6 +98,7 @@ fn view(row: ProductRow) -> ProductView {
         sell_price,
         shelf_life_days,
         stock_qty,
+        sellable_qty,
         current_recipe_id,
         current_recipe_version,
         created_at,

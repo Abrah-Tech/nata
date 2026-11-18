@@ -50,7 +50,10 @@ export type Product = {
   sell_price: string;
   /** Days from production until a batch expires; null means it does not. */
   shelf_life_days: number | null;
+  /** Cache of every non-empty batch, including expired stock. */
   stock_qty: string;
+  /** Stock that can still be sold: quantity left and not past expiry. */
+  sellable_qty: string;
   /** Null until the product has a recipe; such a product cannot be produced. */
   current_recipe_id: string | null;
   current_recipe_version: number | null;
@@ -121,7 +124,10 @@ export type ProductionPreview = {
   product_id: string;
   product_name: string;
   sell_price: string;
+  /** Cache of every non-empty batch; `sellable_qty` is what FEFO can ship. */
   stock_qty: string;
+  /** Stock that can still be sold, computed from the batch ledger. */
+  sellable_qty: string;
   recipe_id: string;
   recipe_version: number;
   yield_qty: string;
@@ -465,6 +471,41 @@ export type Movement = {
   note: string | null;
   created_by: string | null;
   created_at: string;
+};
+
+export type AlertRule = {
+  id: string;
+  type: "expiry" | "low_stock";
+  /** Days before expiry; null for a low-stock rule. */
+  days_before: number | null;
+  channel: "whatsapp" | "email";
+  is_active: boolean;
+  created_at: string;
+};
+
+export type Alert = {
+  id: string;
+  type: "expiry" | "low_stock";
+  /** `open` until the condition stops holding, then `resolved`. */
+  status: "open" | "resolved";
+  rule_id: string;
+  material_id: string | null;
+  material_name: string | null;
+  batch_id: string | null;
+  product_id: string | null;
+  product_name: string | null;
+  product_batch_id: string | null;
+  qty_remaining: string | null;
+  expires_at: string | null;
+  days_left: number | null;
+  /** Usable stock for a low-stock alert; null for an expiry alert. */
+  on_hand: string | null;
+  min_stock: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  sent_at: string | null;
+  delivery_status: "pending" | "sent" | "failed" | "skipped";
+  attempts: number;
 };
 
 export type StockInRequest = {
@@ -978,5 +1019,23 @@ export class ApiClient {
       token,
       body: { entries },
     });
+  }
+
+  listAlerts(
+    token: string,
+    filter: { status?: "open" | "resolved"; limit?: number } = {},
+  ): Promise<Alert[]> {
+    const query = new URLSearchParams();
+
+    if (filter.status) query.set("status", filter.status);
+    if (filter.limit) query.set("limit", String(filter.limit));
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
+
+    return this.request<Alert[]>(`/alerts${suffix}`, { token });
+  }
+
+  listAlertRules(token: string): Promise<AlertRule[]> {
+    return this.request<AlertRule[]>("/alert-rules", { token });
   }
 }
