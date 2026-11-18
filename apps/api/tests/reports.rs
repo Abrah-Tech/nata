@@ -200,6 +200,35 @@ async fn stock_is_valued_at_the_cost_each_batch_arrived_with(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn expired_stock_is_not_valued(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let flour = material(&app, token, "Tepung terigu").await;
+    stock(&app, token, flour, "10", "10000").await;
+
+    let cake = product(&app, token, "Bolu", "15000").await;
+    set_stock(&pool, cake, "5").await;
+
+    sqlx::query("update material_batches set expires_at = current_date - 1")
+        .execute(&pool)
+        .await
+        .expect("expire the material batch");
+    sqlx::query("update product_batches set expires_at = current_date - 1, unit_cost = 10000")
+        .execute(&pool)
+        .await
+        .expect("expire the product batch");
+
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["stock"]["materials"], "0.00");
+    assert_eq!(body["stock"]["products"], "0.00");
+    assert_eq!(body["stock"]["total"], "0.00");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn waste_is_valued_at_the_batch_it_left(pool: PgPool) {
     let otp = CaptureOtp::default();
     let app = test_app(pool.clone(), otp.clone());

@@ -197,6 +197,39 @@ async fn low_stock_alerts_resolve_and_reopen(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn expired_stock_still_warns_about_low_stock(pool: PgPool) {
+    let today = date(2026, 1, 10);
+    let tenant_id = tenant_with_defaults(&pool).await;
+    let material_id = add_material(&pool, tenant_id, "Gula", "5").await;
+    // Ten units, every one of them past its date: nothing usable is left.
+    add_batch(
+        &pool,
+        tenant_id,
+        material_id,
+        "10",
+        Some(today - chrono::Duration::days(1)),
+    )
+    .await;
+
+    let report = run_on(&pool, today).await.expect("run");
+    assert_eq!(
+        report.created, 3,
+        "the H-7 and H-3 expiry rules, plus low stock"
+    );
+
+    let alerts = open_alerts(&pool, tenant_id).await;
+    let low_stock: Vec<_> = alerts
+        .iter()
+        .filter(|(kind, _, _)| kind == "low_stock")
+        .collect();
+    assert_eq!(
+        low_stock.len(),
+        1,
+        "usable stock is zero, so the material counts as short"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn depleting_a_batch_resolves_its_expiry_alerts(pool: PgPool) {
     let today = date(2026, 1, 10);
     let tenant_id = tenant_with_defaults(&pool).await;

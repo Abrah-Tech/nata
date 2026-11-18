@@ -122,6 +122,50 @@ async fn the_order_covers_usage_during_the_lead_time(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn expired_stock_does_not_lower_the_recommendation(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let supplier_id = supplier(&app, token, 5).await;
+    let flour = material(
+        &app,
+        token,
+        json!({
+            "name": "Tepung terigu",
+            "min_stock": "2",
+            "default_supplier_id": supplier_id,
+        }),
+    )
+    .await;
+
+    stock(&app, token, flour, "10").await;
+    waste(&app, token, flour, "9").await;
+
+    // The one kilo left is past its date, so it is not stock any more.
+    sqlx::query("update material_batches set expires_at = current_date - 1")
+        .execute(&pool)
+        .await
+        .expect("expire the batch");
+
+    let (status, body) = recommendations(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let items = body["items"].as_array().expect("items");
+    assert_eq!(items.len(), 1);
+    // No usable batch is left, so the sum has no row and the client decodes a
+    // bare zero rather than a scaled one.
+    assert_eq!(items[0]["on_hand"], "0");
+    assert_eq!(items[0]["target_qty"], "3.500");
+    assert_eq!(
+        items[0]["recommended_qty"], "3.500",
+        "expired stock must not be counted as covered"
+    );
+    assert_eq!(items[0]["estimated_cost"], "35000.00");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_material_without_history_is_flagged_and_refills_the_minimum(pool: PgPool) {
     let otp = CaptureOtp::default();
     let app = test_app(pool.clone(), otp.clone());
