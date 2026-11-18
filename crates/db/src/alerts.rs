@@ -119,7 +119,7 @@ async fn refresh_tenant(
             "expiry" => {
                 expiry_rule(tx, tenant_id, rule_id, days_before.unwrap_or(0), today).await?
             }
-            "low_stock" => low_stock_rule(tx, tenant_id, rule_id).await?,
+            "low_stock" => low_stock_rule(tx, tenant_id, rule_id, today).await?,
             _ => (0, 0),
         };
 
@@ -228,11 +228,14 @@ async fn product_expiry_rule(
     Ok((created, resolved))
 }
 
-/// Warns for every active material whose on-hand stock is below its minimum.
+/// Warns for every active material whose usable stock is below its minimum.
+/// Expired batches do not count: they cannot be used, so a material whose only
+/// stock is past its date is short and needs buying.
 async fn low_stock_rule(
     tx: &mut Transaction<'_, Postgres>,
     tenant_id: Uuid,
     rule_id: Uuid,
+    today: NaiveDate,
 ) -> Result<(u64, u64), sqlx::Error> {
     let created = sqlx::query(
         "insert into alerts (tenant_id, rule_id, type, material_id)
@@ -247,11 +250,13 @@ async fn low_stock_rule(
                  where b.tenant_id = m.tenant_id
                    and b.material_id = m.id
                    and b.qty_remaining > 0
+                   and (b.expires_at is null or b.expires_at >= $3::date)
                ), 0) < m.min_stock
          on conflict do nothing",
     )
     .bind(tenant_id)
     .bind(rule_id)
+    .bind(today)
     .execute(&mut **tx)
     .await?
     .rows_affected();
@@ -275,11 +280,13 @@ async fn low_stock_rule(
                      where b.tenant_id = m.tenant_id
                        and b.material_id = m.id
                        and b.qty_remaining > 0
+                       and (b.expires_at is null or b.expires_at >= $3::date)
                    ), 0) < m.min_stock
            )",
     )
     .bind(tenant_id)
     .bind(rule_id)
+    .bind(today)
     .execute(&mut **tx)
     .await?
     .rows_affected();

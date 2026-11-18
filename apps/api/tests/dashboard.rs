@@ -114,6 +114,38 @@ async fn overview_ranks_shortages_and_sums_stock_value(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn overview_values_and_counts_only_usable_stock(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let flour = material(&app, token, "Tepung", "5").await;
+    let fresh = batch(&app, token, flour, "10", "12000").await;
+    let expired = batch(&app, token, flour, "4", "12000").await;
+    set_expiry(&pool, fresh, 10).await;
+    set_expiry(&pool, expired, -1).await;
+
+    let (status, body) = call(&app, "GET", "/dashboard", None, Some(token)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    assert_eq!(
+        body["summary"]["stock_value"], "120000.00",
+        "the expired batch is not an asset at cost"
+    );
+    assert_eq!(
+        body["summary"]["below_min"], 0,
+        "ten usable units are enough"
+    );
+    assert_eq!(body["summary"]["out_of_stock"], 0);
+    assert_eq!(
+        body["summary"]["active_batches"], 2,
+        "the expired batch is still on the shelf"
+    );
+    assert_eq!(body["summary"]["expired"], 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn overview_lists_the_expiry_window_in_fefo_order(pool: PgPool) {
     let otp = CaptureOtp::default();
     let app = test_app(pool.clone(), otp.clone());

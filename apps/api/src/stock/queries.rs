@@ -110,9 +110,15 @@ pub async fn on_hand(
     let db = state.db()?;
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
+    // `on_hand` only counts stock inside its shelf life, because that is what
+    // can still be used. The batch count and the nearest expiry keep looking at
+    // every non-empty batch, so a material whose only stock is expired still
+    // shows the batch that needs a write-off.
     let rows: Vec<OnHandRow> = sqlx::query_as(
         "select m.id, m.name, u.id, u.code, m.min_stock, m.last_cost,
-                coalesce(sum(b.qty_remaining), 0)::numeric(18,3) as on_hand,
+                coalesce(sum(b.qty_remaining) filter (
+                    where b.expires_at is null or b.expires_at >= current_date
+                ), 0)::numeric(18,3) as on_hand,
                 count(b.id) as active_batches,
                 min(b.expires_at) as nearest_expiry
          from materials m

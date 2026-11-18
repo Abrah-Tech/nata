@@ -115,12 +115,18 @@ pub async fn business(
     let plan = Plan::parse(&plan)
         .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("unknown plan {plan}")))?;
 
+    // Expired stock is left out: it is not sellable, so valuing it at cost
+    // would overstate what the business owns.
     let (material_value, product_value): (Decimal, Decimal) = sqlx::query_as(
         "select
-             (select coalesce(sum(b.qty_remaining * b.unit_cost), 0)::numeric(18,2)
+             (select coalesce(sum(b.qty_remaining * b.unit_cost) filter (
+                      where b.expires_at is null or b.expires_at >= current_date
+                  ), 0)::numeric(18,2)
               from material_batches b
               where b.tenant_id = $1 and b.qty_remaining > 0),
-             (select coalesce(sum(pb.qty_remaining * pb.unit_cost), 0)::numeric(18,2)
+             (select coalesce(sum(pb.qty_remaining * pb.unit_cost) filter (
+                      where pb.expires_at is null or pb.expires_at >= current_date
+                  ), 0)::numeric(18,2)
               from product_batches pb
               where pb.tenant_id = $1 and pb.qty_remaining > 0)",
     )

@@ -107,7 +107,11 @@ pub async fn overview(
         sqlx::query_as(
              "with levels as (
                  select m.id, m.min_stock,
-                        coalesce(sum(b.qty_remaining), 0)::numeric(18,3) as on_hand
+                        -- Only stock inside its shelf life counts as on hand:
+                        -- an expired batch cannot be used or sold.
+                        coalesce(sum(b.qty_remaining) filter (
+                            where b.expires_at is null or b.expires_at >= current_date
+                        ), 0)::numeric(18,3) as on_hand
                  from materials m
                  left join material_batches b
                         on b.tenant_id = m.tenant_id
@@ -136,7 +140,9 @@ pub async fn overview(
                     -- Valued at the cost each batch was received at, not the
                     -- material's latest price: a new purchase must not revalue
                     -- stock that was already on the shelf.
-                    (select coalesce(sum(b.qty_remaining * b.unit_cost), 0)::numeric(18,2)
+                    (select coalesce(sum(b.qty_remaining * b.unit_cost) filter (
+                             where b.expires_at is null or b.expires_at >= current_date
+                         ), 0)::numeric(18,2)
                      from material_batches b
                      where b.tenant_id = $1 and b.qty_remaining > 0),
                     batches.active_batches,
@@ -151,9 +157,13 @@ pub async fn overview(
 
     let critical_rows: Vec<CriticalTuple> = sqlx::query_as(
         "select m.id, m.name, u.id, u.code,
-                coalesce(sum(b.qty_remaining), 0)::numeric(18,3) as on_hand,
+                coalesce(sum(b.qty_remaining) filter (
+                    where b.expires_at is null or b.expires_at >= current_date
+                ), 0)::numeric(18,3) as on_hand,
                 m.min_stock,
-                (m.min_stock - coalesce(sum(b.qty_remaining), 0))::numeric(18,3) as shortfall,
+                (m.min_stock - coalesce(sum(b.qty_remaining) filter (
+                    where b.expires_at is null or b.expires_at >= current_date
+                ), 0))::numeric(18,3) as shortfall,
                 count(b.id) as active_batches,
                 min(b.expires_at) as nearest_expiry
          from materials m
@@ -164,8 +174,12 @@ pub async fn overview(
                and b.qty_remaining > 0
          where m.tenant_id = $1 and m.is_active
          group by m.id, u.id
-         having coalesce(sum(b.qty_remaining), 0) < m.min_stock
-         order by (m.min_stock - coalesce(sum(b.qty_remaining), 0))
+         having coalesce(sum(b.qty_remaining) filter (
+             where b.expires_at is null or b.expires_at >= current_date
+         ), 0) < m.min_stock
+         order by (m.min_stock - coalesce(sum(b.qty_remaining) filter (
+                 where b.expires_at is null or b.expires_at >= current_date
+             ), 0))
                       / nullif(m.min_stock, 0) desc,
                   m.name asc
          limit $2",

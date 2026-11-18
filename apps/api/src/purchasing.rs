@@ -83,10 +83,13 @@ pub async fn recommendations(
     .fetch_all(&mut *tx)
     .await?;
 
+    // Expired stock is not usable, so it must not reduce the recommendation:
+    // buying more is exactly what an expired batch forces.
     let on_hand: HashMap<Uuid, Decimal> = sqlx::query_as::<_, (Uuid, Decimal)>(
         "select material_id, sum(qty_remaining)
          from material_batches
          where tenant_id = $1 and qty_remaining > 0
+           and (expires_at is null or expires_at >= current_date)
          group by material_id",
     )
     .bind(auth.tenant_id)

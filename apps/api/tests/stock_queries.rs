@@ -1,7 +1,9 @@
 mod common;
 
 use axum::http::StatusCode;
-use common::{call, create_material, login, signup, stock_in, tenant_of, test_app, CaptureOtp};
+use common::{
+    call, create_material, date_from_now, login, signup, stock_in, tenant_of, test_app, CaptureOtp,
+};
 use serde_json::{json, Value};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -52,7 +54,9 @@ async fn on_hand_sums_active_batches_and_flags_low_stock(pool: PgPool) {
         .parse::<Uuid>()
         .expect("uuid");
 
-    for (qty, expires_at) in [("10.5", "2026-12-31"), ("4", "2026-10-01")] {
+    let later = date_from_now(30);
+    let sooner = date_from_now(10);
+    for (qty, expires_at) in [("10.5", later.as_str()), ("4", sooner.as_str())] {
         let (status, batch) = stock_in(
             &app,
             token,
@@ -75,7 +79,7 @@ async fn on_hand_sums_active_batches_and_flags_low_stock(pool: PgPool) {
     assert_eq!(flour_row["min_stock"], "5.000");
     assert_eq!(flour_row["below_min"], false);
     assert_eq!(flour_row["active_batches"], 2);
-    assert_eq!(flour_row["nearest_expiry"], "2026-10-01");
+    assert_eq!(flour_row["nearest_expiry"], sooner);
     assert_eq!(flour_row["base_unit"]["code"], "kg");
     assert_eq!(flour_row["last_cost"], "12000.0000");
 
@@ -92,6 +96,66 @@ async fn on_hand_sums_active_batches_and_flags_low_stock(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn expired_batches_do_not_count_as_on_hand(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool, otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let kg = common::unit_id(&app, token, "kg").await;
+    let (status, flour) = call(
+        &app,
+        "POST",
+        "/materials",
+        Some(json!({ "name": "Tepung", "base_unit_id": kg, "min_stock": "5" })),
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{flour}");
+    let flour_id = flour["id"].as_str().expect("id").parse().expect("uuid");
+
+    let expired_at = date_from_now(-1);
+    for (qty, expires_at) in [
+        ("10", expired_at.as_str()),
+        ("2", date_from_now(30).as_str()),
+    ] {
+        let (status, batch) = stock_in(
+            &app,
+            token,
+            json!({
+                "material_id": flour_id,
+                "qty_received": qty,
+                "unit_cost": "12000",
+                "expires_at": expires_at
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{batch}");
+    }
+
+    let (status, stock) = call(&app, "GET", "/stock", None, Some(token)).await;
+    assert_eq!(status, StatusCode::OK, "{stock}");
+
+    let flour_row = find(&stock, flour_id);
+    assert_eq!(
+        flour_row["on_hand"], "2.000",
+        "only the usable batch counts"
+    );
+    assert_eq!(
+        flour_row["below_min"], true,
+        "ten expired units do not help"
+    );
+    assert_eq!(
+        flour_row["active_batches"], 2,
+        "the expired batch is still on the shelf and needs a write-off"
+    );
+    assert_eq!(
+        flour_row["nearest_expiry"], expired_at,
+        "the expired batch is still the closest expiry"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn active_batches_follow_fefo_and_skip_depleted_ones(pool: PgPool) {
     let otp = CaptureOtp::default();
     let app = test_app(pool.clone(), otp.clone());
@@ -99,11 +163,13 @@ async fn active_batches_follow_fefo_and_skip_depleted_ones(pool: PgPool) {
     let token = owner["access_token"].as_str().expect("token");
     let material_id = create_material(&app, token, "Tepung").await;
 
+    let sooner = date_from_now(10);
+    let later = date_from_now(30);
     let mut batches = Vec::new();
     for (qty, received_at, expires_at) in [
         ("1", "2026-01-01", None),
-        ("2", "2026-01-02", Some("2026-03-01")),
-        ("3", "2026-01-03", Some("2026-02-01")),
+        ("2", "2026-01-02", Some(later.as_str())),
+        ("3", "2026-01-03", Some(sooner.as_str())),
     ] {
         let (status, batch) = stock_in(
             &app,
