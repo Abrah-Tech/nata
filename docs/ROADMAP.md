@@ -73,6 +73,47 @@ clear before any of them can be drawn, so keep them out of a phase gate.
 
 Do not build these screens before their frame exists in the design file.
 
+### UI polish backlog
+
+Audit 2026-11-18 against `apps/web`: the component library plus the screens that
+already run. Verdict **Approve** — no `HIGH`, so nothing blocks a release. Four
+`MEDIUM` and three `LOW` findings are recorded here as backlog; none is fixed
+yet. Principles come from `better-ui`: the cursor is the cheapest affordance,
+hover belongs behind `@media (hover:hover)`, name only the properties that
+change, outer radius equals inner radius plus padding, and an icon's stroke
+tracks the weight of the text beside it.
+
+| Severity | Location | Before | After | Why |
+| --- | --- | --- | --- | --- |
+| MEDIUM | `apps/web/components/ui/button.tsx:7`, `apps/web/components/ui/select.tsx:15`, `apps/web/app/stock/page.tsx:601`, `apps/web/app/login/page.tsx:335`, `:363`, `:393` | Preflight is deliberately off (`apps/web/app/globals.css`) and no hand-written reset sets `cursor`, so `<button>` and `<select>` keep the arrow. Only `apps/web/app/stock/page.tsx:694` opts in with `cursor-pointer` | `cursor-pointer` in the `buttonVariants` base, on `Select`, and on the stock tabs and the raw login buttons | A control that looks static but is clickable is the affordance bug the audit started from; the one corrected row proves the convention is the exception |
+| MEDIUM | `apps/web/components/ui/input.tsx:9`, `apps/web/app/login/otp-input.tsx:93` | Text fields have no `cursor` and no hover state, only a `focus-visible` ring | `cursor-text`, and a hover border or background on the field | A field that shows no text cursor reads as read-only; the field is also the one component with no hover feedback at all |
+| MEDIUM | `apps/web/app/stock/page.tsx:590`, `:592`, `:601`, `:603` | The tab strip has no `cursor-pointer`; the inactive tab's only hover cue is `hover:text-ink-2`, one step of a four-step scale; the strip is `overflow-x-auto` with `gap-4.5` and `shrink-0` tabs, so on a 360px phone the four mobile labels plus their count pills can push the last tab out of view | `cursor-pointer`; inactive hover `hover:text-ink` and a border-color step; let the four tabs share the strip width (`flex-1 justify-center`, `min-w-0`) instead of scrolling | The tab is the primary filter of the stock screen and the least affordant control on it; the mobile label set is what the i18n resources already define |
+| MEDIUM | `apps/web/components/ui/button.tsx:7`, `apps/web/components/ui/select.tsx:15`, `apps/web/app/stock/page.tsx:601`, `apps/web/app/login/page.tsx:335`, `:363`, `apps/web/app/login/otp-input.tsx:93` | No `-webkit-tap-highlight-color: transparent`, so the WebView paints its own gray flash over the app's `active:scale-[0.96]` pressed state | Set it on the button base, `Select`, the stock tabs, the raw login buttons, and the OTP cells | Two pressed states stacked reads as a laggy double response on the cheap Android phones the shell targets |
+| LOW | `apps/web/app/app-shell.tsx:265`, `:271`, `:281`, `:291`, `:299` | Nav pill `rounded-[28px]` with `p-1.5` and a 1px border around items at `rounded-[22px]` | Items at `rounded-[21px]` (28 − 6 − 1) | Outer radius must equal inner radius plus padding; the 1px step is visible where the active pill meets the bar |
+| LOW | `apps/web/components/ui/dialog.tsx:39`, `apps/web/app/stock/batch-panel.tsx:117` | `overflow-y-auto` with no `overscroll-behavior` | `[overscroll-contain]` | Scrolling past the end of a sheet drags the page behind it |
+| LOW | `apps/web/app/login/page.tsx:195`, `:327` | `Check` at `strokeWidth={3}` beside `font-bold` text | `strokeWidth={2.5}` | Stroke tracks text weight: 1.5 at 400, 2.5 at 700. The check is the success cue of the login flow |
+
+**Verified from code:** Tailwind v4's `hover:` compiles inside `@media (hover:hover)`
+(confirmed in the built CSS), so no hover state latches on touch; no
+`transition-all`, no `will-change`, no `stroke="#…"` or `fill="#…"` in an icon;
+the press scale is `0.96` with `disabled:active:scale-100` and a `motion-reduce:`
+opt-out; the dialog and overlay animations have a `prefers-reduced-motion` block.
+
+**Not verified:** the rendered cursor, the native option list, the 360px tab
+strip, and the tap flash. No browser was available during the audit, so those
+four are read from the source, not observed. The native picker itself is a
+deliberate convention for the Android WebView and stays; only the closed
+control is styled.
+
+Suggested order when someone picks this up: the two MEDIUM component-base
+items (`cursor-pointer` and the tap highlight) in one small PR, then the field
+hover and `cursor-text`, then the stock tabs. The three LOW items fold into
+whichever PR already touches the file. A separate `better-accessibility` pass
+owns the raw login buttons with no `focus-visible` ring, `role="tablist"`
+without `aria-controls`/`tabpanel`, the disabled-state divergence at
+`apps/web/app/login/page.tsx:394`, and the `box-shadow` focus rings under
+forced-colors.
+
 ---
 
 ## Phase 0 — Foundation + validation
