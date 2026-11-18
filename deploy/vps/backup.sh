@@ -20,6 +20,10 @@
 # different migration level fails the drill. Run with `--self-test` to prove the
 # comparison actually notices a change.
 #
+# The pg_dump major version has to equal the server's. An older client can miss
+# objects; a newer one writes settings the server rejects on restore (pg_dump 17
+# and later emit `SET transaction_timeout = 0`, which Postgres 16 fails on).
+#
 # Usage:
 #   DATABASE_URL=postgres://user:pass@host:5432/nata deploy/vps/backup.sh
 #
@@ -84,12 +88,23 @@ done
 
 # A pg_dump older than the server refuses, and one that is merely close enough
 # to run can still miss things. Refuse rather than produce a dump nobody will
-# discover is short until it is too late.
+# discover is short until it is too late. The newer client is refused for the
+# opposite reason: pg_dump 17+ writes `SET transaction_timeout = 0` whatever the
+# server version, and a server older than 17 rejects it halfway through the
+# restore — so a client that is too new fails louder than a too-old one.
 server_major="$(( "$(psql "$url" -At -c "select current_setting('server_version_num')")" / 10000 ))"
 client_major="$(pg_dump --version | grep -oE '[0-9]+' | head -1)"
 
 if [ "$client_major" -lt "$server_major" ]; then
   echo "FAIL: pg_dump $client_major is older than the server (Postgres $server_major)" >&2
+  echo "install a PostgreSQL $server_major client, or point --url at a server matching pg_dump" >&2
+  exit 1
+fi
+
+if [ "$client_major" -gt "$server_major" ]; then
+  echo "FAIL: pg_dump $client_major is newer than the server (Postgres $server_major)" >&2
+  echo "its dump can carry settings this server rejects on restore (pg_dump 17+ writes SET transaction_timeout)" >&2
+  echo "install a PostgreSQL $server_major client, or point --url at a server matching pg_dump" >&2
   exit 1
 fi
 

@@ -155,8 +155,18 @@ Yang dibandingkan:
   baris lalu hash-nya dijumlahkan. Jadi nama atau tanggal yang berubah tertangkap
   juga, bukan hanya amount.
 
-`pg_dump` yang lebih tua dari server ditolak di awal, karena dump pendek baru
-terasa saat dipakai.
+Major `pg_dump` harus **sama** dengan major server, dihitung sebelum dump jalan:
+
+- `pg_dump` **lebih tua** ditolak karena bisa melewatkan object; dump pendek baru
+  terasa saat dipakai.
+- `pg_dump` **lebih baru** juga ditolak, karena kebalikannya: pg_dump 17+
+  menulis `SET transaction_timeout = 0` apa pun versi servernya, dan server
+  lebih tua dari 17 menolaknya di tengah `pg_restore`. Jadi pasangan klien 18
+  dengan server 16 gagal, bukan lolos.
+
+CI memakai runner `ubuntu-24.04` (PostgreSQL 16) dengan service `postgres:16`
+supaya major-nya sama. Kalau majornya beda, script berhenti dengan pesan dan
+exit code 1 — pasang klien Postgres yang major-nya sama dengan server.
 
 Sumber hanya pernah dibaca. Ada perbedaan → script berhenti dengan diff dan exit
 code 1. Lolos → database scratch di-drop dan dump dihapus, kecuali `--keep`.
