@@ -19,8 +19,10 @@ pub struct PendingAlert {
     pub tenant_id: Uuid,
     pub tenant_name: String,
     pub alert_type: String,
-    pub material_name: String,
-    pub unit_code: String,
+    /// The material or product the alert is about.
+    pub name: String,
+    /// Null for finished goods, which carry no unit.
+    pub unit_code: Option<String>,
     pub channel: String,
     pub owner_phone: Option<String>,
     pub owner_email: Option<String>,
@@ -54,12 +56,15 @@ impl PendingAlert {
 /// Runs outside a tenant scope on purpose: the job role bypasses RLS and walks
 /// every tenant in one pass.
 pub async fn pending(pool: &PgPool) -> Result<Vec<PendingAlert>, sqlx::Error> {
+    // One row per alert, whichever ledger it belongs to. A material alert joins
+    // the material side; a finished-goods alert joins the product side. The
+    // unused side is null, so `coalesce` picks the name and the unit is null.
     sqlx::query_as::<_, PendingAlert>(
         "select a.id,
                 a.tenant_id,
                 t.name as tenant_name,
                 a.type as alert_type,
-                m.name as material_name,
+                coalesce(m.name, p.name) as name,
                 u.code as unit_code,
                 r.channel,
                 (select us.phone
@@ -80,26 +85,29 @@ pub async fn pending(pool: &PgPool) -> Result<Vec<PendingAlert>, sqlx::Error> {
                    and us.email is not null
                  order by mb.joined_at
                  limit 1) as owner_email,
-                b.qty_remaining,
-                b.expires_at,
-                (b.expires_at - current_date) as days_left,
+                coalesce(b.qty_remaining, pb.qty_remaining) as qty_remaining,
+                coalesce(b.expires_at, pb.expires_at) as expires_at,
+                (coalesce(b.expires_at, pb.expires_at) - current_date) as days_left,
                 lv.on_hand,
-                m.min_stock,
+                coalesce(m.min_stock, 0) as min_stock,
                 a.attempts
          from alerts a
          join tenants t on t.id = a.tenant_id
          join alert_rules r on r.id = a.rule_id
-         join materials m on m.id = a.material_id
-         join units u on u.id = m.base_unit_id
+         left join materials m on m.id = a.material_id
+         left join units u on u.id = m.base_unit_id
          left join material_batches b on b.id = a.batch_id
+         left join products p on p.id = a.product_id
+         left join product_batches pb on pb.id = a.product_batch_id
          left join lateral (
              select coalesce(sum(qty_remaining), 0) as on_hand
              from material_batches
              where tenant_id = m.tenant_id
                and material_id = m.id
                and qty_remaining > 0
-         ) lv on true
-         where a.resolved_at is null
+         ) lv on m.id is not null
+         where (a.material_id is not null or a.product_batch_id is not null)
+           and a.resolved_at is null
            and a.delivery_status in ('pending', 'failed')
            and a.attempts < $1
          order by a.tenant_id, a.created_at, a.id",

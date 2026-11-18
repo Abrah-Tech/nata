@@ -67,7 +67,7 @@ fn sections(alerts: &[PendingAlert]) -> (Vec<&PendingAlert>, Vec<&PendingAlert>)
     for alert in alerts {
         let key = (
             alert.alert_type.as_str(),
-            alert.material_name.as_str(),
+            alert.name.as_str(),
             alert.expires_at,
             alert.qty_remaining,
         );
@@ -116,14 +116,25 @@ fn expiry_line(alert: &PendingAlert) -> String {
         .map(short_date)
         .unwrap_or_else(|| "-".to_string());
 
-    format!(
-        "{} {} {} · {} ({})",
-        alert.material_name,
-        qty,
-        alert.unit_code,
-        expires,
-        countdown(alert.days_left)
-    )
+    // Finished goods carry no unit, so the slot is dropped instead of showing
+    // an empty gap.
+    match alert.unit_code.as_deref() {
+        Some(unit) => format!(
+            "{} {} {} · {} ({})",
+            alert.name,
+            qty,
+            unit,
+            expires,
+            countdown(alert.days_left)
+        ),
+        None => format!(
+            "{} {} · {} ({})",
+            alert.name,
+            qty,
+            expires,
+            countdown(alert.days_left)
+        ),
+    }
 }
 
 fn low_stock_line(alert: &PendingAlert) -> String {
@@ -132,13 +143,15 @@ fn low_stock_line(alert: &PendingAlert) -> String {
         .map(quantity)
         .unwrap_or_else(|| "0".to_string());
 
+    let unit = alert.unit_code.as_deref().unwrap_or("-");
+
     format!(
         "{} {} {} · minimum {} {}",
-        alert.material_name,
+        alert.name,
         on_hand,
-        alert.unit_code,
+        unit,
         quantity(alert.min_stock),
-        alert.unit_code
+        unit
     )
 }
 
@@ -180,8 +193,8 @@ mod tests {
             tenant_id: Uuid::nil(),
             tenant_name: "Dapur Uji".to_string(),
             alert_type: alert_type.to_string(),
-            material_name: name.to_string(),
-            unit_code: "kg".to_string(),
+            name: name.to_string(),
+            unit_code: Some("kg".to_string()),
             channel: "whatsapp".to_string(),
             owner_phone: Some("+6281234567890".to_string()),
             owner_email: None,
@@ -215,6 +228,21 @@ mod tests {
         assert!(text.contains("Kedaluwarsa\n• Cokelat compound 2,5 kg · 10 Nov (H-2)"));
         assert!(text.contains("Stok minimum\n• Tepung terigu 2 kg · minimum 6 kg"));
         assert!(text.contains("Buka stok: https://nata.arifinoid.web.id/stock"));
+    }
+
+    #[test]
+    fn a_finished_goods_expiry_drops_the_unit_slot() {
+        let mut product = alert("expiry", "Bolu pandan");
+        product.unit_code = None;
+        product.qty_remaining = Some(Decimal::new(3000, 3));
+
+        let text = compose(&digest(&[product]));
+
+        assert!(text.contains("Kedaluwarsa\n• Bolu pandan 3 · 10 Nov (H-2)"));
+        assert!(
+            !text.contains("Bolu pandan 3  ·"),
+            "no empty gap where the unit would be"
+        );
     }
 
     #[test]
