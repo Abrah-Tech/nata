@@ -273,16 +273,21 @@ async fn plan_order(
         return Err(ApiError::Conflict("recipe_items_required"));
     }
 
+    // A batch past its expiry date is not usable, so it is left for a write-off
+    // instead of being consumed; if that leaves too little, the plan reports a
+    // shortage. `expires_at` is a date, so a batch expiring today is still good.
     let batch_sql = if lock {
         "select id, received_at, expires_at, qty_remaining, unit_cost
          from material_batches
          where tenant_id = $1 and material_id = $2 and qty_remaining > 0
+           and (expires_at is null or expires_at >= current_date)
          order by expires_at asc nulls last, received_at asc
          for update"
     } else {
         "select id, received_at, expires_at, qty_remaining, unit_cost
          from material_batches
          where tenant_id = $1 and material_id = $2 and qty_remaining > 0
+           and (expires_at is null or expires_at >= current_date)
          order by expires_at asc nulls last, received_at asc"
     };
 

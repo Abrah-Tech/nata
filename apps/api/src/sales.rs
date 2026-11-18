@@ -241,11 +241,14 @@ pub(crate) async fn write_sale(
         };
 
         // Finished goods are a batch ledger: take from the earliest expiry
-        // first, and lock the batches in that same FEFO order.
+        // first, and lock the batches in that same FEFO order. A batch past its
+        // expiry date is not sellable, so it is left for a write-off instead of
+        // being shipped; if that leaves too little, the line reports a shortage.
         let rows: Vec<BatchRow> = sqlx::query_as(
             "select id, produced_on, expires_at, qty_remaining, unit_cost
              from product_batches
              where tenant_id = $1 and product_id = $2 and qty_remaining > 0
+               and (expires_at is null or expires_at >= current_date)
              order by expires_at asc nulls last, produced_on asc
              for update",
         )
