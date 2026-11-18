@@ -58,6 +58,20 @@ Rules:
 - The Tauri Android build follows the mobile frames; the web build must cover both desktop and mobile layouts.
 - New screens require a design update first; do not ship an undesigned screen.
 
+### Design backlog
+
+Screens whose backend already ships but whose frame is not built yet. They are
+blocked on a pen.dev design update (`nata.pen`); the plan's usage limit has to
+clear before any of them can be drawn, so keep them out of a phase gate.
+
+| Frame | Backend ready | Still needed |
+| --- | --- | --- |
+| 03 · Batch & FEFO | `product_batches`, FEFO sale allocation, `/stock/product-batches`, `/stock/product-corrections` | Batch list with expiry and remaining quantity, correction form (waste / expired / adjustment) |
+| 09 · Alert WhatsApp | `alert_rules`, `/alert-rules`, `/alerts`, `alert_job`, `alert_delivery` | Digest preview, open versus resolved history, rule editor (H-7/H-3, low stock, channel) |
+| 10 · Tim & Langganan | `memberships`, invitations, plan limits, billing | Member list with roles, invite form, plan and subscription status |
+
+Do not build these screens before their frame exists in the design file.
+
 ---
 
 ## Phase 0 — Foundation + validation
