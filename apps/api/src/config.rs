@@ -5,7 +5,15 @@ pub const DEV_JWT_SECRET: &str = "dev-only-change-me";
 pub struct Config {
     pub port: u16,
     pub database_url: Option<String>,
+    /// Current JWT signing secret.
     pub jwt_secret: String,
+    /// Previous signing secret, still accepted for one token TTL after a
+    /// rotation. `None` once every token issued under it has expired.
+    pub jwt_secret_prev: Option<String>,
+    /// Pepper for OTP codes and invitation tokens. Falls back to `jwt_secret`
+    /// when unset, which is safe but means rotating the signing secret also
+    /// invalidates pending codes and invitations.
+    pub hash_pepper: String,
     pub otp_ttl_seconds: i64,
     pub jwt_ttl_seconds: i64,
     /// Fixed OTP for local sign-in. Honored by debug builds only.
@@ -56,6 +64,10 @@ impl Config {
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| DEV_JWT_SECRET.to_string());
 
+        let jwt_secret_prev = env_string("JWT_SECRET_PREV");
+
+        let hash_pepper = env_string("HASH_PEPPER").unwrap_or_else(|| jwt_secret.clone());
+
         let otp_ttl_seconds = std::env::var("OTP_TTL_SECONDS")
             .ok()
             .and_then(|value| value.parse().ok())
@@ -88,6 +100,8 @@ impl Config {
             port,
             database_url,
             jwt_secret,
+            jwt_secret_prev,
+            hash_pepper,
             otp_ttl_seconds,
             jwt_ttl_seconds,
             dev_otp_code,

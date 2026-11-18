@@ -447,7 +447,7 @@ pub async fn create_invitation(
     ensure_capacity(&mut tx, auth.tenant_id, nata_domain::plan::Resource::Users).await?;
 
     let token = secret::random_token();
-    let token_hash = secret::hash(&state.jwt.secret, &token);
+    let token_hash = secret::hash(&state.hash_pepper, &token);
     let expires_at = Utc::now() + Duration::days(INVITATION_TTL_DAYS);
 
     let row: Result<(Uuid, DateTime<Utc>), sqlx::Error> = sqlx::query_as(
@@ -551,7 +551,7 @@ pub async fn accept_invitation(
     Json(body): Json<AcceptInvitationBody>,
 ) -> Result<Json<AuthResponse>, ApiError> {
     let db = state.db()?;
-    let token_hash = secret::hash(&state.jwt.secret, &body.token);
+    let token_hash = secret::hash(&state.hash_pepper, &body.token);
 
     let row: Option<InvitationLookupRow> = sqlx::query_as(
         "select id, tenant_id, email, phone, role, status, expires_at, invited_by

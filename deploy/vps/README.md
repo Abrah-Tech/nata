@@ -147,7 +147,44 @@ ssh root@VPS 'pg_dump "$MIGRATE_DATABASE_URL" -Fc -f /root/nata-$(date +%F).dump
 
 ---
 
-## 4. Catatan
+## 4. Rotasi `JWT_SECRET`
+
+Ganti secret saat bocor atau saat ganti kredensial, bukan karena ada jadwal.
+API menerima dua secret sekaligus: secret sekarang dipakai untuk menandatangani
+token baru, secret sebelumnya masih diterima selama masa hidup token
+(`JWT_TTL_SECONDS`, default 24 jam). Jadi rotasi tidak mengeluarkan semua orang.
+
+```bash
+# di VPS, atas nama root
+SECRET_LAMA=$(grep '^JWT_SECRET=' /etc/nata.env | cut -d= -f2-)
+SECRET_BARU=$(openssl rand -hex 32)
+
+sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$SECRET_BARU|" /etc/nata.env
+if grep -q '^JWT_SECRET_PREV=' /etc/nata.env; then
+  sed -i "s|^JWT_SECRET_PREV=.*|JWT_SECRET_PREV=$SECRET_LAMA|" /etc/nata.env
+else
+  echo "JWT_SECRET_PREV=$SECRET_LAMA" >> /etc/nata.env
+fi
+
+systemctl restart nata-api
+```
+
+Token yang diterbitkan sebelum rotasi tetap dipakai sampai habis masa hidupnya;
+token baru ditandatangani dengan secret baru. Kalau `HASH_PEPPER` belum diset,
+set it juga sekarang — tanpa itu, code OTP dan undangan yang masih pending ikut
+hangus tiap rotasi.
+
+Setelah satu `JWT_TTL_SECONDS` lewat (dan semua token lama mati), hapus
+`JWT_SECRET_PREV` lalu restart. Biarkan keduanya sama-sama ada selamanya
+berarti secret lama tetap bisa dipakai membuat token baru, yang membatalkan
+tujuan rotasi.
+
+Kalau `JWT_SECRET_PREV` sama dengan `JWT_SECRET`, API menulis peringatan dan
+mengabaikan salah satunya.
+
+---
+
+## 5. Catatan
 
 - **Tanpa Docker**: host VPS tidak punya Docker. Binary Rust + nginx native.
 - **Migrasi tidak otomatis saat API start**: `main` tidak memanggil

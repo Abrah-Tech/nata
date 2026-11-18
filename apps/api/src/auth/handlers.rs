@@ -107,7 +107,7 @@ pub async fn request_otp(
     }
 
     let code = dev_code(&state).unwrap_or_else(otp::generate_code);
-    let code_hash = secret::hash(&state.jwt.secret, &code);
+    let code_hash = secret::hash(&state.hash_pepper, &code);
     let expires_at = Utc::now() + Duration::seconds(state.otp_ttl_seconds);
 
     sqlx::query("insert into otp_codes (contact, code_hash, expires_at) values ($1, $2, $3)")
@@ -157,7 +157,7 @@ pub async fn verify_otp(
         return Err(ApiError::TooManyRequests("too_many_attempts"));
     }
 
-    if secret::hash(&state.jwt.secret, &body.code) != code_hash {
+    if secret::hash(&state.hash_pepper, &body.code) != code_hash {
         sqlx::query("update otp_codes set attempts = attempts + 1 where id = $1")
             .bind(otp_id)
             .execute(&mut *tx)
