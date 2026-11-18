@@ -732,7 +732,9 @@ export const id: Dictionary = {
       stockIn: "Stok masuk",
       types: {
         purchase: "Pembelian",
+        production: "Produksi",
         production_use: "Pemakaian produksi",
+        sale: "Penjualan",
         waste: "Limbah",
         expired: "Expired",
         adjustment: "Penyesuaian",

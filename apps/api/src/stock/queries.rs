@@ -37,8 +37,15 @@ pub struct StockLevelView {
 #[derive(Debug, Serialize)]
 pub struct MovementView {
     pub id: Uuid,
-    pub batch_id: Uuid,
-    pub material_id: Uuid,
+    /// Material batch; null for a finished-goods movement.
+    pub batch_id: Option<Uuid>,
+    pub material_id: Option<Uuid>,
+    pub material_name: Option<String>,
+    pub unit_code: Option<String>,
+    /// Finished-goods batch; null for a material movement.
+    pub product_batch_id: Option<Uuid>,
+    pub product_id: Option<Uuid>,
+    pub product_name: Option<String>,
     #[serde(rename = "type")]
     pub movement_type: String,
     pub qty: Decimal,
@@ -57,6 +64,8 @@ pub struct BatchFilter {
 pub struct MovementFilter {
     pub material_id: Option<Uuid>,
     pub batch_id: Option<Uuid>,
+    pub product_id: Option<Uuid>,
+    pub product_batch_id: Option<Uuid>,
     pub limit: Option<i64>,
 }
 
@@ -74,8 +83,13 @@ type OnHandRow = (
 
 type MovementRow = (
     Uuid,
-    Uuid,
-    Uuid,
+    Option<Uuid>,
+    Option<Uuid>,
+    Option<String>,
+    Option<String>,
+    Option<Uuid>,
+    Option<Uuid>,
+    Option<String>,
     String,
     Decimal,
     Option<Decimal>,
@@ -100,6 +114,23 @@ async fn ensure_material(
 
     row.map(|_| ())
         .ok_or(ApiError::NotFound("material_not_found"))
+}
+
+/// Same contract as `ensure_material`, for a finished-goods filter.
+async fn ensure_product(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant_id: Uuid,
+    product_id: Uuid,
+) -> Result<(), ApiError> {
+    let row: Option<(Uuid,)> =
+        sqlx::query_as("select id from products where id = $1 and tenant_id = $2 and is_active")
+            .bind(product_id)
+            .bind(tenant_id)
+            .fetch_optional(&mut **tx)
+            .await?;
+
+    row.map(|_| ())
+        .ok_or(ApiError::NotFound("product_not_found"))
 }
 
 pub async fn on_hand(
@@ -219,21 +250,37 @@ pub async fn list_movements(
     if let Some(material_id) = filter.material_id {
         ensure_material(&mut tx, auth.tenant_id, material_id).await?;
     }
+    if let Some(product_id) = filter.product_id {
+        ensure_product(&mut tx, auth.tenant_id, product_id).await?;
+    }
 
+    // A movement points at exactly one ledger, so the other side is null. The
+    // trail is one list on purpose: a production run shows both the material it
+    // consumed and the finished batch it produced.
     let rows: Vec<MovementRow> = sqlx::query_as(
-        "select mv.id, mv.batch_id, b.material_id, mv.type, mv.qty, mv.unit_cost,
-                mv.note, mv.created_by, mv.created_at
+        "select mv.id, mv.batch_id, b.material_id, m.name as material_name,
+                u.code as unit_code,
+                mv.product_batch_id, pb.product_id, p.name as product_name,
+                mv.type, mv.qty, mv.unit_cost, mv.note, mv.created_by, mv.created_at
          from stock_movements mv
-         join material_batches b on b.id = mv.batch_id
+         left join material_batches b on b.id = mv.batch_id
+         left join materials m on m.id = b.material_id
+         left join units u on u.id = m.base_unit_id
+         left join product_batches pb on pb.id = mv.product_batch_id
+         left join products p on p.id = pb.product_id
          where mv.tenant_id = $1
            and ($2::uuid is null or b.material_id = $2)
            and ($3::uuid is null or mv.batch_id = $3)
+           and ($4::uuid is null or pb.product_id = $4)
+           and ($5::uuid is null or mv.product_batch_id = $5)
          order by mv.created_at desc, mv.id desc
-         limit $4",
+         limit $6",
     )
     .bind(auth.tenant_id)
     .bind(filter.material_id)
     .bind(filter.batch_id)
+    .bind(filter.product_id)
+    .bind(filter.product_batch_id)
     .bind(limit)
     .fetch_all(&mut *tx)
     .await?;
@@ -247,24 +294,32 @@ pub async fn list_movements(
                     id,
                     batch_id,
                     material_id,
+                    material_name,
+                    unit_code,
+                    product_batch_id,
+                    product_id,
+                    product_name,
                     movement_type,
                     qty,
                     unit_cost,
                     note,
                     created_by,
                     created_at,
-                )| {
-                    MovementView {
-                        id,
-                        batch_id,
-                        material_id,
-                        movement_type,
-                        qty,
-                        unit_cost,
-                        note,
-                        created_by,
-                        created_at,
-                    }
+                )| MovementView {
+                    id,
+                    batch_id,
+                    material_id,
+                    material_name,
+                    unit_code,
+                    product_batch_id,
+                    product_id,
+                    product_name,
+                    movement_type,
+                    qty,
+                    unit_cost,
+                    note,
+                    created_by,
+                    created_at,
                 },
             )
             .collect(),

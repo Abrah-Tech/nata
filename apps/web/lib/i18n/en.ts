@@ -731,7 +731,9 @@ export const en = {
       stockIn: "Stock in",
       types: {
         purchase: "Purchase",
+        production: "Production",
         production_use: "Production use",
+        sale: "Sale",
         waste: "Waste",
         expired: "Expired",
         adjustment: "Adjustment",
