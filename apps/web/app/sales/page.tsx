@@ -497,7 +497,7 @@ export default function SalesPage() {
                               {products.map((product) => (
                                 <option key={product.id} value={product.id}>
                                   {product.name} ·{" "}
-                                  {formatQty(product.stock_qty, locale)}
+                                  {formatQty(product.sellable_qty, locale)}
                                 </option>
                               ))}
                             </Select>

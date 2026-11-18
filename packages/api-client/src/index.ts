@@ -50,7 +50,10 @@ export type Product = {
   sell_price: string;
   /** Days from production until a batch expires; null means it does not. */
   shelf_life_days: number | null;
+  /** Cache of every non-empty batch, including expired stock. */
   stock_qty: string;
+  /** Stock that can still be sold: quantity left and not past expiry. */
+  sellable_qty: string;
   /** Null until the product has a recipe; such a product cannot be produced. */
   current_recipe_id: string | null;
   current_recipe_version: number | null;
@@ -121,7 +124,10 @@ export type ProductionPreview = {
   product_id: string;
   product_name: string;
   sell_price: string;
+  /** Cache of every non-empty batch; `sellable_qty` is what FEFO can ship. */
   stock_qty: string;
+  /** Stock that can still be sold, computed from the batch ledger. */
+  sellable_qty: string;
   recipe_id: string;
   recipe_version: number;
   yield_qty: string;

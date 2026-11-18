@@ -514,6 +514,49 @@ async fn product_batches_never_leak_across_tenants(pool: PgPool) {
     assert_eq!(rows[0].1.to_string(), "10.000");
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_product_list_reports_sellable_stock(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let cake = product(&app, token, "Bolu pandan", None).await;
+    add_batch(
+        &pool,
+        cake,
+        &date_from_now(-1),
+        Some(&date_from_now(5)),
+        "10",
+        Some("10000"),
+    )
+    .await;
+    add_batch(
+        &pool,
+        cake,
+        &date_from_now(-10),
+        Some(&date_from_now(-1)),
+        "4",
+        Some("10000"),
+    )
+    .await;
+
+    let (status, products) = call(&app, "GET", "/products", None, Some(token)).await;
+    assert_eq!(status, StatusCode::OK, "{products}");
+
+    let row = products
+        .as_array()
+        .expect("products")
+        .iter()
+        .find(|row| row["id"].as_str() == Some(&cake.to_string()))
+        .expect("product");
+    assert_eq!(row["stock_qty"], "14.000", "the cache counts every batch");
+    assert_eq!(
+        row["sellable_qty"], "10.000",
+        "a batch past its expiry date is not sellable"
+    );
+}
+
 fn dec(value: &str) -> Decimal {
     value.parse().expect("decimal")
 }
