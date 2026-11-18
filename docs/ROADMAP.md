@@ -69,6 +69,7 @@ clear before any of them can be drawn, so keep them out of a phase gate.
 | 03 · Batch & FEFO | `product_batches`, FEFO sale allocation, `/stock/product-batches`, `/stock/product-corrections` | Batch list with expiry and remaining quantity, correction form (waste / expired / adjustment) |
 | 09 · Alert WhatsApp | `alert_rules`, `/alert-rules`, `/alerts`, `alert_job`, `alert_delivery` | Digest preview, open versus resolved history, rule editor (H-7/H-3, low stock, channel) |
 | 10 · Tim & Langganan | `memberships`, invitations, plan limits, billing | Member list with roles, invite form, plan and subscription status |
+| 12 · Pengaturan (suggested) | `audit_logs`, `/audit-logs`, `nata_db::audit::record` | Who changed a role, revoked an invitation, deleted or verified a payment, or moved the labor rate — newest first, owner-only |
 
 Do not build these screens before their frame exists in the design file.
 
