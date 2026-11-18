@@ -10,10 +10,8 @@
 //! and row level security hides them from a tenant-scoped role. The write itself
 //! still runs inside a tenant-scoped transaction.
 
-use anyhow::{bail, Context};
-use chrono::{DateTime, NaiveDate, Utc};
-use nata_api::billing::activate;
-use nata_domain::plan::Plan;
+use anyhow::Context;
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -97,57 +95,16 @@ async fn list(pool: &PgPool) -> anyhow::Result<()> {
 
 /// Marks a pending payment verified and extends the subscription.
 async fn verify(pool: &PgPool, id: Uuid, by: &str) -> anyhow::Result<()> {
-    let row: Option<(Uuid, String, NaiveDate, String)> =
-        sqlx::query_as("select tenant_id, plan, period_end, status from payments where id = $1")
-            .bind(id)
-            .fetch_optional(pool)
-            .await
-            .context("read the payment")?;
-
-    let (tenant_id, plan, period_end, status) = row.context("payment not found")?;
-
-    if status != "pending" {
-        bail!("payment is {status}; only a pending payment can be verified");
-    }
-
-    let plan = Plan::parse(&plan).context("the payment carries an unknown plan")?;
-
-    let mut tx = nata_db::begin_scoped(pool, Some(tenant_id), None).await?;
-
-    activate(&mut tx, tenant_id, plan, period_end)
+    let verified = nata_api::billing::verify_payment(pool, id, by)
         .await
-        .map_err(|error| anyhow::anyhow!("activate the subscription: {}", error.code()))?;
-
-    // Guarded on pending so two operators cannot both activate it.
-    let verified = sqlx::query(
-        "update payments
-         set status = 'verified', verified_at = now(), verified_by = $2
-         where id = $1 and status = 'pending'",
-    )
-    .bind(id)
-    .bind(by)
-    .execute(&mut *tx)
-    .await
-    .context("mark the payment verified")?
-    .rows_affected();
-
-    if verified == 0 {
-        bail!("payment was verified by another run");
-    }
-
-    let (name, paid_until): (String, Option<DateTime<Utc>>) =
-        sqlx::query_as("select name, paid_until from tenants where id = $1")
-            .bind(tenant_id)
-            .fetch_one(&mut *tx)
-            .await
-            .context("read the tenant")?;
-
-    tx.commit().await?;
+        .map_err(|error| anyhow::anyhow!("{}", error.code()))?;
 
     println!(
-        "verified {id} for {name}: plan={} paid_until={}",
-        plan.as_str(),
-        paid_until
+        "verified {id} for {}: plan={} paid_until={}",
+        verified.tenant,
+        verified.plan,
+        verified
+            .paid_until
             .map(|date| date.to_rfc3339())
             .unwrap_or_else(|| "-".to_string())
     );

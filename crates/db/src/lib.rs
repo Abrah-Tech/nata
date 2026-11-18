@@ -2,6 +2,7 @@
 
 pub mod alert_delivery;
 pub mod alerts;
+pub mod audit;
 
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use sqlx::{Postgres, Transaction};

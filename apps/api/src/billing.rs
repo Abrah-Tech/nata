@@ -18,11 +18,12 @@ use axum::{
 use chrono::{DateTime, Duration, Months, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use sqlx::{Postgres, Transaction};
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use nata_domain::billing::{access, ends_at, Access};
 use nata_domain::plan::Plan;
+use serde_json::json;
 
 use crate::auth::guard::{CanManageBilling, Require};
 use crate::{error::ApiError, AppState};
@@ -220,6 +221,23 @@ pub async fn create_payment(
     .fetch_one(&mut *tx)
     .await?;
 
+    nata_db::audit::record(
+        &mut tx,
+        auth.tenant_id,
+        Some(auth.user_id),
+        "billing.payment_created",
+        "payment",
+        Some(payment.id),
+        Some(json!({
+            "amount": payment.amount.to_string(),
+            "method": payment.method,
+            "plan": payment.plan,
+            "period_start": payment.period_start,
+            "period_end": payment.period_end,
+        })),
+    )
+    .await?;
+
     tx.commit().await?;
 
     Ok((StatusCode::CREATED, Json(payment)))
@@ -235,21 +253,38 @@ pub async fn delete_payment(
     let db = state.db()?;
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
-    let deleted = sqlx::query(
-        "delete from payments
-         where id = $1 and tenant_id = $2 and status = 'pending'",
+    // Read before deleting: once the row is gone, the audit entry is the only
+    // place the amount and the plan survive.
+    let payment: Option<(Decimal, String)> = sqlx::query_as(
+        "select amount, plan from payments
+         where id = $1 and tenant_id = $2 and status = 'pending'
+         for update",
     )
     .bind(id)
     .bind(auth.tenant_id)
-    .execute(&mut *tx)
-    .await?
-    .rows_affected();
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    let (amount, plan) = payment.ok_or(ApiError::NotFound("payment_not_found"))?;
+
+    sqlx::query("delete from payments where id = $1 and tenant_id = $2")
+        .bind(id)
+        .bind(auth.tenant_id)
+        .execute(&mut *tx)
+        .await?;
+
+    nata_db::audit::record(
+        &mut tx,
+        auth.tenant_id,
+        Some(auth.user_id),
+        "billing.payment_deleted",
+        "payment",
+        Some(id),
+        Some(json!({ "amount": amount.to_string(), "plan": plan })),
+    )
+    .await?;
 
     tx.commit().await?;
-
-    if deleted == 0 {
-        return Err(ApiError::NotFound("payment_not_found"));
-    }
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -285,6 +320,86 @@ pub async fn activate(
     .await?;
 
     Ok(())
+}
+
+/// What the operator needs to print after a verification.
+pub struct VerifiedPayment {
+    pub tenant: String,
+    pub plan: String,
+    pub paid_until: Option<DateTime<Utc>>,
+}
+
+/// Verifies a pending payment and extends the subscription it buys.
+///
+/// Called by `bin/billing` today and by a gateway webhook later. The lookup is
+/// deliberately outside a tenant scope, because the operator has no tenant;
+/// the write then runs inside one. Verification is audited with a null actor:
+/// the operator is not a member, so the label is kept in the metadata.
+pub async fn verify_payment(
+    pool: &PgPool,
+    id: Uuid,
+    by: &str,
+) -> Result<VerifiedPayment, ApiError> {
+    let row: Option<(Uuid, String, NaiveDate, String)> =
+        sqlx::query_as("select tenant_id, plan, period_end, status from payments where id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
+
+    let (tenant_id, plan, period_end, status) =
+        row.ok_or(ApiError::NotFound("payment_not_found"))?;
+
+    if status != "pending" {
+        return Err(ApiError::Conflict("payment_not_pending"));
+    }
+
+    let plan = Plan::parse(&plan)
+        .ok_or_else(|| ApiError::Internal(anyhow::anyhow!("unknown plan {plan}")))?;
+
+    let mut tx = nata_db::begin_scoped(pool, Some(tenant_id), None).await?;
+
+    activate(&mut tx, tenant_id, plan, period_end).await?;
+
+    // Guarded on pending so two operators cannot both activate it.
+    let verified = sqlx::query(
+        "update payments
+         set status = 'verified', verified_at = now(), verified_by = $2
+         where id = $1 and status = 'pending'",
+    )
+    .bind(id)
+    .bind(by)
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+
+    if verified == 0 {
+        return Err(ApiError::Conflict("payment_already_verified"));
+    }
+
+    nata_db::audit::record(
+        &mut tx,
+        tenant_id,
+        None,
+        "billing.payment_verified",
+        "payment",
+        Some(id),
+        Some(json!({ "by": by, "plan": plan.as_str(), "period_end": period_end })),
+    )
+    .await?;
+
+    let (tenant, paid_until): (String, Option<DateTime<Utc>>) =
+        sqlx::query_as("select name, paid_until from tenants where id = $1")
+            .bind(tenant_id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+    tx.commit().await?;
+
+    Ok(VerifiedPayment {
+        tenant,
+        plan: plan.as_str().to_string(),
+        paid_until,
+    })
 }
 
 pub fn routes() -> Router<AppState> {
