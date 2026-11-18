@@ -51,6 +51,19 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
+      # The restore drill runs against the same Postgres service, so it cannot
+      # rot unnoticed. sqlx-cli writes the same SHA-384 checksums as the sqlx
+      # the workspace builds on, so the migrated fixture is one `nata_db::migrate`
+      # would accept.
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres --locked
+
+      - name: Apply migrations
+        run: sqlx migrate run
+
+      - name: Backup restore drill
+        run: deploy/vps/backup.sh --self-test
+
   web:
     runs-on: ubuntu-latest
     steps:
