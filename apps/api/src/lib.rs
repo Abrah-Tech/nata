@@ -42,6 +42,9 @@ pub struct AppState {
     /// Present only when `DATABASE_URL` is set and reachable at boot.
     pub db: Option<PgPool>,
     pub jwt: auth::JwtConfig,
+    /// Pepper for OTP codes and invitation tokens, kept apart from the JWT
+    /// signing keys so rotating them does not invalidate pending codes.
+    pub hash_pepper: String,
     pub otp: Arc<dyn OtpSender>,
     pub otp_ttl_seconds: i64,
     pub jwt_ttl_seconds: i64,

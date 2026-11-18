@@ -58,12 +58,28 @@ impl CaptureOtp {
 }
 
 pub fn state(pool: PgPool, otp: CaptureOtp) -> AppState {
+    state_with_secrets(pool, otp, SECRET, None)
+}
+
+/// State whose signing secret is `current` and, when given, still accepts a
+/// token minted under `previous`. Used to test a rotation without restarting
+/// anything: the client keeps the token it already holds.
+pub fn state_with_secrets(
+    pool: PgPool,
+    otp: CaptureOtp,
+    current: &str,
+    previous: Option<&str>,
+) -> AppState {
+    let mut jwt = JwtConfig::new(current.to_string(), 3_600);
+
+    if let Some(previous) = previous {
+        jwt = jwt.with_previous(previous.to_string());
+    }
+
     AppState {
         db: Some(pool),
-        jwt: JwtConfig {
-            secret: SECRET.to_string(),
-            ttl_seconds: 3_600,
-        },
+        jwt,
+        hash_pepper: SECRET.to_string(),
         otp: Arc::new(otp),
         otp_ttl_seconds: 300,
         jwt_ttl_seconds: 3_600,
@@ -73,6 +89,15 @@ pub fn state(pool: PgPool, otp: CaptureOtp) -> AppState {
 
 pub fn test_app(pool: PgPool, otp: CaptureOtp) -> Router {
     router(state(pool, otp))
+}
+
+pub fn test_app_with_secrets(
+    pool: PgPool,
+    otp: CaptureOtp,
+    current: &str,
+    previous: Option<&str>,
+) -> Router {
+    router(state_with_secrets(pool, otp, current, previous))
 }
 
 pub async fn call(

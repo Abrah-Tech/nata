@@ -19,6 +19,26 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!("JWT_SECRET is not set, using the development secret");
     }
 
+    if config.hash_pepper == config.jwt_secret {
+        tracing::warn!(
+            "HASH_PEPPER is not set: OTP and invitation hashes share JWT_SECRET, \
+             so rotating the signing secret invalidates pending ones"
+        );
+    }
+
+    let mut jwt = JwtConfig::new(config.jwt_secret.clone(), config.jwt_ttl_seconds);
+
+    match config.jwt_secret_prev.as_deref() {
+        Some(previous) if previous == config.jwt_secret => {
+            tracing::warn!("JWT_SECRET_PREV equals JWT_SECRET; the rotation window is a no-op");
+        }
+        Some(previous) => {
+            tracing::info!("accepting the previous JWT secret until its tokens expire");
+            jwt = jwt.with_previous(previous.to_string());
+        }
+        None => {}
+    }
+
     if config.dev_otp_code.is_some() {
         if cfg!(debug_assertions) {
             tracing::warn!("DEV_OTP_CODE is set: any contact can sign in with the fixed code");
@@ -48,10 +68,8 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState {
         db,
-        jwt: JwtConfig {
-            secret: config.jwt_secret,
-            ttl_seconds: config.jwt_ttl_seconds,
-        },
+        jwt,
+        hash_pepper: config.hash_pepper.clone(),
         otp,
         otp_ttl_seconds: config.otp_ttl_seconds,
         jwt_ttl_seconds: config.jwt_ttl_seconds,

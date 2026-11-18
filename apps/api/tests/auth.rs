@@ -1,7 +1,10 @@
 mod common;
 
 use axum::http::StatusCode;
-use common::{call, login, signup, state, tenant_of, test_app, user_of, CaptureOtp};
+use common::{
+    call, login, signup, state, tenant_of, test_app, test_app_with_secrets, user_of, CaptureOtp,
+    SECRET,
+};
 use nata_api::router;
 use serde_json::json;
 use sqlx::PgPool;
@@ -201,6 +204,75 @@ async fn selecting_a_foreign_tenant_is_forbidden(pool: PgPool) {
     .await;
 
     assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+/// Rotating `JWT_SECRET` must not log anyone out: a token minted under the
+/// previous secret keeps working until it expires, new tokens are signed by the
+/// current one, and a secret the config never held is still refused.
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_rotated_signing_secret_keeps_existing_sessions(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let before = test_app(pool.clone(), otp.clone());
+
+    let body = signup(&before, &otp, "rotate@example.test").await;
+    let old_token = body["access_token"].as_str().expect("token").to_string();
+
+    let after = test_app_with_secrets(pool.clone(), otp.clone(), "rotated-secret", Some(SECRET));
+
+    let (status, me) = call(&after, "GET", "/me", None, Some(&old_token)).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a token issued before the rotation must keep working: {me}"
+    );
+
+    let body = login(&after, &otp, "rotate@example.test").await;
+    let new_token = body["access_token"].as_str().expect("token").to_string();
+    assert_ne!(new_token, old_token);
+
+    let (status, me) = call(&after, "GET", "/me", None, Some(&new_token)).await;
+    assert_eq!(status, StatusCode::OK, "{me}");
+    assert_eq!(me["role"], "owner");
+
+    let stranger = test_app_with_secrets(pool, otp.clone(), "stranger", None);
+    let body = signup(&stranger, &otp, "stranger@example.test").await;
+    let stranger_token = body["access_token"].as_str().expect("token");
+
+    let (status, response) = call(&after, "GET", "/me", None, Some(stranger_token)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(response["error"]["code"], "invalid_token");
+}
+
+/// The pepper for OTP codes and invitation tokens is separate from the signing
+/// secret, so a rotation cannot invalidate a code that is still inside its TTL.
+#[sqlx::test(migrations = "../../migrations")]
+async fn rotating_the_signing_secret_does_not_invalidate_a_pending_code(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let before = test_app(pool.clone(), otp.clone());
+
+    let (status, _) = call(
+        &before,
+        "POST",
+        "/auth/otp/request",
+        Some(json!({ "contact": "pepper@example.test" })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let code = otp.last_code();
+
+    let after = test_app_with_secrets(pool, otp.clone(), "rotated-secret", Some(SECRET));
+
+    let (status, body) = call(
+        &after,
+        "POST",
+        "/auth/otp/verify",
+        Some(json!({ "contact": "pepper@example.test", "code": code })),
+        None,
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
 }
 
 /// The number people actually type is the local one. It must land on the
