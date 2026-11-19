@@ -131,7 +131,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
 
   return (
     <div className="min-h-dvh min-[961px]:grid min-[961px]:grid-cols-[246px_minmax(0,1fr)]">
-      <aside className="hidden min-[961px]:sticky min-[961px]:top-0 min-[961px]:flex min-[961px]:h-dvh min-[961px]:flex-col min-[961px]:gap-4 min-[961px]:overflow-y-auto min-[961px]:border-r min-[961px]:border-border min-[961px]:bg-surface min-[961px]:p-[18px]">
+      <aside className="hidden min-[961px]:sticky min-[961px]:top-0 min-[961px]:flex min-[961px]:h-dvh min-[961px]:flex-col min-[961px]:gap-4 min-[961px]:overflow-y-auto min-[961px]:overscroll-contain min-[961px]:border-r min-[961px]:border-border min-[961px]:bg-surface min-[961px]:p-[18px]">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-[9px] bg-brand text-white">
             <ChefHat size={17} />
@@ -268,7 +268,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <Link
           href="/dashboard"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[22px] text-[9px] font-semibold text-ink-3 no-underline",
+            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
             active === "overview" && "bg-brand-soft font-bold text-brand",
           )}
         >
@@ -278,7 +278,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <Link
           href="/stock"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[22px] text-[9px] font-semibold text-ink-3 no-underline",
+            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
             active === "stock" && "bg-brand-soft font-bold text-brand",
           )}
         >
@@ -288,7 +288,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <Link
           href="/production"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[22px] text-[9px] font-semibold text-ink-3 no-underline",
+            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
             active === "production" && "bg-brand-soft font-bold text-brand",
           )}
         >
@@ -296,7 +296,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           <span>{t.nav.mobileProduction}</span>
         </Link>
         <span
-          className="flex flex-col items-center justify-center gap-0.5 rounded-[22px] text-[9px] font-semibold text-ink-3 opacity-50"
+          className="flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 opacity-50"
           aria-disabled="true"
         >
           <MessageCircle size={18} />
