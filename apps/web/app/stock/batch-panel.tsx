@@ -192,7 +192,14 @@ export function BatchPanel({
             </h3>
 
             {movements === null && (
-              <p className="text-xs text-ink-3" aria-busy="true">
+              <p
+                className="text-xs text-ink-3"
+                role="status"
+                aria-busy="true"
+              >
+                <span className="sr-only">
+                  {t.stock.panel.loadingMovements}
+                </span>
                 …
               </p>
             )}

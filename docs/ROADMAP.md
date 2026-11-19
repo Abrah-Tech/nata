@@ -118,11 +118,47 @@ keeps `gap-4.5` from `sm` up. The tap highlight is one global reset in
 `apps/web/app/globals.css` rather than a class per control, so every current and
 future control gets it. The nav items are `rounded-[21px]`; the dialog, batch
 panel, and desktop aside are `overscroll-contain`; the login `Check` icons are
-`strokeWidth={2.5}`; and the button transition names `scale`. A separate
-`better-accessibility` pass still owns the raw login buttons with no
-`focus-visible` ring, `role="tablist"` without `aria-controls`/`tabpanel`, the
-disabled-state divergence at `apps/web/app/login/page.tsx:394`, and the
-`box-shadow` focus rings under forced-colors.
+`strokeWidth={2.5}`; and the button transition names `scale`.
+
+### Accessibility backlog
+
+Audit 2026-11-19 against `apps/web`, following the UI polish pass. Verdict was
+**Block** on two `HIGH` findings; both are fixed on `fix/web-accessibility`
+(2026-11-19) and the pass is re-run as **Approve**. Principles come from
+`better-accessibility`: native elements first, `aria-disabled` only where the
+control must stay focusable, `:focus-visible` over `:focus`, validate on submit
+instead of disabling the button, a stable live region rather than one that
+mounts with its text, and one visible `<main>` per screen.
+
+| Severity | Location | Before | After | Why |
+| --- | --- | --- | --- | --- |
+| HIGH | `apps/web/app/sales/page.tsx:611` | `<input type="file" accept=".csv,text/csv" required>` inside a form with no label, `aria-label` or `aria-labelledby` | `aria-label={t.sales.import.chooseFile}` (new key), `name="file"`, `aria-invalid`/`aria-describedby` on the inline error, and the input is focused when validation fails | 4.1.2 Name, Role, Value (A): the control had no accessible name, so a screen reader announced only "file" |
+| HIGH | `apps/web/app/stock/page.tsx:626`, `:634` | Search input with `outline-none border-0`; the wrapper only changed border on hover, so keyboard focus drew nothing but the caret | `focus-within:border-brand focus-within:shadow-[0_0_0_3px_var(--brand-soft)]` on the wrapper | 2.4.11 / 1.4.11 (AA) and the skill's missing-focus-indicator trigger |
+| MEDIUM | `apps/web/app/app-shell.tsx:132`, `:264`, `:275` | No `<main>` landmark and no skip link; the mobile nav links had no `aria-current`; the two "coming soon" items carried `aria-disabled` on a `<span>` that was never focusable, so their `title` tooltip was pointer-only | `<main id="main" tabIndex={-1}>` around the content, a `.skip-link` as the first focusable element, `aria-current="page"` on the active mobile link, and the coming-soon items are `role="link"`, `tabIndex={0}`, `aria-disabled` with an `sr-only` reason | 2.4.1 Bypass Blocks, 4.1.2, and the skill's disabled-tooltip rule: keyboard and screen-reader users could not reach the reason |
+| MEDIUM | `apps/web/app/stock/page.tsx:586`-`624` | `role="tablist"` with no `aria-controls`, no `tabpanel`, no `tabIndex` roving, and no key handler; only Tab and click worked | `id`/`aria-controls`/`role="tabpanel"` with `aria-labelledby`, roving `tabIndex`, and ArrowLeft/Right/Up/Down/Home/End with automatic activation | 2.1.1 Keyboard and the APG tabs pattern |
+| MEDIUM | `apps/web/app/stock/page.tsx:554`, `apps/web/app/settings/page.tsx:291`, `apps/web/app/products/page.tsx:194`, `apps/web/app/sales/page.tsx:394`, `apps/web/app/login/page.tsx:409`, `apps/web/app/stock/page.tsx:460`, `apps/web/app/onboarding/page.tsx:191`, `:311`, `apps/web/app/sales/page.tsx:643` | `{message && <… role="status">}` mounted at the same moment as its text, so repeated announcements get dropped | A shared `components/status.tsx` renders the `role="status"` node on every paint and only swaps its text; the sales import result and the onboarding result use an always-mounted region; the offline queue is announced from a stable `sr-only` line instead of the section that appears and disappears | 4.1.3 Status Messages and the skill's stable-region rule |
+| MEDIUM | `apps/web/app/login/page.tsx:313`, `:373`, `:68`, `:88` | Submit was `disabled` until the form was valid and the handlers returned silently, so an empty submit did nothing visible; two `<h1>`s rendered at `lg`; the raw Change/Resend/tenant buttons and the mailto link had no focus ring | Submit stays enabled and validates on submit with `aria-invalid`, `aria-describedby`, and focus on the failing field; the brand heading is a styled `<p>`; every raw control gets `focus-visible:outline-2 … outline-brand` | 3.3.1 Error Identification, 2.4.7 Focus Visible, and the skill's one-heading outline rule |
+| MEDIUM | `apps/web/app/production/page.tsx:412`, `:613`, `apps/web/app/settings/page.tsx:395`, `:572`, `apps/web/app/stock/material-dialog.tsx:163`, `apps/web/app/stock/stock-in-dialog.tsx:266`, `apps/web/app/products/product-dialog.tsx:154`, `apps/web/app/products/recipe-dialog.tsx:361`, `apps/web/app/sales/page.tsx:572`, `:624`, `apps/web/app/login/page.tsx:313`, `:373`, `:393` | `disabled` was set while the request was in flight, which drops focus to `<body>` on the button the user just activated | `aria-disabled="true"` plus `aria-busy="true"` (styled in the `buttonVariants` base) with a guard at the top of the handler; genuinely unavailable states keep native `disabled` | The skill's submit-behaviour rule: the button keeps focus and a repeat click is blocked in code |
+| MEDIUM | `apps/web/app/layout.tsx` | No `document.title` or focus handling on a client-side route change | A `RouteAnnouncer` client component sets the title from the pathname and moves focus to `#main`, skipping the first paint and locale-only changes | 2.4.3 Focus Order and the skill's SPA route-change recipe |
+| MEDIUM | `apps/web/app/products/page.tsx:317`, `:328`, `apps/web/app/sales/page.tsx:537`, `apps/web/app/products/recipe-dialog.tsx:340`, `apps/web/app/stock/page.tsx:525`, `:537` | Icon-only buttons announced a generic action ("Edit", "Retry"), so two rows sounded identical | Named labels from new `*Named` keys, falling back to the generic string when the row has no selection | 4.1.2 and the skill's accessible-names rule |
+| MEDIUM | `apps/web/app/stock/page.tsx:708` | The `role="table"` grid had a header only above `sm`; on mobile the three visible columns had no header, and the desktop row ended with a `role="columnheader" aria-hidden="true"` spacer | A mobile-only header row matching the three mobile columns, and the contradictory spacer removed | 1.3.1 Info and Relationships |
+| MEDIUM | `apps/web/components/ui/field.tsx` | The hint sat inside the wrapping `<label>`, so it became part of the control's accessible name instead of its description | The hint moved outside the label and is referenced through a new `hintId` prop; the six call sites pass `aria-describedby` | 4.1.2 and the skill's label/hint rule |
+| LOW | `apps/web/app/globals.css` | No `.skip-link` and no `forced-colors` handling; several focus rings are `box-shadow`, which forced-colors mode removes | `.skip-link` in the components layer, and an unlayered `@media (forced-colors: active)` block that restores a `Highlight` outline on everything focusable except `main` | 2.4.7 and the skill's forced-colors rule |
+| LOW | `apps/web/app/login/otp-input.tsx:93` | Bare `focus:` on the cells, `one-time-code` on all six, and no `name` | `focus-visible:`; `one-time-code` and `name="otp"` on the first cell only, plus an imperative `focus(index)` handle for the form | 2.4.7 and the skill's autocomplete/name rule |
+| LOW | `apps/web/app/stock/batch-panel.tsx:195` | `<p aria-busy="true">…</p>` announced "busy" with no words | `role="status"` with an `sr-only` label from the new `t.stock.panel.loadingMovements` | 4.1.3 and the skill's live-region rule |
+| LOW | `apps/web/components/ui/dialog.tsx:39`, `:68` | `outline-none` with no replacement on the dialog containers | `focus-visible:outline-2 … outline-brand`; Radix moves focus to the first control inside, which draws its own ring | 2.4.7 and the skill's no-bare-outline rule |
+| LOW | `apps/web/app/products/page.tsx:262` | The recipe disclosure had `aria-expanded` but no `aria-controls`, so the region it toggles was not associated | `aria-controls={`recipe-${product.id}`}` and the matching `id` on the region | 4.1.2 and the APG disclosure pattern |
+
+**Verified from code:** `bun run --filter web typecheck` and
+`bun run --filter web build` pass; `bun test apps/web/tests` is 6 pass, 0 fail.
+Every icon-only control in the audited screens now carries a name, all six
+`Field` hints are referenced by their control, and the only `role="status"`
+nodes left are the always-mounted ones.
+
+**Not verified:** no browser, screen reader, or forced-colors session was
+available, so the live-region announcements, the `aria-disabled` styling, the
+skip-link geometry, the mobile table header, and the focus move after a route
+change are read from the source rather than observed.
 
 ---
 

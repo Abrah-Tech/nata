@@ -34,6 +34,11 @@ export function MaterialDialog({ units, suppliers, onClose, onCreated }: Props) 
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (saving) return;
+
     setError(null);
 
     const token = readToken();
@@ -123,11 +128,17 @@ export function MaterialDialog({ units, suppliers, onClose, onCreated }: Props) 
             />
           </Field>
 
-          <Field label={t.stock.form.shelfLife} hint={t.stock.form.shelfLifeHint}>
+          <Field
+            label={t.stock.form.shelfLife}
+            hint={t.stock.form.shelfLifeHint}
+            hintId="material-shelf-life-hint"
+          >
             <Input
               type="number"
+              name="shelf_life"
               min={0}
               step={1}
+              aria-describedby="material-shelf-life-hint"
               value={shelfLife}
               onChange={(event) => setShelfLife(event.target.value)}
             />
@@ -154,7 +165,11 @@ export function MaterialDialog({ units, suppliers, onClose, onCreated }: Props) 
           <Button variant="ghost" type="button" onClick={onClose}>
             {t.stock.form.cancel}
           </Button>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            aria-disabled={saving ? true : undefined}
+            aria-busy={saving ? true : undefined}
+          >
             {saving ? t.stock.form.creating : t.stock.form.create}
           </Button>
         </div>

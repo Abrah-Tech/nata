@@ -131,6 +131,10 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
 
   return (
     <div className="min-h-dvh min-[961px]:grid min-[961px]:grid-cols-[246px_minmax(0,1fr)]">
+      <a href="#main" className="skip-link">
+        {t.common.skipToContent}
+      </a>
+
       <aside className="hidden min-[961px]:sticky min-[961px]:top-0 min-[961px]:flex min-[961px]:h-dvh min-[961px]:flex-col min-[961px]:gap-4 min-[961px]:overflow-y-auto min-[961px]:overscroll-contain min-[961px]:border-r min-[961px]:border-border min-[961px]:bg-surface min-[961px]:p-[18px]">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-[9px] bg-brand text-white">
@@ -184,12 +188,15 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
                 ) : (
                   <span
                     key={item.key}
+                    role="link"
+                    tabIndex={0}
                     className="flex cursor-default items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-ink-2 opacity-50"
                     title={t.nav.soon}
                     aria-disabled="true"
                   >
                     <item.icon size={16} />
                     <span>{item.label}</span>
+                    <span className="sr-only">{t.nav.soon}</span>
                   </span>
                 ),
               )}
@@ -256,9 +263,13 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           <LocaleSwitch />
         </header>
 
-        <div className="px-4 pt-4 pb-24 min-[961px]:px-7 min-[961px]:pt-6 min-[961px]:pb-10">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="px-4 pt-4 pb-24 min-[961px]:px-7 min-[961px]:pt-6 min-[961px]:pb-10"
+        >
           {children}
-        </div>
+        </main>
       </div>
 
       <nav
@@ -271,6 +282,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
             "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
             active === "overview" && "bg-brand-soft font-bold text-brand",
           )}
+          aria-current={active === "overview" ? "page" : undefined}
         >
           <LayoutDashboard size={18} />
           <span>{t.nav.mobileHome}</span>
@@ -281,6 +293,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
             "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
             active === "stock" && "bg-brand-soft font-bold text-brand",
           )}
+          aria-current={active === "stock" ? "page" : undefined}
         >
           <Package size={18} />
           <span>{t.nav.mobileStock}</span>
@@ -291,16 +304,21 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
             "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
             active === "production" && "bg-brand-soft font-bold text-brand",
           )}
+          aria-current={active === "production" ? "page" : undefined}
         >
           <ChefHat size={18} />
           <span>{t.nav.mobileProduction}</span>
         </Link>
         <span
+          role="link"
+          tabIndex={0}
           className="flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 opacity-50"
+          title={t.nav.soon}
           aria-disabled="true"
         >
           <MessageCircle size={18} />
           <span>{t.nav.mobileAlerts}</span>
+          <span className="sr-only">{t.nav.soon}</span>
         </span>
       </nav>
     </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { I18nProvider } from "@/lib/i18n";
 
+import { RouteAnnouncer } from "./route-announcer";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,10 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body>
-        <I18nProvider>{children}</I18nProvider>
+        <I18nProvider>
+          <RouteAnnouncer />
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

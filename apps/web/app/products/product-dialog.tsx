@@ -46,6 +46,11 @@ export function ProductDialog({ product, onClose, onSaved }: Props) {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (saving) return;
+
     setError(null);
 
     const token = readToken();
@@ -112,20 +117,32 @@ export function ProductDialog({ product, onClose, onSaved }: Props) {
             />
           </Field>
 
-          <Field label={t.products.form.sku} hint={t.products.form.skuHint}>
+          <Field
+            label={t.products.form.sku}
+            hint={t.products.form.skuHint}
+            hintId="product-sku-hint"
+          >
             <Input
               type="text"
+              name="sku"
               autoComplete="off"
+              aria-describedby="product-sku-hint"
               value={sku}
               onChange={(event) => setSku(event.target.value)}
             />
           </Field>
 
-          <Field label={t.products.form.price} hint={t.products.form.priceHint}>
+          <Field
+            label={t.products.form.price}
+            hint={t.products.form.priceHint}
+            hintId="product-price-hint"
+          >
             <Input
               type="text"
+              name="price"
               inputMode="decimal"
               autoComplete="off"
+              aria-describedby="product-price-hint"
               placeholder="0"
               value={price}
               onChange={(event) => setPrice(event.target.value)}
@@ -139,7 +156,11 @@ export function ProductDialog({ product, onClose, onSaved }: Props) {
           <Button variant="ghost" type="button" onClick={onClose}>
             {t.products.form.cancel}
           </Button>
-          <Button type="submit" disabled={saving}>
+          <Button
+            type="submit"
+            aria-disabled={saving ? true : undefined}
+            aria-busy={saving ? true : undefined}
+          >
             {saving
               ? t.products.form.saving
               : product

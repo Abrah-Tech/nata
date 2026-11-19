@@ -159,9 +159,37 @@
       "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+
+  /* `<main>` is where the route announcer puts focus after a client-side
+     navigation, so it is focusable but never a keyboard stop. A ring around the
+     whole page would be noise; the skip link is the visible indicator that
+     keyboard users get. */
+  main:focus {
+    outline: none;
+  }
 }
 
 @layer components {
+  /* The skip link is the first focusable element on every screen, but it only
+     exists for keyboard users, so it stays off-canvas until it is focused. */
+  .skip-link {
+    position: absolute;
+    inset-inline-start: -999px;
+    z-index: 60;
+    border-radius: var(--radius-md);
+    background: var(--brand);
+    color: #ffffff;
+    padding: 10px 16px;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .skip-link:focus {
+    inset-inline-start: 16px;
+    inset-block-start: 16px;
+  }
+
   /* Radix overlay, shared by every dialog. */
   .ui-overlay {
     background: oklch(0 0 0 / 0.28);
@@ -188,6 +216,19 @@
     .ui-sheet {
       animation: ui-fade-in 150ms ease-out;
     }
+  }
+}
+
+/* Forced-colors mode drops opacity and every box-shadow, so a control whose
+   focus ring is a shadow (the OTP cells, the search box) loses it, and the
+   `outline-none` those controls carry hides the system ring too. Restore a
+   system-colour outline on everything that can take focus. `main` is excluded:
+   the route announcer focuses it after navigation, and a ring around the whole
+   page is noise. Unlayered on purpose, so it wins over the utilities layer. */
+@media (forced-colors: active) {
+  :is(a, button, input, select, textarea, [tabindex]):focus-visible:not(main) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
   }
 }
 

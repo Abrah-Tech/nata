@@ -13,6 +13,7 @@ import {
   SkeletonForm,
   SkeletonList,
 } from "@/components/skeletons";
+import { StatusMessage } from "@/components/status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -187,6 +188,11 @@ export default function SettingsPage() {
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (saving) return;
+
     setError(null);
 
     const token = readToken();
@@ -288,14 +294,10 @@ export default function SettingsPage() {
               </p>
             </header>
 
-            {notice && (
-              <p
-                role="status"
-                className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
-              >
-                {notice}
-              </p>
-            )}
+            <StatusMessage
+              message={notice}
+              className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
+            />
 
             {load.status === "loading" && (
               <LoadingRegion
@@ -392,7 +394,11 @@ export default function SettingsPage() {
 
                 {canManage && (
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={saving}>
+                    <Button
+                      type="submit"
+                      aria-disabled={saving ? true : undefined}
+                      aria-busy={saving ? true : undefined}
+                    >
                       {saving ? t.settings.saving : t.settings.save}
                     </Button>
                   </div>
@@ -569,7 +575,11 @@ export default function SettingsPage() {
                     <span className="text-sm font-bold tabular-nums">
                       {t.settings.billing.total}: {formatMoney(total, locale)}
                     </span>
-                    <Button type="submit" disabled={paying}>
+                    <Button
+                      type="submit"
+                      aria-disabled={paying ? true : undefined}
+                      aria-busy={paying ? true : undefined}
+                    >
                       {paying
                         ? t.settings.billing.recording
                         : t.settings.billing.record}

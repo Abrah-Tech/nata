@@ -133,6 +133,11 @@ export default function ProductionPage() {
 
   async function runPreview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (busy !== null) return;
+
     setError(null);
 
     const token = readToken();
@@ -167,6 +172,7 @@ export default function ProductionPage() {
   }
 
   async function confirm() {
+    if (busy !== null) return;
     if (!preview || !preview.can_produce || !canWrite) return;
 
     const token = readToken();
@@ -409,7 +415,11 @@ export default function ProductionPage() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={busy !== null}>
+                    <Button
+                      type="submit"
+                      aria-disabled={busy !== null ? true : undefined}
+                      aria-busy={busy !== null ? true : undefined}
+                    >
                       {busy === "preview"
                         ? t.production.form.previewing
                         : t.production.form.preview}
@@ -603,9 +613,9 @@ export default function ProductionPage() {
                       <Button
                         type="button"
                         onClick={() => void confirm()}
-                        disabled={
-                          !preview.can_produce || !canWrite || busy !== null
-                        }
+                        disabled={!preview.can_produce || !canWrite}
+                        aria-disabled={busy !== null ? true : undefined}
+                        aria-busy={busy !== null ? true : undefined}
                       >
                         {busy === "save"
                           ? t.production.form.confirming

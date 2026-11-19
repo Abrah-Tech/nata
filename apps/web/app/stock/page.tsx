@@ -11,6 +11,7 @@ import { Ellipsis, Plus, RotateCcw, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { StatusMessage } from "@/components/status";
 import { LoadingRegion, SkeletonTable } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ export default function StockPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueuedStockIn[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const fetchData = useCallback(async () => {
     const token = readToken();
@@ -363,6 +365,42 @@ export default function StockPage() {
     setStockInFor(undefined);
   }
 
+  /**
+   * Roving tabindex for the filter tabs. The panel re-renders immediately, so
+   * moving between tabs activates them instead of waiting for a second Enter.
+   */
+  function moveTab(index: number) {
+    const next = (index + filterTabs.length) % filterTabs.length;
+    setFilter(filterTabs[next].key);
+    tabRefs.current[next]?.focus();
+  }
+
+  function onTabKeyDown(
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) {
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowUp":
+        event.preventDefault();
+        moveTab(index - 1);
+        break;
+      case "ArrowRight":
+      case "ArrowDown":
+        event.preventDefault();
+        moveTab(index + 1);
+        break;
+      case "Home":
+        event.preventDefault();
+        moveTab(0);
+        break;
+      case "End":
+        event.preventDefault();
+        moveTab(filterTabs.length - 1);
+        break;
+    }
+  }
+
   return (
     <>
       {session.status === "loading" && (
@@ -457,11 +495,16 @@ export default function StockPage() {
               </section>
             )}
 
+            {/* The queue itself comes and goes, so the count is announced from a
+                region that is always in the tree. */}
+            <p role="status" className="sr-only">
+              {queue.length > 0
+                ? fill(t.stock.offline.title, { count: queue.length })
+                : null}
+            </p>
+
             {queue.length > 0 && (
-              <section
-                aria-live="polite"
-                className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
-              >
+              <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-col gap-0.5">
                     <strong className="text-sm font-bold">
@@ -522,7 +565,10 @@ export default function StockPage() {
                               className="size-7 rounded-md"
                               type="button"
                               onClick={() => void retryQueued(entry.client_ref)}
-                              aria-label={t.stock.offline.retry}
+                              aria-label={fill(t.stock.offline.retryNamed, {
+                                name:
+                                  material?.name ?? entry.payload.material_id,
+                              })}
                             >
                               <RotateCcw size={14} />
                             </Button>
@@ -534,7 +580,10 @@ export default function StockPage() {
                               onClick={() =>
                                 void dismissQueued(entry.client_ref)
                               }
-                              aria-label={t.stock.offline.dismiss}
+                              aria-label={fill(t.stock.offline.dismissNamed, {
+                                name:
+                                  material?.name ?? entry.payload.material_id,
+                              })}
                             >
                               <X size={14} />
                             </Button>
@@ -551,14 +600,10 @@ export default function StockPage() {
               </section>
             )}
 
-            {notice && (
-              <p
-                role="status"
-                className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
-              >
-                {notice}
-              </p>
-            )}
+            <StatusMessage
+              message={notice}
+              className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
+            />
 
             {load.status === "loading" && (
               <LoadingRegion label={t.stock.loading}>
@@ -591,15 +636,22 @@ export default function StockPage() {
                     aria-label={t.stock.title}
                     className="flex gap-2 sm:gap-4.5"
                   >
-                    {filterTabs.map((tab) => {
+                    {filterTabs.map((tab, index) => {
                       const active = filter === tab.key;
 
                       return (
                         <button
                           key={tab.key}
+                          ref={(node) => {
+                            tabRefs.current[index] = node;
+                          }}
                           type="button"
                           role="tab"
+                          id={`stock-tab-${tab.key}`}
                           aria-selected={active}
+                          aria-controls="stock-panel"
+                          tabIndex={active ? 0 : -1}
+                          onKeyDown={(event) => onTabKeyDown(event, index)}
                           className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-1 pb-2 pt-0.5 text-sm whitespace-nowrap transition-colors duration-150 sm:flex-none sm:justify-start sm:px-0 ${
                             active
                               ? "border-brand font-bold text-ink"
@@ -623,7 +675,7 @@ export default function StockPage() {
                     })}
                   </div>
 
-                  <label className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-alt px-2.5 py-1.5 text-ink-3 hover:border-ink-3 sm:w-[220px]">
+                  <label className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-alt px-2.5 py-1.5 text-ink-3 transition-[border-color,box-shadow] duration-150 hover:border-ink-3 focus-within:border-brand focus-within:shadow-[0_0_0_3px_var(--brand-soft)] sm:w-[220px]">
                     <Search size={14} />
                     <input
                       type="search"
@@ -636,144 +688,174 @@ export default function StockPage() {
                   </label>
                 </div>
 
-                {data.stock.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 px-5 py-11 text-center">
-                    <h2 className="text-lg font-bold">{t.stock.empty.title}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {t.stock.empty.body}
-                    </p>
-                    {canWriteMaterials && (
-                      <div className="mt-1 flex flex-wrap justify-center gap-2">
-                        <Button
-                          type="button"
-                          onClick={() => setMaterialOpen(true)}
-                        >
-                          {t.stock.empty.cta}
-                        </Button>
-                        <Button variant="ghost" asChild>
-                          <Link href="/onboarding">{t.stock.empty.template}</Link>
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ) : visible.length === 0 ? (
-                  <p className="px-4 py-6 text-sm text-muted-foreground">
-                    {t.stock.empty.filtered}
-                  </p>
-                ) : (
-                  <div role="table" aria-label={t.stock.title}>
-                    <div
-                      role="row"
-                      className="hidden items-center gap-3 bg-surface-alt px-4 py-2.5 text-2xs font-bold tracking-wider text-ink-3 uppercase sm:grid sm:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px]"
-                    >
-                      <span role="columnheader">{t.stock.table.material}</span>
-                      <span role="columnheader">{t.stock.table.stock}</span>
-                      <span role="columnheader">{t.stock.table.min}</span>
-                      <span role="columnheader">{t.stock.table.batches}</span>
-                      <span role="columnheader">
-                        {t.stock.table.nearestExpiry}
-                      </span>
-                      <span role="columnheader">{t.stock.table.status}</span>
-                      <span role="columnheader">{t.stock.table.value}</span>
-                      <span role="columnheader" aria-hidden="true" />
-                    </div>
-
-                    {visible.map((row) => {
-                      const status = statusOf(row);
-
-                      return (
-                        <div
-                          role="row"
-                          key={row.material_id}
-                          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border px-3.5 py-3 text-sm last:border-b-0 sm:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px] sm:gap-3 sm:px-4"
-                        >
-                          <div
-                            role="cell"
-                            className="flex min-w-0 flex-col gap-px"
+                <div
+                  role="tabpanel"
+                  id="stock-panel"
+                  aria-labelledby={`stock-tab-${filter}`}
+                >
+                  {data.stock.length === 0 ? (
+                    <div className="flex flex-col items-center gap-2 px-5 py-11 text-center">
+                      <h2 className="text-lg font-bold">
+                        {t.stock.empty.title}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        {t.stock.empty.body}
+                      </p>
+                      {canWriteMaterials && (
+                        <div className="mt-1 flex flex-wrap justify-center gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => setMaterialOpen(true)}
                           >
-                            <button
-                              type="button"
-                              className="cursor-pointer text-left text-sm font-semibold text-ink transition-colors duration-150 hover:text-brand"
-                              onClick={() => setPanelId(row.material_id)}
-                            >
-                              {row.name}
-                            </button>
-                            <span className="truncate text-2xs text-ink-3">
-                              {supplierName(
-                                materialById.get(row.material_id)
-                                  ?.default_supplier_id ?? null,
-                              )}
-                            </span>
-                          </div>
-
-                          <div
-                            role="cell"
-                            className="flex items-baseline justify-self-end gap-1 sm:justify-self-auto"
-                          >
-                            <strong className="text-sm font-bold tabular-nums">
-                              {formatQty(row.on_hand, locale)}
-                            </strong>
-                            <span className="text-xs text-ink-3">
-                              {row.base_unit.code}
-                            </span>
-                          </div>
-
-                          <div
-                            role="cell"
-                            className="hidden text-xs text-ink-3 sm:block"
-                          >
-                            {formatQty(row.min_stock, locale)}{" "}
-                            {row.base_unit.code}
-                          </div>
-
-                          <div
-                            role="cell"
-                            className="hidden text-xs text-ink-2 sm:block"
-                          >
-                            {row.active_batches}
-                          </div>
-
-                          <div
-                            role="cell"
-                            className="hidden text-xs text-ink-2 sm:block"
-                          >
-                            {expiryLabel(row)}
-                          </div>
-
-                          <div role="cell">
-                            <Badge variant={status.tone}>{status.label}</Badge>
-                          </div>
-
-                          <div
-                            role="cell"
-                            className="hidden text-xs font-semibold tabular-nums sm:block"
-                          >
-                            {formatMoney(
-                              Number(row.on_hand) * Number(row.last_cost),
-                              locale,
-                            )}
-                          </div>
-
-                          <div
-                            role="cell"
-                            className="hidden justify-self-end sm:block"
-                          >
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-7 rounded-md"
-                              type="button"
-                              onClick={() => setPanelId(row.material_id)}
-                              aria-label={t.stock.panel.title}
-                            >
-                              <Ellipsis size={15} />
-                            </Button>
-                          </div>
+                            {t.stock.empty.cta}
+                          </Button>
+                          <Button variant="ghost" asChild>
+                            <Link href="/onboarding">
+                              {t.stock.empty.template}
+                            </Link>
+                          </Button>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  ) : visible.length === 0 ? (
+                    <p className="px-4 py-6 text-sm text-muted-foreground">
+                      {t.stock.empty.filtered}
+                    </p>
+                  ) : (
+                    <div role="table" aria-label={t.stock.title}>
+                      {/* The mobile grid shows three columns, so it needs its
+                          own header row; the desktop grid keeps the full one. */}
+                      <div
+                        role="row"
+                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-surface-alt px-3.5 py-2 text-2xs font-bold tracking-wider text-ink-3 uppercase sm:hidden"
+                      >
+                        <span role="columnheader">
+                          {t.stock.table.material}
+                        </span>
+                        <span role="columnheader">{t.stock.table.stock}</span>
+                        <span role="columnheader">{t.stock.table.status}</span>
+                      </div>
+
+                      <div
+                        role="row"
+                        className="hidden items-center gap-3 bg-surface-alt px-4 py-2.5 text-2xs font-bold tracking-wider text-ink-3 uppercase sm:grid sm:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px]"
+                      >
+                        <span role="columnheader">
+                          {t.stock.table.material}
+                        </span>
+                        <span role="columnheader">{t.stock.table.stock}</span>
+                        <span role="columnheader">{t.stock.table.min}</span>
+                        <span role="columnheader">
+                          {t.stock.table.batches}
+                        </span>
+                        <span role="columnheader">
+                          {t.stock.table.nearestExpiry}
+                        </span>
+                        <span role="columnheader">
+                          {t.stock.table.status}
+                        </span>
+                        <span role="columnheader">{t.stock.table.value}</span>
+                      </div>
+
+                      {visible.map((row) => {
+                        const status = statusOf(row);
+
+                        return (
+                          <div
+                            role="row"
+                            key={row.material_id}
+                            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border px-3.5 py-3 text-sm last:border-b-0 sm:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px] sm:gap-3 sm:px-4"
+                          >
+                            <div
+                              role="cell"
+                              className="flex min-w-0 flex-col gap-px"
+                            >
+                              <button
+                                type="button"
+                                className="cursor-pointer text-left text-sm font-semibold text-ink transition-colors duration-150 hover:text-brand"
+                                onClick={() => setPanelId(row.material_id)}
+                              >
+                                {row.name}
+                              </button>
+                              <span className="truncate text-2xs text-ink-3">
+                                {supplierName(
+                                  materialById.get(row.material_id)
+                                    ?.default_supplier_id ?? null,
+                                )}
+                              </span>
+                            </div>
+
+                            <div
+                              role="cell"
+                              className="flex items-baseline justify-self-end gap-1 sm:justify-self-auto"
+                            >
+                              <strong className="text-sm font-bold tabular-nums">
+                                {formatQty(row.on_hand, locale)}
+                              </strong>
+                              <span className="text-xs text-ink-3">
+                                {row.base_unit.code}
+                              </span>
+                            </div>
+
+                            <div
+                              role="cell"
+                              className="hidden text-xs text-ink-3 sm:block"
+                            >
+                              {formatQty(row.min_stock, locale)}{" "}
+                              {row.base_unit.code}
+                            </div>
+
+                            <div
+                              role="cell"
+                              className="hidden text-xs text-ink-2 sm:block"
+                            >
+                              {row.active_batches}
+                            </div>
+
+                            <div
+                              role="cell"
+                              className="hidden text-xs text-ink-2 sm:block"
+                            >
+                              {expiryLabel(row)}
+                            </div>
+
+                            <div role="cell">
+                              <Badge variant={status.tone}>
+                                {status.label}
+                              </Badge>
+                            </div>
+
+                            <div
+                              role="cell"
+                              className="hidden text-xs font-semibold tabular-nums sm:block"
+                            >
+                              {formatMoney(
+                                Number(row.on_hand) * Number(row.last_cost),
+                                locale,
+                              )}
+                            </div>
+
+                            <div
+                              role="cell"
+                              className="hidden justify-self-end sm:block"
+                            >
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 rounded-md"
+                                type="button"
+                                onClick={() => setPanelId(row.material_id)}
+                                aria-label={t.stock.panel.title}
+                              >
+                                <Ellipsis size={15} />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </section>
             )}
           </div>
