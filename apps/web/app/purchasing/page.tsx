@@ -94,7 +94,7 @@ export default function PurchasingPage() {
         <AppShell me={session.me} active="purchasing" onSignOut={signOut}>
           <div className="flex max-w-[1000px] flex-col gap-4">
             <header>
-              <h1 className="text-3xl font-extrabold tracking-tight">
+              <h1 className="text-xl font-extrabold tracking-tight sm:text-3xl">
                 {t.purchasing.title}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
