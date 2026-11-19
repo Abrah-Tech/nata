@@ -229,10 +229,10 @@ export default function OnboardingPage() {
                       key={template.id}
                     >
                       <strong className="text-sm font-bold">{copy.name}</strong>
-                      <p className="min-h-8 text-[11px] leading-[1.45] text-muted-foreground">
+                      <p className="min-h-8 text-xs leading-[1.45] text-muted-foreground">
                         {copy.description}
                       </p>
-                      <span className="mb-2 text-[10.5px] text-ink-3">
+                      <span className="mb-2 text-xs text-ink-3">
                         {fill(t.onboarding.templates.items, {
                           count: template.item_count,
                         })}
@@ -266,10 +266,10 @@ export default function OnboardingPage() {
               </header>
 
               <div className="flex flex-col gap-2 p-4">
-                <code className="rounded-lg border border-border bg-surface-alt px-2.5 py-2 font-mono text-[11px] text-muted-foreground">
+                <code className="rounded-lg border border-border bg-surface-alt px-2.5 py-2 font-mono text-xs text-muted-foreground">
                   {t.onboarding.import.columns}
                 </code>
-                <p className="text-[10.5px] text-ink-3">
+                <p className="text-xs text-ink-3">
                   {fill(t.onboarding.import.accepted, { max: MAX_ROWS })}
                 </p>
 
@@ -352,7 +352,7 @@ function Result({ result }: { result: OnboardingResult }) {
       </div>
 
       {result.errors.length > 0 && (
-        <ul className="flex flex-col gap-1 text-[10.5px] text-destructive">
+        <ul className="flex flex-col gap-1 text-xs text-destructive">
           {result.errors.map((error) => (
             <li key={error.row}>
               <span className="mr-1.5 font-semibold">

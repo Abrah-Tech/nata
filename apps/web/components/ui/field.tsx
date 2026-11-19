@@ -23,9 +23,7 @@ function Field({
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       <label className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold text-muted-foreground select-none">
-          {label}
-        </span>
+        <span className="text-xs font-semibold text-muted-foreground">{label}</span>
         {children}
       </label>
       {hint && (

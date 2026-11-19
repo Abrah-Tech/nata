@@ -191,6 +191,40 @@ nav's `bg-white/95`, the login panel, the alpha fill on the purchasing header)
 are computed from the declared tokens rather than sampled, and forced-colors
 appearance is read from the source.
 
+### Typography backlog
+
+Audit 2026-11-19 against `apps/web`, following the color pass. Verdict was
+**Approve** (no `HIGH`); the `MEDIUM` and `LOW` rows are fixed on
+`fix/web-typography` (2026-11-19). Principles come from `better-typography`:
+`16px` input text so iOS Safari does not zoom, a scale with few off-step sizes,
+`rem` so the reader's font size still applies, font smoothing once on the root,
+headings balanced and paragraphs pretty, and `user-select: none` only on a drag
+or gesture surface. The project's dense scale (body `text-sm` at 12.5px) is a
+documented convention, so the findings target deviations from it rather than
+the scale itself.
+
+| Severity | Location | Before | After | Why |
+| --- | --- | --- | --- | --- |
+| MEDIUM | `apps/web/components/ui/input.tsx:9`, `apps/web/components/ui/select.tsx:15`, `apps/web/app/stock/page.tsx:686` | `text-base` (13px) and `text-sm` (12.5px) inside an `<input>`/`<select>` | `text-[1rem] sm:text-base` and `text-[1rem] sm:text-sm` | The skill's iOS no-zoom rule: Safari zooms the whole page when an input's text is under `16px`, and the only escape was a full-page pinch on every field |
+| MEDIUM | `apps/web/app/sales/page.tsx:654` | `file:text-xs` (11px) on the import button | `file:text-sm` (12.5px) | Size floor: UI text starts at `14px` and rarely goes below `12px`; 11px is below the project's own `text-xs` step |
+| MEDIUM | `apps/web/app/globals.css:105`-`124` | The whole type scale declared in `px` | `rem` (`0.59375`–`2.75rem`), with `--text-5xl: 2.75rem` added | 1.4.4 Resize Text: a `px` scale ignores the reader's browser font size, so the only way to enlarge text was zoom |
+| MEDIUM | `apps/web/app/app-shell.tsx`, `apps/web/app/login/page.tsx`, `apps/web/app/onboarding/page.tsx`, `apps/web/app/page.tsx`, `apps/web/app/settings/page.tsx`, `apps/web/app/health-badge.tsx`, `apps/web/app/locale-switch.tsx`, `apps/web/app/login/otp-input.tsx` | 24 arbitrary sizes off the scale: `9`, `9.5`, `10`, `10.5`, `11`, `11.5`, `12`, `13`, `14`, `16`, `17`, `19`, `21`, `34`, `42`, `44px` | The nearest named step (`text-2xs`, `text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl`, `text-2xl`, `text-4xl`, `text-5xl`); `9px` and `8.5px` rose to the `9.5px` floor | Use a type scale with semantic names: 16 distinct sizes meant no two screens could be compared, and a `42px` headline sat between the `40px` and `48px` steps |
+| MEDIUM | `apps/web/app/production/page.tsx:315` | Section `<h2>` at `text-xl` (17px) | `text-lg` (15px) | Heading hierarchy: every other section heading in the app is `text-lg`, so this one overpowered its parent section |
+| LOW | `apps/web/components/ui/label.tsx:15`, `apps/web/components/ui/field.tsx:26`, `apps/web/app/login/page.tsx:403` | `select-none` on label text | Removed | `user-select: none` belongs on a drag or gesture surface; a label is content the reader may want to copy |
+| LOW | `apps/web/app/globals.css` | Only `-webkit-font-smoothing: antialiased` | `-moz-osx-font-smoothing: grayscale` beside it, set once on the root | Font smoothing on the root: Firefox on macOS synthesizes a heavier face without it, so the app rendered a different weight than Safari |
+| LOW | `apps/web/app/globals.css` | No wrap control | `text-wrap: balance` on `h1`–`h6` and `text-wrap: pretty` on `p`, in the base layer | A heading with a ragged last line and a paragraph ending on a lone word; a utility on a specific node still wins over the base rule |
+
+**Verified from code:** `bun run --filter web typecheck` and
+`bun run --filter web build` pass; `bun test apps/web/tests` is 6 pass, 0 fail.
+No `text-[Npx]` utility remains outside the two deliberate `text-[1rem]` input
+fixes. The built stylesheet carries `.text-2xs{font-size:.59375rem}`,
+`.text-5xl`, `.text-\[1rem\]`, `-moz-osx-font-smoothing: grayscale`,
+`text-wrap: balance` and `text-wrap: pretty`.
+
+**Not verified:** no browser session, so iOS zoom at a 13px input, `rem`
+scaling under a non-default root size, and the line breaking from `balance` and
+`pretty` are read from the source rather than observed.
+
 ---
 
 ## Phase 0 — Foundation + validation

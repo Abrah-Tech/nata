@@ -142,7 +142,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           </span>
           <span className="flex flex-col leading-[1.2]">
             <strong className="text-base font-bold">Nata</strong>
-            <span className="text-[9px] font-semibold tracking-[0.08em] text-ink-3">
+            <span className="text-2xs font-semibold tracking-[0.08em] text-ink-3">
               PPIC + POS
             </span>
           </span>
@@ -152,7 +152,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           {me ? (
             <div>
               <strong className="block text-xs font-bold">{me.tenant.name}</strong>
-              <span className="text-[9.5px] text-ink-3">
+              <span className="text-2xs text-ink-3">
                 {t.dashboard.roles[me.role]}
               </span>
             </div>
@@ -167,7 +167,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <nav className="flex flex-col gap-3" aria-label={t.nav.main}>
           {groups.map((group) => (
             <div className="flex flex-col gap-0.5" key={group.label}>
-              <p className="px-2.5 py-1 text-[9px] font-bold tracking-[0.09em] text-ink-3">
+              <p className="px-2.5 py-1 text-2xs font-bold tracking-[0.09em] text-ink-3">
                 {group.label}
               </p>
               {group.items.map((item) =>
@@ -208,14 +208,14 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           <div className="flex items-center gap-2.5">
             {me ? (
               <>
-                <span className="flex size-7 items-center justify-center rounded-full bg-ink text-[10px] font-bold text-white">
+                <span className="flex size-7 items-center justify-center rounded-full bg-ink text-2xs font-bold text-white">
                   {initials(me.user.name)}
                 </span>
                 <div>
                   <strong className="block text-xs font-bold">
                     {me.user.name}
                   </strong>
-                  <span className="text-[9.5px] text-ink-3">
+                  <span className="text-2xs text-ink-3">
                     {t.dashboard.roles[me.role]}
                   </span>
                 </div>
@@ -249,7 +249,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <header className="hidden h-[60px] items-center justify-between border-b border-border bg-surface px-6 min-[961px]:flex">
           {me ? (
             <div className="flex flex-col leading-[1.3]">
-              <span className="text-[9px] font-bold tracking-[0.08em] text-ink-3 uppercase">
+              <span className="text-2xs font-bold tracking-[0.08em] text-ink-3 uppercase">
                 {t.dashboard.tenant}
               </span>
               <strong className="text-sm font-bold">{me.tenant.name}</strong>
@@ -279,7 +279,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <Link
           href="/dashboard"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
+            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline",
             active === "overview" && "bg-brand-soft font-bold text-brand",
           )}
           aria-current={active === "overview" ? "page" : undefined}
@@ -290,7 +290,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <Link
           href="/stock"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
+            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline",
             active === "stock" && "bg-brand-soft font-bold text-brand",
           )}
           aria-current={active === "stock" ? "page" : undefined}
@@ -301,7 +301,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <Link
           href="/production"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 no-underline",
+            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline",
             active === "production" && "bg-brand-soft font-bold text-brand",
           )}
           aria-current={active === "production" ? "page" : undefined}
@@ -312,7 +312,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         <span
           role="link"
           tabIndex={0}
-          className="flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-[9px] font-semibold text-ink-3 opacity-50"
+          className="flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 opacity-50"
           title={t.nav.soon}
           aria-disabled="true"
         >

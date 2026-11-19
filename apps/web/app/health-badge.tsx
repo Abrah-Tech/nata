@@ -13,7 +13,7 @@ type HealthState =
   | { status: "offline" };
 
 const PILL =
-  "rounded-full border bg-surface px-3 py-1.5 text-[13px] font-semibold whitespace-nowrap";
+  "rounded-full border bg-surface px-3 py-1.5 text-base font-semibold whitespace-nowrap";
 
 export function HealthBadge() {
   const { t } = useI18n();

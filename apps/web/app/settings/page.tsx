@@ -598,7 +598,7 @@ export default function SettingsPage() {
                           <span className="text-sm font-bold tabular-nums">
                             {formatMoney(Number(payment.amount), locale)}
                           </span>
-                          <span className="text-[10.5px] text-ink-3">
+                          <span className="text-xs text-ink-3">
                             {planName(t, payment.plan)} ·{" "}
                             {formatDate(payment.period_start, locale)} –{" "}
                             {formatDate(payment.period_end, locale)} ·{" "}
