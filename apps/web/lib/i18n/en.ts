@@ -526,6 +526,10 @@ export const en = {
       recorded: "Payment recorded. We will verify it shortly.",
       failed: "Could not record the payment.",
       withdraw: "Withdraw",
+      withdrawTitle: "Withdraw payment?",
+      withdrawConfirm:
+        "Delete the {amount} payment for {plan}? This cannot be undone.",
+      cancel: "Cancel",
       withdrawFailed: "Could not withdraw the payment.",
       readOnlyHint:
         "The trial has ended, so the app is read only. A verified payment restores full access without touching your data.",

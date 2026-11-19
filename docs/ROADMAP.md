@@ -191,6 +191,36 @@ nav's `bg-white/95`, the login panel, the alpha fill on the purchasing header)
 are computed from the declared tokens rather than sampled, and forced-colors
 appearance is read from the source.
 
+### Interface backlog
+
+Audit 2026-11-19 against `apps/web`, following the color pass. Verdict was
+**Block** on two `HIGH` findings; both are fixed on `fix/web-interface`
+(2026-11-19). Principles come from `better-interface`: escalation triggers are
+`HIGH` on sight, and a trigger is a failure whatever the style guide says. The
+one `LOW` candidate — the reports table's `min-w-[720px]` scroll edge — was
+withdrawn: the clipped column is itself the cue and a horizontally scrolling
+table is the standard pattern.
+
+| Severity | Location | Before | After | Why |
+| --- | --- | --- | --- | --- |
+| HIGH | `apps/web/app/stock/page.tsx:544`, `apps/web/app/products/page.tsx:274`, `:289`, `:301`, `:313`, `:476`, `apps/web/app/dashboard/page.tsx:232`, `:312`, `apps/web/app/login/page.tsx:384`, `apps/web/app/reports/page.tsx:228`, `apps/web/app/stock/page.tsx:788` | Truncated values with no way back: the offline queue material, the product name/price/stock/recipe, a recipe ingredient, two dashboard rows, the login contact, the waste-report material and the stock supplier | `title` on every truncated node, carrying the full value | The "truncated content with no way to reach the full value" trigger: each value was clipped by `truncate` and nothing exposed the rest |
+| HIGH | `apps/web/app/stock/page.tsx:639` | Five `flex-1` mobile filter tabs plus a count pill left ~14px for a 14px label, so "Critical" rendered as "C…" | The tab row wraps on mobile (`flex-wrap`, `sm:flex-nowrap`) and each chip sizes to its content, so no label truncates | 1.4.10 Reflow at 320px, and the same trigger: the filter name was hidden with no way back |
+| HIGH | `apps/web/app/settings/page.tsx:617` | The pending-payment withdraw was a neutral ghost button that hard-deletes the payment (`apps/api/src/billing.rs:247`) with no confirmation, undo or distinct treatment | A `Modal` confirmation naming the amount and plan from a new `settings.billing.withdrawConfirm` key, and the button takes `variant="destructive"` | The destructive-action trigger: one tap destroyed a payment record, and the API has no undo. A Radix dialog rather than `window.confirm`, because the shell runs in an Android WebView where a JS dialog is not guaranteed to render |
+| MEDIUM | `apps/web/components/ui/button.tsx:29` | The dense tables used `size="icon"` (40px) overridden to `size-7` (28px), below the 44px touch aim | A new `iconSm` variant — 28px visual with a `before:-inset-2` ring for a 44px target — at `apps/web/app/products/page.tsx:325`, `:339`, `apps/web/app/stock/page.tsx:568`, `:580`, `:850`; the two side-by-side groups move to `gap-4` so the rings never overlap | 2.5.8 AA (24px) was already met, but the skill's 44px touch target was not; the pseudo-element widens the target without breaking the dense layout |
+| MEDIUM | `apps/web/app/sales/page.tsx:728` | The sale card header was one `flex` row — datetime, channel badge and an `extrabold` total, ~320px of content in a 288px card | `flex-wrap` on the header, with `min-w-0` + `truncate` + `title` on the datetime | 1.4.10 Reflow at 320px: the total was pushed off the card |
+
+**Verified from code:** `bun run --filter web typecheck` and
+`bun run --filter web build` pass; `bun test apps/web/tests` is 6 pass, 0 fail.
+The built stylesheet carries the new variant's `before:-inset-2` ring and
+`before:content-['']`, and no `truncate` node in `apps/web` is left without a
+`title`.
+
+**Not verified:** no browser session, so the 320px reflow of the sale header
+and the stock filter tabs, the geometry of the extended hit areas, and the
+confirm dialog are read from the source rather than observed. The API-side
+hard delete in `billing.rs` is unchanged; the confirmation is a client guard,
+not a server one.
+
 ---
 
 ## Phase 0 — Foundation + validation

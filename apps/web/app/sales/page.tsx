@@ -725,9 +725,15 @@ export default function SalesPage() {
                         className="flex flex-col gap-2.5 rounded-xl border border-border bg-card px-4 py-3.5"
                         key={sale.id}
                       >
-                        <header className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <strong className="text-base font-bold">
+                        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                          {/* min-w-0 lets the datetime truncate instead of
+                              pushing the total off the card at 320px; the
+                              title carries the full value. */}
+                          <div className="flex min-w-0 items-center gap-2">
+                            <strong
+                              className="truncate text-base font-bold"
+                              title={formatDateTime(sale.sold_at, locale)}
+                            >
                               {formatDateTime(sale.sold_at, locale)}
                             </strong>
                             <Badge>{channelLabel(t, sale.channel)}</Badge>

@@ -223,7 +223,12 @@ export default function ReportsPage() {
                             key={row.material_id}
                             className="grid grid-cols-[minmax(0,1fr)_auto_90px] items-baseline gap-2.5 border-t border-border pt-1 text-sm"
                           >
-                            <span className="truncate">{row.material_name}</span>
+                            <span
+                              className="truncate"
+                              title={row.material_name}
+                            >
+                              {row.material_name}
+                            </span>
                             <span className="text-xs text-ink-3 tabular-nums">
                               {formatQty(row.qty, locale)} {row.unit_code}
                             </span>
