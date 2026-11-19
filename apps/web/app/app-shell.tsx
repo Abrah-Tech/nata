@@ -3,6 +3,7 @@
 import type { MeResponse } from "@nata/api-client";
 import {
   BarChart3,
+  BookOpen,
   Boxes,
   CalendarClock,
   ChefHat,
@@ -32,7 +33,8 @@ type Active =
   | "pos"
   | "purchasing"
   | "reports"
-  | "settings";
+  | "settings"
+  | "guide";
 
 type Item = {
   key: string;
@@ -124,6 +126,12 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           label: t.nav.settings,
           icon: Settings,
           href: "/settings",
+        },
+        {
+          key: "guide",
+          label: t.nav.guide,
+          icon: BookOpen,
+          href: "/guide",
         },
       ],
     },
@@ -309,17 +317,20 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           <ChefHat size={18} />
           <span>{t.nav.mobileProduction}</span>
         </Link>
-        <span
-          role="link"
-          tabIndex={0}
-          className="flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 opacity-50"
-          title={t.nav.soon}
-          aria-disabled="true"
+        {/* The fourth slot used to hold the alerts placeholder, which is not
+            reachable yet. The handbook earns it: on a phone it is the only
+            way in, and a disabled item should not own primary chrome. */}
+        <Link
+          href="/guide"
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline",
+            active === "guide" && "bg-brand-soft font-bold text-brand",
+          )}
+          aria-current={active === "guide" ? "page" : undefined}
         >
-          <MessageCircle size={18} />
-          <span>{t.nav.mobileAlerts}</span>
-          <span className="sr-only">{t.nav.soon}</span>
-        </span>
+          <BookOpen size={18} />
+          <span>{t.nav.mobileGuide}</span>
+        </Link>
       </nav>
     </div>
   );
