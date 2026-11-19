@@ -45,14 +45,14 @@ export function HealthBadge() {
 
   if (state.status === "offline") {
     return (
-      <span className={cn(PILL, "border-[#f3c3bd] text-destructive")}>
+      <span className={cn(PILL, "border-destructive text-destructive")}>
         {t.health.offline}
       </span>
     );
   }
 
   return (
-    <span className={cn(PILL, "border-[#b7e0d8] text-brand")}>
+    <span className={cn(PILL, "border-brand text-brand")}>
       {fill(t.health.online, { version: state.health.version })}
     </span>
   );

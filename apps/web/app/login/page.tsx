@@ -195,21 +195,21 @@ export default function LoginPage() {
           </span>
           <div className="flex flex-col leading-[1.2]">
             <strong className="text-lg font-bold">{t.common.appName}</strong>
-            <span className="text-[10.5px] font-semibold text-[#8fb3a6]">
+            <span className="text-[10.5px] font-semibold text-on-brand-strong">
               {t.common.tagline}
             </span>
           </div>
         </div>
 
         <div className="flex flex-col gap-4">
-          <p className="m-0 text-[10px] font-bold tracking-[0.1em] text-[#7fc0a5]">
+          <p className="m-0 text-[10px] font-bold tracking-[0.1em] text-on-brand-accent">
             {t.login.brand.label}
           </p>
           {/* The form card owns the page's one heading; this is brand copy. */}
           <p className="m-0 max-w-[15ch] text-[42px] leading-[1.08] font-bold tracking-[-0.02em]">
             {t.login.brand.title}
           </p>
-          <p className="m-0 max-w-[56ch] text-[13px] leading-[1.6] text-[#a9c7bc]">
+          <p className="m-0 max-w-[56ch] text-[13px] leading-[1.6] text-on-brand">
             {t.login.brand.subtitle}
           </p>
         </div>
@@ -221,12 +221,12 @@ export default function LoginPage() {
             t.login.brand.features.alerts,
           ].map((feature) => (
             <li className="flex items-start gap-3" key={feature.title}>
-              <span className="flex size-8 flex-none items-center justify-center rounded-[9px] bg-[#1b4a3e] text-[#7fc0a5]">
+              <span className="flex size-8 flex-none items-center justify-center rounded-[9px] bg-brand-raised text-on-brand-accent">
                 <Check size={13} strokeWidth={2.5} aria-hidden="true" />
               </span>
               <span>
                 <strong className="block text-sm font-bold">{feature.title}</strong>
-                <span className="text-[11px] leading-[1.5] text-[#a9c7bc]">
+                <span className="text-[11px] leading-[1.5] text-on-brand">
                   {feature.detail}
                 </span>
               </span>
@@ -234,16 +234,16 @@ export default function LoginPage() {
           ))}
         </ul>
 
-        <div className="flex items-center justify-between gap-3 rounded-xl bg-[#143a2f] p-4">
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-sunken p-4">
           <div>
             <strong className="block text-[11px] font-bold">
               {t.login.brand.noteTitle}
             </strong>
-            <span className="text-[10px] text-[#8fb3a6]">
+            <span className="text-[10px] text-on-brand-strong">
               {t.login.brand.noteSubtitle}
             </span>
           </div>
-          <span className="text-[9.5px] font-semibold text-[#5f8a7a]">
+          <span className="text-[9.5px] font-semibold text-on-brand-strong">
             {t.login.brand.version}
           </span>
         </div>
