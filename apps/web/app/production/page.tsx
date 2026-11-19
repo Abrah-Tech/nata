@@ -312,7 +312,7 @@ export default function ProductionPage() {
                 <span className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand">
                   <CheckCircle2 size={24} />
                 </span>
-                <h2 className="mt-1 text-xl font-bold">
+                <h2 className="mt-1 text-lg font-bold">
                   {t.production.result.title}
                 </h2>
                 <p className="text-sm text-muted-foreground">

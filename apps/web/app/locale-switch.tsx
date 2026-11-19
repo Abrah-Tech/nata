@@ -19,7 +19,7 @@ export function LocaleSwitch() {
           key={value}
           type="button"
           className={cn(
-            "rounded-full cursor-pointer px-2.5 py-1 text-[12px] font-bold tracking-[0.06em] transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
+            "rounded-full cursor-pointer px-2.5 py-1 text-sm font-bold tracking-[0.06em] transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
             value === locale
               ? "bg-brand text-white"
               : "text-muted-foreground hover:text-foreground",
