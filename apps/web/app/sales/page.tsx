@@ -651,7 +651,7 @@ export default function SalesPage() {
                           setFileError(null);
                         }}
                         required
-                        className="max-w-full text-sm text-muted-foreground file:mr-2.5 file:h-9 file:cursor-pointer file:rounded-lg file:border file:border-input file:bg-surface-alt file:px-3 file:text-xs file:font-semibold file:text-ink"
+                        className="max-w-full text-sm text-muted-foreground file:mr-2.5 file:h-9 file:cursor-pointer file:rounded-lg file:border file:border-input file:bg-surface-alt file:px-3 file:text-sm file:font-semibold file:text-ink"
                       />
 
                       <Button

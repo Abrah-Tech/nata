@@ -105,7 +105,7 @@ export const OtpInput = forwardRef<OtpInputHandle, Props>(function OtpInput(
           ref={(element) => {
             refs.current[index] = element;
           }}
-          className={`h-12 w-full cursor-text rounded-lg border bg-card text-center text-[19px] font-bold text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:shadow-[0_0_0_3px_var(--brand-soft)] disabled:opacity-55 ${digit ? "border-primary" : "border-input hover:border-ink-3"}`}
+          className={`h-12 w-full cursor-text rounded-lg border bg-card text-center text-2xl font-bold text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:shadow-[0_0_0_3px_var(--brand-soft)] disabled:opacity-55 ${digit ? "border-primary" : "border-input hover:border-ink-3"}`}
           value={digit}
           onChange={(event) => handleChange(index, event)}
           onKeyDown={(event) => handleKeyDown(index, event)}

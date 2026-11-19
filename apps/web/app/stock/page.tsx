@@ -685,7 +685,7 @@ export default function StockPage() {
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder={t.stock.searchPlaceholder}
                       aria-label={t.stock.searchPlaceholder}
-                      className="w-full cursor-text border-0 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3"
+                      className="w-full cursor-text border-0 bg-transparent text-[1rem] text-ink outline-none placeholder:text-ink-3 sm:text-sm"
                     />
                   </label>
                 </div>

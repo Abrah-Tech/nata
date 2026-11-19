@@ -190,26 +190,26 @@ export default function LoginPage() {
     <main className="grid min-h-dvh lg:grid-cols-[772fr_668fr]">
       <aside className="hidden flex-col justify-between gap-7 bg-brand-dark p-[52px] text-white lg:flex">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-[34px] items-center justify-center rounded-lg bg-white text-[17px] font-extrabold text-brand-dark">
+          <span className="flex size-[34px] items-center justify-center rounded-lg bg-white text-xl font-extrabold text-brand-dark">
             T
           </span>
           <div className="flex flex-col leading-[1.2]">
             <strong className="text-lg font-bold">{t.common.appName}</strong>
-            <span className="text-[10.5px] font-semibold text-on-brand-strong">
+            <span className="text-xs font-semibold text-on-brand-strong">
               {t.common.tagline}
             </span>
           </div>
         </div>
 
         <div className="flex flex-col gap-4">
-          <p className="m-0 text-[10px] font-bold tracking-[0.1em] text-on-brand-accent">
+          <p className="m-0 text-2xs font-bold tracking-[0.1em] text-on-brand-accent">
             {t.login.brand.label}
           </p>
           {/* The form card owns the page's one heading; this is brand copy. */}
-          <p className="m-0 max-w-[15ch] text-[42px] leading-[1.08] font-bold tracking-[-0.02em]">
+          <p className="m-0 max-w-[15ch] text-5xl leading-[1.08] font-bold tracking-[-0.02em]">
             {t.login.brand.title}
           </p>
-          <p className="m-0 max-w-[56ch] text-[13px] leading-[1.6] text-on-brand">
+          <p className="m-0 max-w-[56ch] text-base leading-[1.6] text-on-brand">
             {t.login.brand.subtitle}
           </p>
         </div>
@@ -226,7 +226,7 @@ export default function LoginPage() {
               </span>
               <span>
                 <strong className="block text-sm font-bold">{feature.title}</strong>
-                <span className="text-[11px] leading-[1.5] text-on-brand">
+                <span className="text-xs leading-[1.5] text-on-brand">
                   {feature.detail}
                 </span>
               </span>
@@ -236,21 +236,21 @@ export default function LoginPage() {
 
         <div className="flex items-center justify-between gap-3 rounded-xl bg-brand-sunken p-4">
           <div>
-            <strong className="block text-[11px] font-bold">
+            <strong className="block text-xs font-bold">
               {t.login.brand.noteTitle}
             </strong>
-            <span className="text-[10px] text-on-brand-strong">
+            <span className="text-2xs text-on-brand-strong">
               {t.login.brand.noteSubtitle}
             </span>
           </div>
-          <span className="text-[9.5px] font-semibold text-on-brand-strong">
+          <span className="text-2xs font-semibold text-on-brand-strong">
             {t.login.brand.version}
           </span>
         </div>
       </aside>
 
       <section className="flex flex-col gap-6 bg-surface px-5 py-6 sm:px-10 lg:px-14 lg:py-10">
-        <p className="m-0 self-center text-[11px] text-ink-3 lg:self-end">
+        <p className="m-0 self-center text-xs text-ink-3 lg:self-end">
           {t.login.help}{" "}
           <a
             className="font-semibold text-brand no-underline outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
@@ -262,10 +262,10 @@ export default function LoginPage() {
 
         <div className="m-auto flex w-full max-w-[392px] flex-col gap-4 rounded-2xl border border-border p-[26px]">
           <header className="flex flex-col gap-1.5">
-            <p className="m-0 text-[9.5px] font-bold tracking-[0.12em] text-ink-3">
+            <p className="m-0 text-2xs font-bold tracking-[0.12em] text-ink-3">
               {t.login.eyebrow}
             </p>
-            <h1 className="text-[21px] leading-[1.25] font-bold tracking-[-0.01em]">
+            <h1 className="text-2xl leading-[1.25] font-bold tracking-[-0.01em]">
               {step === "tenant"
                 ? t.login.tenantTitle
                 : step === "code"
@@ -274,7 +274,7 @@ export default function LoginPage() {
                     ? t.login.titlePhone
                     : t.login.titleEmail}
             </h1>
-            <p className="m-0 text-[11.5px] leading-[1.55] text-ink-3">
+            <p className="m-0 text-xs leading-[1.55] text-ink-3">
               {step === "tenant"
                 ? t.login.tenantSubtitle
                 : step === "code"
@@ -289,15 +289,15 @@ export default function LoginPage() {
             <li
               className={
                 step === "contact"
-                  ? "flex items-center gap-1.5 text-[10.5px] font-semibold text-ink"
-                  : "flex items-center gap-1.5 text-[10.5px] font-semibold text-ink-3"
+                  ? "flex items-center gap-1.5 text-xs font-semibold text-ink"
+                  : "flex items-center gap-1.5 text-xs font-semibold text-ink-3"
               }
             >
               <span
                 className={
                   step === "contact"
-                    ? "flex size-4 items-center justify-center rounded-full bg-brand text-[8.5px] font-bold text-white"
-                    : "flex size-4 items-center justify-center rounded-full bg-brand-soft text-[8.5px] font-bold text-brand"
+                    ? "flex size-4 items-center justify-center rounded-full bg-brand text-2xs font-bold text-white"
+                    : "flex size-4 items-center justify-center rounded-full bg-brand-soft text-2xs font-bold text-brand"
                 }
               >
                 1
@@ -308,15 +308,15 @@ export default function LoginPage() {
             <li
               className={
                 step === "contact"
-                  ? "flex items-center gap-1.5 text-[10.5px] font-semibold text-ink-3"
-                  : "flex items-center gap-1.5 text-[10.5px] font-semibold text-ink"
+                  ? "flex items-center gap-1.5 text-xs font-semibold text-ink-3"
+                  : "flex items-center gap-1.5 text-xs font-semibold text-ink"
               }
             >
               <span
                 className={
                   step === "contact"
-                    ? "flex size-4 items-center justify-center rounded-full bg-brand-soft text-[8.5px] font-bold text-brand"
-                    : "flex size-4 items-center justify-center rounded-full bg-brand text-[8.5px] font-bold text-white"
+                    ? "flex size-4 items-center justify-center rounded-full bg-brand-soft text-2xs font-bold text-brand"
+                    : "flex size-4 items-center justify-center rounded-full bg-brand text-2xs font-bold text-white"
                 }
               >
                 2
@@ -384,7 +384,7 @@ export default function LoginPage() {
                   <strong className="truncate text-sm font-bold" title={contact}>
                     {contact}
                   </strong>
-                  <span className="text-[9.5px] text-ink-3">
+                  <span className="text-2xs text-ink-3">
                     {isPhone ? t.login.phoneLabel : t.login.emailLabel}
                   </span>
                 </span>
@@ -402,7 +402,7 @@ export default function LoginPage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-muted-foreground select-none">
+                <span className="text-xs font-semibold text-muted-foreground">
                   {t.login.codeLabel}
                 </span>
                 <OtpInput
@@ -428,7 +428,7 @@ export default function LoginPage() {
                 )}
               </div>
 
-              <p className="m-0 text-center text-[10.5px] text-ink-3">
+              <p className="m-0 text-center text-xs text-ink-3">
                 {seconds > 0 ? (
                   fill(t.login.resendIn, { seconds })
                 ) : (
@@ -451,7 +451,7 @@ export default function LoginPage() {
                 {busy ? t.login.verifying : t.login.verify}
               </Button>
 
-              <p className="m-0 text-center text-[10.5px] text-ink-3">{t.login.or}</p>
+              <p className="m-0 text-center text-xs text-ink-3">{t.login.or}</p>
 
               <Button variant="ghost" className="w-full" type="button" onClick={switchMode}>
                 {isPhone ? t.login.switchToEmail : t.login.switchToPhone}
@@ -471,7 +471,7 @@ export default function LoginPage() {
                     aria-busy={busy ? true : undefined}
                   >
                     <span className="text-sm font-bold">{tenant.name}</span>
-                    <span className="text-[10.5px] text-ink-3">
+                    <span className="text-xs text-ink-3">
                       {t.dashboard.roles[tenant.role]}
                     </span>
                   </button>
@@ -487,10 +487,10 @@ export default function LoginPage() {
 
           {error && <FormError>{error}</FormError>}
 
-          <p className="m-0 text-[10px] leading-[1.5] text-ink-3">{t.login.terms}</p>
+          <p className="m-0 text-2xs leading-[1.5] text-ink-3">{t.login.terms}</p>
         </div>
 
-        <footer className="mx-auto flex w-full max-w-[392px] items-center justify-between gap-3.5 text-[10px] text-ink-3">
+        <footer className="mx-auto flex w-full max-w-[392px] items-center justify-between gap-3.5 text-2xs text-ink-3">
           <span>{t.login.foot.platforms}</span>
           <span>{t.login.foot.offline}</span>
           <LocaleSwitch />
