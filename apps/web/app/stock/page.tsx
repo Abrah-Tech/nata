@@ -589,7 +589,7 @@ export default function StockPage() {
                   <div
                     role="tablist"
                     aria-label={t.stock.title}
-                    className="flex gap-4.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className="flex gap-2 sm:gap-4.5"
                   >
                     {filterTabs.map((tab) => {
                       const active = filter === tab.key;
@@ -600,17 +600,17 @@ export default function StockPage() {
                           type="button"
                           role="tab"
                           aria-selected={active}
-                          className={`flex shrink-0 items-center gap-1.5 border-b-2 pb-2 pt-0.5 text-sm whitespace-nowrap transition-colors duration-150 ${
+                          className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-1 pb-2 pt-0.5 text-sm whitespace-nowrap transition-colors duration-150 sm:flex-none sm:justify-start sm:px-0 ${
                             active
                               ? "border-brand font-bold text-ink"
-                              : "border-transparent font-semibold text-ink-3 hover:text-ink-2"
+                              : "border-transparent font-semibold text-ink-3 hover:border-border-strong hover:text-ink"
                           }`}
                           onClick={() => setFilter(tab.key)}
                         >
                           <span className="hidden sm:inline">{tab.label}</span>
-                          <span className="sm:hidden">{tab.short}</span>
+                          <span className="truncate sm:hidden">{tab.short}</span>
                           <span
-                            className={`rounded-full px-1.5 py-px text-2xs font-bold ${
+                            className={`shrink-0 rounded-full px-1.5 py-px text-2xs font-bold ${
                               active
                                 ? "bg-brand-soft text-brand"
                                 : "bg-surface-alt text-ink-3"
@@ -623,7 +623,7 @@ export default function StockPage() {
                     })}
                   </div>
 
-                  <label className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-alt px-2.5 py-1.5 text-ink-3 sm:w-[220px]">
+                  <label className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-alt px-2.5 py-1.5 text-ink-3 hover:border-ink-3 sm:w-[220px]">
                     <Search size={14} />
                     <input
                       type="search"
@@ -631,7 +631,7 @@ export default function StockPage() {
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder={t.stock.searchPlaceholder}
                       aria-label={t.stock.searchPlaceholder}
-                      className="w-full border-0 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3"
+                      className="w-full cursor-text border-0 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3"
                     />
                   </label>
                 </div>

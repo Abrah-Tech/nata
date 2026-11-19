@@ -192,7 +192,7 @@ export default function LoginPage() {
           ].map((feature) => (
             <li className="flex items-start gap-3" key={feature.title}>
               <span className="flex size-8 flex-none items-center justify-center rounded-[9px] bg-[#1b4a3e] text-[#7fc0a5]">
-                <Check size={13} strokeWidth={3} aria-hidden="true" />
+                <Check size={13} strokeWidth={2.5} aria-hidden="true" />
               </span>
               <span>
                 <strong className="block text-sm font-bold">{feature.title}</strong>
@@ -324,7 +324,7 @@ export default function LoginPage() {
             <form className="flex flex-col gap-3" onSubmit={onSubmitCode}>
               <div className="flex items-center gap-2.5 rounded-lg border border-border bg-surface-alt px-3 py-2.5">
                 <span className="flex size-6 flex-none items-center justify-center rounded-full bg-brand-soft text-brand">
-                  <Check size={12} strokeWidth={3} aria-hidden="true" />
+                  <Check size={12} strokeWidth={2.5} aria-hidden="true" />
                 </span>
                 <span className="flex min-w-0 flex-col gap-px">
                   <strong className="truncate text-sm font-bold">{contact}</strong>
@@ -333,7 +333,7 @@ export default function LoginPage() {
                   </span>
                 </span>
                 <button
-                  className="ml-auto p-0 font-semibold text-brand hover:underline"
+                  className="ml-auto cursor-pointer p-0 font-semibold text-brand hover:underline"
                   type="button"
                   onClick={() => {
                     setStep("contact");
@@ -361,7 +361,7 @@ export default function LoginPage() {
                   fill(t.login.resendIn, { seconds })
                 ) : (
                   <button
-                    className="p-0 font-semibold text-brand hover:underline"
+                    className="cursor-pointer p-0 font-semibold text-brand hover:underline"
                     type="button"
                     onClick={() => void sendCode()}
                   >
@@ -391,7 +391,7 @@ export default function LoginPage() {
               {tenants.map((tenant) => (
                 <li key={tenant.id}>
                   <button
-                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3.5 py-3.5 text-left transition-colors hover:border-brand disabled:opacity-55"
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3.5 py-3.5 text-left transition-colors hover:border-brand disabled:opacity-55"
                     type="button"
                     onClick={() => void chooseTenant(tenant.id)}
                     disabled={busy}

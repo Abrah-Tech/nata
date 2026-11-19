@@ -114,7 +114,7 @@ export function BatchPanel({
           </DialogClose>
         </header>
 
-        <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pt-4 pb-6">
+        <div className="flex flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 pt-4 pb-6">
           <section>
             <div className="mb-2 flex items-center justify-between gap-3">
               <h3 className="text-2xs font-bold tracking-widest text-ink-3 uppercase">

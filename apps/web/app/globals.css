@@ -116,6 +116,9 @@
   ::backdrop {
     border-width: 0;
     border-style: solid;
+    /* The WebView paints its own gray flash on tap; the app draws its own
+       pressed state, so the native one only doubles it. */
+    -webkit-tap-highlight-color: transparent;
   }
 
   *,
