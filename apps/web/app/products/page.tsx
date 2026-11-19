@@ -246,6 +246,12 @@ export default function ProductsPage() {
                 {products.map((product) => {
                   const open = expanded === product.id;
                   const versions = recipes[product.id] ?? [];
+                  const recipeLabel =
+                    product.current_recipe_version !== null
+                      ? fill(t.products.card.version, {
+                          version: product.current_recipe_version,
+                        })
+                      : t.products.card.noRecipe;
 
                   return (
                     <article
@@ -263,7 +269,10 @@ export default function ProductsPage() {
                           aria-expanded={open}
                           aria-controls={`recipe-${product.id}`}
                         >
-                          <strong className="truncate text-sm font-bold text-ink">
+                          <strong
+                            className="truncate text-sm font-bold text-ink"
+                            title={product.name}
+                          >
                             {product.name}
                           </strong>
                           <span className="text-xs text-ink-3">
@@ -275,7 +284,10 @@ export default function ProductsPage() {
                           <span className="text-2xs tracking-wide text-ink-3 uppercase">
                             {t.products.card.price}
                           </span>
-                          <strong className="truncate text-sm font-semibold tabular-nums">
+                          <strong
+                            className="truncate text-sm font-semibold tabular-nums"
+                            title={formatMoney(Number(product.sell_price), locale)}
+                          >
                             {formatMoney(Number(product.sell_price), locale)}
                           </strong>
                         </div>
@@ -284,7 +296,10 @@ export default function ProductsPage() {
                           <span className="text-2xs tracking-wide text-ink-3 uppercase">
                             {t.products.card.stock}
                           </span>
-                          <strong className="truncate text-sm font-semibold tabular-nums">
+                          <strong
+                            className="truncate text-sm font-semibold tabular-nums"
+                            title={formatQty(product.sellable_qty, locale)}
+                          >
                             {formatQty(product.sellable_qty, locale)}
                           </strong>
                         </div>
@@ -293,21 +308,21 @@ export default function ProductsPage() {
                           <span className="text-2xs tracking-wide text-ink-3 uppercase">
                             {t.products.card.recipe}
                           </span>
-                          <strong className="truncate text-sm font-semibold">
-                            {product.current_recipe_version !== null
-                              ? fill(t.products.card.version, {
-                                  version: product.current_recipe_version,
-                                })
-                              : t.products.card.noRecipe}
+                          <strong
+                            className="truncate text-sm font-semibold"
+                            title={recipeLabel}
+                          >
+                            {recipeLabel}
                           </strong>
                         </div>
 
-                        <div className="flex justify-self-end gap-1.5">
+                        {/* gap-4 keeps the two 44px hit areas (28px button
+                            plus an 8px pseudo-element ring) from overlapping. */}
+                        <div className="flex justify-self-end gap-4">
                           {canWrite && (
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="size-7 rounded-md"
+                              size="iconSm"
                               type="button"
                               onClick={() =>
                                 setProductDialog({ mode: "edit", product })
@@ -321,8 +336,7 @@ export default function ProductsPage() {
                           )}
                           <Button
                             variant="ghost"
-                            size="icon"
-                            className="size-7 rounded-md"
+                            size="iconSm"
                             type="button"
                             onClick={() => void toggle(product)}
                             aria-label={fill(
@@ -457,7 +471,10 @@ export default function ProductsPage() {
                                       className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.6fr)] gap-2.5"
                                       key={item.material_id}
                                     >
-                                      <span className="truncate text-xs tabular-nums">
+                                      <span
+                                        className="truncate text-xs tabular-nums"
+                                        title={item.material_name}
+                                      >
                                         {item.material_name}
                                       </span>
                                       <span className="text-xs tabular-nums">

@@ -24,6 +24,10 @@ const buttonVariants = cva(
         default: "h-11 px-4",
         lg: "h-12 px-5",
         icon: "size-10",
+        /* 28px visual, 44px hit area: the pseudo-element widens the tap
+           target without breaking the dense table layout. */
+        iconSm:
+          "size-7 rounded-md relative before:absolute before:-inset-2 before:content-['']",
       },
     },
     defaultVariants: {

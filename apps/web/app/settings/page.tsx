@@ -4,10 +4,12 @@ import {
   ApiError,
   type Access,
   type Billing,
+  type Payment,
   type Subscription,
 } from "@nata/api-client";
 import { useEffect, useState } from "react";
 
+import { Modal } from "@/components/modal";
 import {
   LoadingRegion,
   SkeletonForm,
@@ -57,6 +59,7 @@ export default function SettingsPage() {
   const [payMethod, setPayMethod] = useState<string>("transfer");
   const [payReference, setPayReference] = useState("");
   const [paying, setPaying] = useState(false);
+  const [pendingWithdraw, setPendingWithdraw] = useState<Payment | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -611,10 +614,10 @@ export default function SettingsPage() {
                           </Badge>
                           {payment.status === "pending" && (
                             <Button
-                              variant="ghost"
+                              variant="destructive"
                               size="sm"
                               type="button"
-                              onClick={() => void withdraw(payment.id)}
+                              onClick={() => setPendingWithdraw(payment)}
                             >
                               {t.settings.billing.withdraw}
                             </Button>
@@ -627,6 +630,48 @@ export default function SettingsPage() {
               </section>
             )}
           </div>
+
+          {/* A Radix dialog rather than `window.confirm`: the shell runs in an
+              Android WebView, where a JS dialog is not guaranteed to render. */}
+          <Modal
+            open={pendingWithdraw !== null}
+            title={t.settings.billing.withdrawTitle}
+            closeLabel={t.settings.billing.cancel}
+            onClose={() => setPendingWithdraw(null)}
+          >
+            <p className="text-sm text-muted-foreground">
+              {pendingWithdraw
+                ? fill(t.settings.billing.withdrawConfirm, {
+                    amount: formatMoney(
+                      Number(pendingWithdraw.amount),
+                      locale,
+                    ),
+                    plan: planName(t, pendingWithdraw.plan),
+                  })
+                : null}
+            </p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setPendingWithdraw(null)}
+              >
+                {t.settings.billing.cancel}
+              </Button>
+              <Button
+                variant="destructive"
+                type="button"
+                onClick={() => {
+                  if (pendingWithdraw) {
+                    void withdraw(pendingWithdraw.id);
+                  }
+                  setPendingWithdraw(null);
+                }}
+              >
+                {t.settings.billing.withdraw}
+              </Button>
+            </div>
+          </Modal>
         </AppShell>
       )}
     </>

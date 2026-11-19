@@ -381,7 +381,9 @@ export default function LoginPage() {
                   <Check size={12} strokeWidth={2.5} aria-hidden="true" />
                 </span>
                 <span className="flex min-w-0 flex-col gap-px">
-                  <strong className="truncate text-sm font-bold">{contact}</strong>
+                  <strong className="truncate text-sm font-bold" title={contact}>
+                    {contact}
+                  </strong>
                   <span className="text-2xs text-ink-3">
                     {isPhone ? t.login.phoneLabel : t.login.emailLabel}
                   </span>

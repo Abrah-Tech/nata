@@ -541,7 +541,10 @@ export default function StockPage() {
                         key={entry.client_ref}
                       >
                         <div className="flex min-w-0 flex-col gap-px">
-                          <strong className="truncate text-xs font-bold">
+                          <strong
+                            className="truncate text-xs font-bold"
+                            title={material?.name ?? entry.payload.material_id}
+                          >
                             {material?.name ?? entry.payload.material_id}
                           </strong>
                           <span className="text-2xs text-ink-3 tabular-nums">
@@ -554,15 +557,15 @@ export default function StockPage() {
                           </span>
                         </div>
 
+                        {/* gap-4 keeps the two 44px hit areas apart. */}
                         {entry.status === "failed" ? (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-4">
                             <Badge variant="danger">
                               {offlineReason(t, entry.code)}
                             </Badge>
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="size-7 rounded-md"
+                              size="iconSm"
                               type="button"
                               onClick={() => void retryQueued(entry.client_ref)}
                               aria-label={fill(t.stock.offline.retryNamed, {
@@ -574,8 +577,7 @@ export default function StockPage() {
                             </Button>
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="size-7 rounded-md"
+                              size="iconSm"
                               type="button"
                               onClick={() =>
                                 void dismissQueued(entry.client_ref)
@@ -634,7 +636,7 @@ export default function StockPage() {
                   <div
                     role="tablist"
                     aria-label={t.stock.title}
-                    className="flex gap-2 sm:gap-4.5"
+                    className="flex flex-wrap gap-2 sm:flex-nowrap sm:gap-4.5"
                   >
                     {filterTabs.map((tab, index) => {
                       const active = filter === tab.key;
@@ -652,7 +654,7 @@ export default function StockPage() {
                           aria-controls="stock-panel"
                           tabIndex={active ? 0 : -1}
                           onKeyDown={(event) => onTabKeyDown(event, index)}
-                          className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-1 pb-2 pt-0.5 text-sm whitespace-nowrap transition-colors duration-150 sm:flex-none sm:justify-start sm:px-0 ${
+                          className={`flex items-center justify-center gap-1.5 border-b-2 px-2 pb-2 pt-0.5 text-sm whitespace-nowrap transition-colors duration-150 sm:flex-none sm:justify-start sm:px-0 ${
                             active
                               ? "border-brand font-bold text-ink"
                               : "border-transparent font-semibold text-ink-3 hover:border-border-strong hover:text-ink"
@@ -660,7 +662,7 @@ export default function StockPage() {
                           onClick={() => setFilter(tab.key)}
                         >
                           <span className="hidden sm:inline">{tab.label}</span>
-                          <span className="truncate sm:hidden">{tab.short}</span>
+                          <span className="sm:hidden">{tab.short}</span>
                           <span
                             className={`shrink-0 rounded-full px-1.5 py-px text-2xs font-bold ${
                               active
@@ -759,6 +761,10 @@ export default function StockPage() {
 
                       {visible.map((row) => {
                         const status = statusOf(row);
+                        const supplier = supplierName(
+                          materialById.get(row.material_id)
+                            ?.default_supplier_id ?? null,
+                        );
 
                         return (
                           <div
@@ -777,11 +783,11 @@ export default function StockPage() {
                               >
                                 {row.name}
                               </button>
-                              <span className="truncate text-2xs text-ink-3">
-                                {supplierName(
-                                  materialById.get(row.material_id)
-                                    ?.default_supplier_id ?? null,
-                                )}
+                              <span
+                                className="truncate text-2xs text-ink-3"
+                                title={supplier}
+                              >
+                                {supplier}
                               </span>
                             </div>
 
@@ -841,8 +847,7 @@ export default function StockPage() {
                             >
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="size-7 rounded-md"
+                                size="iconSm"
                                 type="button"
                                 onClick={() => setPanelId(row.material_id)}
                                 aria-label={t.stock.panel.title}

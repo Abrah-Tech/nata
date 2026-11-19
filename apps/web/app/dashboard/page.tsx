@@ -227,7 +227,10 @@ export default function DashboardPage() {
                               >
                                 <div className="flex min-w-0 flex-col gap-0.5">
                                   <div className="flex min-w-0 items-center gap-2">
-                                    <strong className="truncate text-sm font-semibold">
+                                    <strong
+                                      className="truncate text-sm font-semibold"
+                                      title={row.name}
+                                    >
                                       {row.name}
                                     </strong>
                                     <Badge
@@ -304,7 +307,10 @@ export default function DashboardPage() {
                             >
                               <div className="flex min-w-0 flex-col gap-0.5">
                                 <div className="flex min-w-0 items-center gap-2">
-                                  <strong className="truncate text-sm font-semibold">
+                                  <strong
+                                    className="truncate text-sm font-semibold"
+                                    title={row.material_name}
+                                  >
                                     {row.material_name}
                                   </strong>
                                 </div>

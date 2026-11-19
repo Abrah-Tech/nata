@@ -525,6 +525,10 @@ export const id: Dictionary = {
       recorded: "Pembayaran tercatat. Kami akan memverifikasinya sebentar lagi.",
       failed: "Gagal mencatat pembayaran.",
       withdraw: "Batalkan",
+      withdrawTitle: "Batalkan pembayaran?",
+      withdrawConfirm:
+        "Hapus pembayaran {amount} untuk {plan}? Tindakan ini tidak bisa dibatalkan.",
+      cancel: "Batal",
       withdrawFailed: "Gagal membatalkan pembayaran.",
       readOnlyHint:
         "Trial sudah berakhir, jadi aplikasi hanya bisa dibaca. Pembayaran yang terverifikasi memulihkan akses penuh tanpa mengubah datamu.",
