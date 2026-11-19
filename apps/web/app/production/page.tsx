@@ -651,7 +651,7 @@ function CostTile({
       className={cn(
         "flex flex-col gap-0.5 rounded-lg border px-3 py-3",
         primary
-          ? "border-[#c8e2d6] bg-brand-soft"
+          ? "border-brand bg-brand-soft"
           : "border-border bg-surface-alt",
       )}
     >

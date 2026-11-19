@@ -160,6 +160,37 @@ available, so the live-region announcements, the `aria-disabled` styling, the
 skip-link geometry, the mobile table header, and the focus move after a route
 change are read from the source rather than observed.
 
+### Color contrast backlog
+
+Audit 2026-11-19 against `apps/web`, following the accessibility pass. Verdict was
+**Block** on three `HIGH` findings; all are fixed on `fix/web-color-contrast`
+(2026-11-19) and the pass is re-run as **Approve**. Principles come from
+`better-colors`: measure the rendered pair rather than the page background, name
+primitives by hue and semantics by role, and never leave a color literal in a
+component when a token carries the same value.
+
+| Severity | Location | Before | After | Why |
+| --- | --- | --- | --- | --- |
+| HIGH | `--ink3` in `apps/web/app/globals.css:22` | `#8b978f` used as secondary text 107× (`text-ink-3`, `placeholder:text-ink-3`) across 18 files: `app/stock/batch-panel.tsx:96`, `app/stock/page.tsx:547`, `app/reports/page.tsx:121`, `app/products/page.tsx:269`, `app/login/page.tsx:253`, `app/production/page.tsx:343`, `app/dashboard/page.tsx:200`, `app/app-shell.tsx:145`, `app/settings/page.tsx:349`, `app/sales/page.tsx:455`, `app/purchasing/page.tsx:170`, `app/onboarding/page.tsx:235`, `components/ui/table.tsx:38`, `components/ui/select.tsx:25`, `components/ui/input.tsx:9`, `components/ui/field.tsx:32`, `components/ui/dialog.tsx:52`, `app/products/recipe-dialog.tsx:75` | `#5f6e68` | 1.4.3 AA (4.5:1): measured 3.03 on `--surface`, 2.92 on `--surface-alt`, 2.80 on `--bg`, 3.03 on the mobile nav's `bg-white/95`. The tertiary step failed on every surface, and at 9.5–13px the hints, table headers and empty states read as a smudge. Darkening it narrows the step to `--ink2`; no tertiary tone lighter than `--ink2` can hold 4.5:1 on white |
+| HIGH | `--amber` in `apps/web/app/globals.css:28` | `#9a6210` on `--amber-soft` `#fbefd9` in `components/ui/badge.tsx:13`, `app/settings/page.tsx:438`, `app/settings/page.tsx:493`, `app/login/page.tsx:483` | `#8f5b0e` | 1.4.3 AA: 4.47 on the warning chip, missing the ratio by 0.03 |
+| HIGH | `apps/web/app/login/page.tsx:246` | `#5f8a7a` version text on the sunken panel `#143a2f` | `--on-brand-strong` `#8fb3a6` | 1.4.3 AA: 3.22. The lightest text on the login panel was a raw literal, and the only one that failed |
+| MEDIUM | `--border-strong` (`--color-input`) in `apps/web/app/globals.css:19` | `#ccd4cb` on `--surface` in `components/ui/input.tsx:9`, `components/ui/select.tsx:15`, `app/login/otp-input.tsx:108`, `app/sales/page.tsx:614`, `app/sales/page.tsx:654`, `components/ui/button.tsx:17` | `#7f8c83` | 1.4.11 AA (3:1): 1.52. A control is a white island on the page background, so its border is the only edge — and `hover:border-ink-3` (3.03) already passed while the resting border failed |
+| MEDIUM | `apps/web/app/health-badge.tsx:48`, `:55`, `apps/web/app/production/page.tsx:654` | Status pill borders `#f3c3bd` (1.57) and `#b7e0d8` (1.43); selected summary card border `#c8e2d6` (1.37) | `border-destructive`, `border-brand`, `border-brand` | 1.4.11 AA: the boundary that identifies a status or a selected card sat below 3:1 |
+| MEDIUM | `apps/web/app/login/page.tsx:198`, `:205`, `:212`, `:224`, `:229`, `:237`, `:242`, `:246`, `apps/web/app/health-badge.tsx:48`, `:55`, `apps/web/app/production/page.tsx:654`, `apps/web/components/ui/button.tsx:13`, `:19`, `apps/web/components/ui/skeleton.tsx:13` | Raw hex in component files: the login dark ramp, the status borders, the button hover fills, the skeleton sheen | Role tokens: `--brand-raised`, `--brand-sunken`, `--on-brand`, `--on-brand-strong`, `--on-brand-accent`, `--danger-strong`, `--secondary-hover`, `--skeleton-sheen` | The skill's notation rule: a hardcoded value does not follow when the token it derives from moves, so the dark panel could not be re-tuned without editing eight call sites |
+| LOW | `apps/web/app/globals.css` | `--color-border-strong` was referenced by `app/stock/page.tsx:658` but never defined in `@theme`, so `hover:border-border-strong` compiled to nothing | `--color-border-strong: var(--border-strong)` | Use a token in its role: the utility exists now and the stock tabs' hover border is visible |
+
+**Verified from code:** `bun run --filter web typecheck` and
+`bun run --filter web build` pass; `bun test apps/web/tests` is 6 pass, 0 fail.
+Every fixed pair was recomputed from the declared tokens — `--ink3` 4.94–5.36,
+`--amber` on `--amber-soft` 5.03, `--border-strong` 3.24–3.51, `--on-brand-strong`
+on `--brand-sunken` 5.47 — and the built stylesheet carries the new values and
+the new utilities.
+
+**Not verified:** no browser session, so the rendered backgrounds (the mobile
+nav's `bg-white/95`, the login panel, the alpha fill on the purchasing header)
+are computed from the declared tokens rather than sampled, and forced-colors
+appearance is read from the source.
+
 ---
 
 ## Phase 0 — Foundation + validation

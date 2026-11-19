@@ -16,17 +16,31 @@
   --surface: #ffffff;
   --surface-alt: #fafbf7;
   --border: #e3e7e1;
-  --border-strong: #ccd4cb;
+  /* A form control is a white island on the page background, so its border is
+     the only thing marking its edge. It holds 3:1 against both (1.4.11). */
+  --border-strong: #7f8c83;
   --ink: #101c18;
   --ink2: #5a6a63;
-  --ink3: #8b978f;
+  /* Secondary text, not a decorative tint: it carries hints, table headers and
+     empty states, so it holds 4.5:1 on every surface it lands on. */
+  --ink3: #5f6e68;
   --brand: #12594a;
   --brand-dark: #0b3a30;
   --brand-soft: #e4f1ea;
+  /* The login panel is a dark brand surface; these are its raised step, its
+     sunken step, and the three text tones that read on top of it. */
+  --brand-raised: #1b4a3e;
+  --brand-sunken: #143a2f;
+  --on-brand: #a9c7bc;
+  --on-brand-strong: #8fb3a6;
+  --on-brand-accent: #7fc0a5;
   --danger: #ae3a2c;
+  --danger-strong: #953024;
   --danger-soft: #fae7e3;
-  --amber: #9a6210;
+  --amber: #8f5b0e;
   --amber-soft: #fbefd9;
+  --secondary-hover: #d8ebe1;
+  --skeleton-sheen: #eef0ec;
 }
 
 /* Tailwind theme, mapped onto the same tokens. `inline` keeps the utilities
@@ -57,6 +71,9 @@
   --color-danger-soft: var(--danger-soft);
   --color-border: var(--border);
   --color-input: var(--border-strong);
+  /* `border-border-strong` was referenced before it was mapped, so the utility
+     never compiled and the stock tabs' hover border did nothing. */
+  --color-border-strong: var(--border-strong);
   --color-ring: var(--brand);
 
   --color-surface: var(--surface);
@@ -67,6 +84,13 @@
   --color-brand: var(--brand);
   --color-brand-dark: var(--brand-dark);
   --color-brand-soft: var(--brand-soft);
+  --color-brand-raised: var(--brand-raised);
+  --color-brand-sunken: var(--brand-sunken);
+  --color-on-brand: var(--on-brand);
+  --color-on-brand-strong: var(--on-brand-strong);
+  --color-on-brand-accent: var(--on-brand-accent);
+  --color-danger-strong: var(--danger-strong);
+  --color-secondary-hover: var(--secondary-hover);
 
   /* Radii: 10px is the control radius, 14px the surface radius. */
   --radius-sm: 6px;
