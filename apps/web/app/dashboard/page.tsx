@@ -382,9 +382,14 @@ function Metric({
         {icon}
         <span>{label}</span>
       </div>
+      {/* Money gets one step down on the narrowest phones: at 320px
+          the card content box is 110px wide and an 8-digit rupiah
+          value set at 17px runs 5.8px past it, so the label column
+          would push the value out of the card. It returns to 17px
+          from 360px, where the same string fits with room to spare. */}
       <strong
         className={`font-extrabold tracking-tight tabular-nums ${
-          money ? "text-xl" : "text-2xl"
+          money ? "text-lg min-[360px]:text-xl" : "text-2xl"
         } ${
           tone === "danger"
             ? "text-destructive"

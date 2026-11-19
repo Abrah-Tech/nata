@@ -632,7 +632,10 @@ export default function StockPage() {
 
             {data && (
               <section className="overflow-hidden rounded-xl border border-border bg-card">
-                <div className="flex flex-col items-stretch gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                {/* flex-wrap lets the search drop below the tabs whenever the
+                    row cannot fit; the tab labels and their count pills set a
+                    minimum width that no single breakpoint can cover. */}
+                <div className="flex flex-col items-stretch gap-3 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <div
                     role="tablist"
                     aria-label={t.stock.title}
@@ -724,12 +727,16 @@ export default function StockPage() {
                       {t.stock.empty.filtered}
                     </p>
                   ) : (
-                    <div role="table" aria-label={t.stock.title}>
+                    <div role="table" aria-label={t.stock.title} className="@container">
+                      {/* A container, not a breakpoint: the desktop grid needs
+                          696px plus the 32px row inset, so it switches on when
+                          this box reaches 728px. A viewport breakpoint would
+                          clip again once the 246px sidebar appears at 961px. */}
                       {/* The mobile grid shows three columns, so it needs its
                           own header row; the desktop grid keeps the full one. */}
                       <div
                         role="row"
-                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-surface-alt px-3.5 py-2 text-2xs font-bold tracking-wider text-ink-3 uppercase sm:hidden"
+                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-surface-alt px-3.5 py-2 text-2xs font-bold tracking-wider text-ink-3 uppercase @min-[728px]:hidden"
                       >
                         <span role="columnheader">
                           {t.stock.table.material}
@@ -740,7 +747,7 @@ export default function StockPage() {
 
                       <div
                         role="row"
-                        className="hidden items-center gap-3 bg-surface-alt px-4 py-2.5 text-2xs font-bold tracking-wider text-ink-3 uppercase sm:grid sm:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px]"
+                        className="hidden items-center gap-3 bg-surface-alt px-4 py-2.5 text-2xs font-bold tracking-wider text-ink-3 uppercase @min-[728px]:grid @min-[728px]:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px]"
                       >
                         <span role="columnheader">
                           {t.stock.table.material}
@@ -770,7 +777,7 @@ export default function StockPage() {
                           <div
                             role="row"
                             key={row.material_id}
-                            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border px-3.5 py-3 text-sm last:border-b-0 sm:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px] sm:gap-3 sm:px-4"
+                            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border px-3.5 py-3 text-sm last:border-b-0 @min-[728px]:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px] @min-[728px]:gap-3 @min-[728px]:px-4"
                           >
                             <div
                               role="cell"
@@ -793,7 +800,7 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="flex items-baseline justify-self-end gap-1 sm:justify-self-auto"
+                              className="flex items-baseline justify-self-end gap-1 @min-[728px]:justify-self-auto"
                             >
                               <strong className="text-sm font-bold tabular-nums">
                                 {formatQty(row.on_hand, locale)}
@@ -805,7 +812,7 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="hidden text-xs text-ink-3 sm:block"
+                              className="hidden text-xs text-ink-3 @min-[728px]:block"
                             >
                               {formatQty(row.min_stock, locale)}{" "}
                               {row.base_unit.code}
@@ -813,14 +820,14 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="hidden text-xs text-ink-2 sm:block"
+                              className="hidden text-xs text-ink-2 @min-[728px]:block"
                             >
                               {row.active_batches}
                             </div>
 
                             <div
                               role="cell"
-                              className="hidden text-xs text-ink-2 sm:block"
+                              className="hidden text-xs text-ink-2 @min-[728px]:block"
                             >
                               {expiryLabel(row)}
                             </div>
@@ -833,7 +840,7 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="hidden text-xs font-semibold tabular-nums sm:block"
+                              className="hidden text-xs font-semibold tabular-nums @min-[728px]:block"
                             >
                               {formatMoney(
                                 Number(row.on_hand) * Number(row.last_cost),
@@ -843,7 +850,7 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="hidden justify-self-end sm:block"
+                              className="hidden justify-self-end @min-[728px]:block"
                             >
                               <Button
                                 variant="ghost"
