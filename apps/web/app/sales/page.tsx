@@ -10,6 +10,7 @@ import {
 import { Plus, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { StatusMessage } from "@/components/status";
 import {
   LoadingRegion,
   SkeletonForm,
@@ -157,6 +158,8 @@ export default function SalesPage() {
   const [importKey, setImportKey] = useState(0);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<SaleImportSummary | null>(
     null,
   );
@@ -219,6 +222,11 @@ export default function SalesPage() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (saving) return;
+
     setError(null);
     setNotice(null);
 
@@ -301,12 +309,24 @@ export default function SalesPage() {
 
   async function submitImport(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // `aria-disabled` keeps the button focusable, so a repeat activation has to
+    // be blocked here as well as in the styling.
+    if (importing) return;
+
     setImportError(null);
     setImportResult(null);
+    setFileError(null);
+
+    if (!file) {
+      setFileError(t.sales.import.fileRequired);
+      fileInputRef.current?.focus();
+      return;
+    }
 
     const token = readToken();
 
-    if (!token || !file) return;
+    if (!token) return;
 
     setImporting(true);
 
@@ -391,14 +411,10 @@ export default function SalesPage() {
               </p>
             </header>
 
-            {notice && (
-              <p
-                role="status"
-                className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
-              >
-                {notice}
-              </p>
-            )}
+            <StatusMessage
+              message={notice}
+              className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
+            />
 
             {load.status === "loading" && (
               <LoadingRegion
@@ -534,7 +550,12 @@ export default function SalesPage() {
                             size="icon"
                             className="size-11"
                             type="button"
-                            aria-label={t.sales.form.removeLine}
+                            aria-label={fill(t.sales.form.removeLineNamed, {
+                              name:
+                                products.find(
+                                  (item) => item.id === line.productId,
+                                )?.name ?? t.sales.form.removeLine,
+                            })}
                             disabled={lines.length === 1}
                             onClick={() =>
                               setLines((current) =>
@@ -569,7 +590,11 @@ export default function SalesPage() {
                         </strong>
                       </div>
 
-                      <Button type="submit" disabled={saving}>
+                      <Button
+                        type="submit"
+                        aria-disabled={saving ? true : undefined}
+                        aria-busy={saving ? true : undefined}
+                      >
                         {saving ? t.sales.form.saving : t.sales.form.submit}
                       </Button>
                     </div>
@@ -610,12 +635,20 @@ export default function SalesPage() {
                     >
                       <input
                         key={importKey}
+                        ref={fileInputRef}
                         type="file"
+                        name="file"
                         accept=".csv,text/csv"
+                        aria-label={t.sales.import.chooseFile}
+                        aria-invalid={fileError ? true : undefined}
+                        aria-describedby={
+                          fileError ? "sales-import-file-error" : undefined
+                        }
                         onChange={(event) => {
                           setFile(event.target.files?.[0] ?? null);
                           setImportResult(null);
                           setImportError(null);
+                          setFileError(null);
                         }}
                         required
                         className="max-w-full text-sm text-muted-foreground file:mr-2.5 file:h-9 file:cursor-pointer file:rounded-lg file:border file:border-input file:bg-surface-alt file:px-3 file:text-xs file:font-semibold file:text-ink"
@@ -623,7 +656,8 @@ export default function SalesPage() {
 
                       <Button
                         type="submit"
-                        disabled={importing || !file}
+                        aria-disabled={importing ? true : undefined}
+                        aria-busy={importing ? true : undefined}
                       >
                         {importing
                           ? t.sales.import.importing
@@ -631,45 +665,49 @@ export default function SalesPage() {
                       </Button>
                     </form>
 
-                    {importError && (
+                    {(importError || fileError) && (
                       <p
+                        id="sales-import-file-error"
                         role="alert"
                         className="rounded-lg bg-danger-soft px-3 py-2.5 text-xs text-destructive"
                       >
-                        {importError}
+                        {fileError ?? importError}
                       </p>
                     )}
 
-                    {importResult && (
-                      <div
-                        role="status"
-                        className="rounded-lg bg-surface-alt px-3 py-2.5 text-sm"
-                      >
-                        <p>
-                          {fill(t.sales.import.summary, {
-                            created: importResult.created,
-                            duplicate: importResult.duplicate,
-                            rejected: importResult.rejected,
-                          })}
-                        </p>
+                    {/* Always mounted, so a result that appears later is
+                        announced instead of being missed. */}
+                    <div className="flex flex-col gap-3" role="status">
+                      {importResult && (
+                        <div className="rounded-lg bg-surface-alt px-3 py-2.5 text-sm">
+                          <p>
+                            {fill(t.sales.import.summary, {
+                              created: importResult.created,
+                              duplicate: importResult.duplicate,
+                              rejected: importResult.rejected,
+                            })}
+                          </p>
 
-                        {importResult.rejected > 0 && (
-                          <ul className="mt-1.5 flex list-none flex-col gap-1 p-0 text-destructive">
-                            {importResult.rows
-                              .filter((row) => row.status === "rejected")
-                              .map((row) => (
-                                <li key={row.row} className="text-xs">
-                                  <strong>
-                                    {fill(t.sales.import.row, { row: row.row })}
-                                  </strong>
-                                  {": "}
-                                  {importRowError(t, row.code)}
-                                </li>
-                              ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
+                          {importResult.rejected > 0 && (
+                            <ul className="mt-1.5 flex list-none flex-col gap-1 p-0 text-destructive">
+                              {importResult.rows
+                                .filter((row) => row.status === "rejected")
+                                .map((row) => (
+                                  <li key={row.row} className="text-xs">
+                                    <strong>
+                                      {fill(t.sales.import.row, {
+                                        row: row.row,
+                                      })}
+                                    </strong>
+                                    {": "}
+                                    {importRowError(t, row.code)}
+                                  </li>
+                                ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </section>
                 )}
 

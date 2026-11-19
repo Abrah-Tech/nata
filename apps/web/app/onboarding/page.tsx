@@ -188,6 +188,12 @@ export default function OnboardingPage() {
 
             {error && <FormError>{error}</FormError>}
 
+            {/* Rendered before the result appears, so the outcome is announced
+                instead of being missed. */}
+            <p role="status" className="sr-only">
+              {result ? resultSummary(t, result) : null}
+            </p>
+
             {result && <Result result={result} />}
 
             <section className="flex flex-col rounded-xl border border-border bg-card">
@@ -308,14 +314,26 @@ export default function OnboardingPage() {
   );
 }
 
+/** One line a screen reader can announce as the import outcome. */
+function resultSummary(t: Dictionary, result: OnboardingResult): string {
+  const parts = [fill(t.onboarding.result.created, { count: result.created })];
+
+  if (result.skipped > 0) {
+    parts.push(fill(t.onboarding.result.skipped, { count: result.skipped }));
+  }
+
+  if (result.errors.length > 0) {
+    parts.push(fill(t.onboarding.result.errors, { count: result.errors.length }));
+  }
+
+  return parts.join(". ");
+}
+
 function Result({ result }: { result: OnboardingResult }) {
   const { t } = useI18n();
 
   return (
-    <div
-      className="flex flex-col gap-2 rounded-xl bg-brand-soft px-3.5 py-3"
-      role="status"
-    >
+    <div className="flex flex-col gap-2 rounded-xl bg-brand-soft px-3.5 py-3">
       <div className="flex flex-wrap items-center gap-2.5 text-xs text-brand">
         <CheckCircle2 size={16} />
         <strong className="text-sm font-bold">

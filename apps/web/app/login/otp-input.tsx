@@ -1,18 +1,26 @@
 "use client";
 
-import { useRef } from "react";
+import { forwardRef, useImperativeHandle, useRef } from "react";
 import type { ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
 
 export const OTP_LENGTH = 6;
+
+/** Lets the form put focus on the first unfinished cell. */
+export type OtpInputHandle = { focus: (index: number) => void };
 
 type Props = {
   value: string[];
   onChange: (value: string[]) => void;
   label: string;
   disabled?: boolean;
+  /** Id of the inline error, so it is announced together with the group. */
+  describedBy?: string;
 };
 
-export function OtpInput({ value, onChange, label, disabled }: Props) {
+export const OtpInput = forwardRef<OtpInputHandle, Props>(function OtpInput(
+  { value, onChange, label, disabled, describedBy },
+  ref,
+) {
   const refs = useRef<Array<HTMLInputElement | null>>([]);
 
   function focus(index: number) {
@@ -20,6 +28,8 @@ export function OtpInput({ value, onChange, label, disabled }: Props) {
     input?.focus();
     input?.select();
   }
+
+  useImperativeHandle(ref, () => ({ focus }), []);
 
   function setCell(index: number, digit: string) {
     const next = [...value];
@@ -83,21 +93,27 @@ export function OtpInput({ value, onChange, label, disabled }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-6 gap-[7px]" role="group" aria-label={label}>
+    <div
+      className="grid grid-cols-6 gap-[7px]"
+      role="group"
+      aria-label={label}
+      aria-describedby={describedBy}
+    >
       {value.map((digit, index) => (
         <input
           key={index}
           ref={(element) => {
             refs.current[index] = element;
           }}
-          className={`h-12 w-full cursor-text rounded-lg border bg-card text-center text-[19px] font-bold text-foreground outline-none transition-[border-color,box-shadow] focus:border-primary focus:shadow-[0_0_0_3px_var(--brand-soft)] disabled:opacity-55 ${digit ? "border-primary" : "border-input hover:border-ink-3"}`}
+          className={`h-12 w-full cursor-text rounded-lg border bg-card text-center text-[19px] font-bold text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:shadow-[0_0_0_3px_var(--brand-soft)] disabled:opacity-55 ${digit ? "border-primary" : "border-input hover:border-ink-3"}`}
           value={digit}
           onChange={(event) => handleChange(index, event)}
           onKeyDown={(event) => handleKeyDown(index, event)}
           onPaste={handlePaste}
           onFocus={(event) => event.target.select()}
           inputMode="numeric"
-          autoComplete="one-time-code"
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          name={index === 0 ? "otp" : undefined}
           maxLength={1}
           disabled={disabled}
           aria-label={`${label} ${index + 1}`}
@@ -105,4 +121,4 @@ export function OtpInput({ value, onChange, label, disabled }: Props) {
       ))}
     </div>
   );
-}
+});

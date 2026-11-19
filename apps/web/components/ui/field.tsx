@@ -1,31 +1,39 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Label, control and hint as one unit. The wrapper is the `label` element, so
- * clicking the text focuses the control without threading ids through every
- * form.
+ * Label, control and hint as one unit. The label wraps the control, so clicking
+ * the text focuses the control without threading ids through every form. The
+ * hint sits outside the label on purpose: inside it, the hint text becomes part
+ * of the control's accessible name instead of being available as its description.
  */
 function Field({
   label,
   hint,
+  hintId,
   className,
   children,
 }: {
   label: string;
   hint?: string;
+  /** Id of the hint node, referenced by the control's `aria-describedby`. */
+  hintId?: string;
   className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className={cn("flex flex-col gap-1.5", className)}>
-      <span className="text-xs font-semibold text-muted-foreground select-none">
-        {label}
-      </span>
-      {children}
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold text-muted-foreground select-none">
+          {label}
+        </span>
+        {children}
+      </label>
       {hint && (
-        <span className="text-2xs leading-snug text-ink-3">{hint}</span>
+        <span id={hintId} className="text-2xs leading-snug text-ink-3">
+          {hint}
+        </span>
       )}
-    </label>
+    </div>
   );
 }
 

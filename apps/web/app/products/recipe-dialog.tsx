@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { normalizeDecimal } from "@/lib/format";
-import { useI18n, type Dictionary } from "@/lib/i18n";
+import { fill, useI18n, type Dictionary } from "@/lib/i18n";
 import { readToken } from "@/lib/session";
 
 type Props = {
@@ -131,6 +131,11 @@ export function RecipeDialog({
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (saving) return;
+
     setError(null);
 
     const token = readToken();
@@ -235,11 +240,14 @@ export function RecipeDialog({
             <Field
               label={t.products.recipeForm.yield}
               hint={t.products.recipeForm.yieldHint}
+              hintId="recipe-yield-hint"
             >
               <Input
                 type="text"
+                name="yield"
                 inputMode="decimal"
                 autoComplete="off"
+                aria-describedby="recipe-yield-hint"
                 placeholder="0"
                 value={yieldQty}
                 onChange={(event) => setYieldQty(event.target.value)}
@@ -250,11 +258,14 @@ export function RecipeDialog({
             <Field
               label={t.products.recipeForm.labor}
               hint={t.products.recipeForm.laborHint}
+              hintId="recipe-labor-hint"
             >
               <Input
                 type="number"
+                name="labor_minutes"
                 min="0"
                 step="1"
+                aria-describedby="recipe-labor-hint"
                 value={laborMinutes}
                 onChange={(event) => setLaborMinutes(event.target.value)}
               />
@@ -326,7 +337,15 @@ export function RecipeDialog({
                   className="size-11 justify-self-center sm:size-10"
                   type="button"
                   onClick={() => removeRow(row.key)}
-                  aria-label={t.products.recipeForm.removeItem}
+                  aria-label={fill(
+                    t.products.recipeForm.removeItemNamed,
+                    {
+                      name:
+                        materials.find(
+                          (material) => material.id === row.materialId,
+                        )?.name ?? t.products.recipeForm.removeItem,
+                    },
+                  )}
                   disabled={rows.length === 1}
                 >
                   <Trash2 size={14} />
@@ -352,7 +371,11 @@ export function RecipeDialog({
             <Button variant="ghost" type="button" onClick={onClose}>
               {t.products.recipeForm.cancel}
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button
+              type="submit"
+              aria-disabled={saving ? true : undefined}
+              aria-busy={saving ? true : undefined}
+            >
               {saving
                 ? t.products.recipeForm.saving
                 : t.products.recipeForm.submit}

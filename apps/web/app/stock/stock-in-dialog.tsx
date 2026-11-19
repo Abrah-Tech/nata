@@ -85,6 +85,11 @@ export function StockInDialog({
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (saving) return;
+
     setError(null);
 
     const token = readToken();
@@ -212,9 +217,12 @@ export function StockInDialog({
             <Field
               label={t.stock.form.expiresAt}
               hint={t.stock.form.expiresAtHint}
+              hintId="stock-in-expires-hint"
             >
               <Input
                 type="date"
+                name="expires_at"
+                aria-describedby="stock-in-expires-hint"
                 value={expiresAt}
                 onChange={(event) => setExpiresAt(event.target.value)}
               />
@@ -260,7 +268,11 @@ export function StockInDialog({
             <Button variant="ghost" type="button" onClick={onClose}>
               {t.stock.form.cancel}
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button
+              type="submit"
+              aria-disabled={saving ? true : undefined}
+              aria-busy={saving ? true : undefined}
+            >
               {saving ? t.stock.form.saving : t.stock.form.submit}
             </Button>
           </div>

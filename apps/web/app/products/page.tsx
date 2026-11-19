@@ -4,6 +4,7 @@ import type { Material, Product, Recipe } from "@nata/api-client";
 import { Boxes, ChevronDown, ChevronUp, Pencil, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { StatusMessage } from "@/components/status";
 import { LoadingRegion, SkeletonList } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -191,14 +192,10 @@ export default function ProductsPage() {
               )}
             </header>
 
-            {notice && (
-              <p
-                role="status"
-                className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
-              >
-                {notice}
-              </p>
-            )}
+            <StatusMessage
+              message={notice}
+              className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
+            />
 
             {load.status === "loading" && (
               <LoadingRegion label={t.products.loading}>
@@ -264,6 +261,7 @@ export default function ProductsPage() {
                           type="button"
                           onClick={() => void toggle(product)}
                           aria-expanded={open}
+                          aria-controls={`recipe-${product.id}`}
                         >
                           <strong className="truncate text-sm font-bold text-ink">
                             {product.name}
@@ -314,7 +312,9 @@ export default function ProductsPage() {
                               onClick={() =>
                                 setProductDialog({ mode: "edit", product })
                               }
-                              aria-label={t.products.card.edit}
+                              aria-label={fill(t.products.card.editNamed, {
+                                name: product.name,
+                              })}
                             >
                               <Pencil size={14} />
                             </Button>
@@ -325,11 +325,12 @@ export default function ProductsPage() {
                             className="size-7 rounded-md"
                             type="button"
                             onClick={() => void toggle(product)}
-                            aria-label={
+                            aria-label={fill(
                               open
-                                ? t.products.card.collapse
-                                : t.products.card.expand
-                            }
+                                ? t.products.card.collapseNamed
+                                : t.products.card.expandNamed,
+                              { name: product.name },
+                            )}
                           >
                             {open ? (
                               <ChevronUp size={15} />
@@ -341,7 +342,10 @@ export default function ProductsPage() {
                       </div>
 
                       {open && (
-                        <div className="flex flex-col gap-2.5 border-t border-border px-4 pt-3.5 pb-4">
+                        <div
+                          id={`recipe-${product.id}`}
+                          className="flex flex-col gap-2.5 border-t border-border px-4 pt-3.5 pb-4"
+                        >
                           <div className="flex items-center justify-between gap-3">
                             <h3 className="text-xs font-bold tracking-wide uppercase">
                               {t.products.recipe.history}

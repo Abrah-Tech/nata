@@ -3,9 +3,10 @@
 import { ApiError, type TenantSummary } from "@nata/api-client";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
+import { StatusMessage } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,7 @@ import { fill, useI18n } from "@/lib/i18n";
 import { writeToken } from "@/lib/session";
 
 import { LocaleSwitch } from "../locale-switch";
-import { OTP_LENGTH, OtpInput } from "./otp-input";
+import { OTP_LENGTH, OtpInput, type OtpInputHandle } from "./otp-input";
 
 type Step = "contact" | "code" | "tenant";
 type ContactMode = "phone" | "email";
@@ -35,7 +36,11 @@ export default function LoginPage() {
   const [pendingInvitation, setPendingInvitation] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
+  const contactRef = useRef<HTMLInputElement>(null);
+  const otpRef = useRef<OtpInputHandle>(null);
 
   useEffect(() => {
     if (seconds <= 0) {
@@ -66,15 +71,24 @@ export default function LoginPage() {
   }
 
   async function sendCode() {
-    if (!contact.trim()) {
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (busy) return;
+
+    const value = contact.trim();
+
+    if (!value) {
+      setContactError(t.login.errors.contactRequired);
+      contactRef.current?.focus();
       return;
     }
 
+    setContactError(null);
     setBusy(true);
     setError(null);
 
     try {
-      await api.requestOtp(contact.trim());
+      await api.requestOtp(value);
       setCode(EMPTY_CODE);
       setStep("code");
       setSeconds(RESEND_SECONDS);
@@ -86,10 +100,19 @@ export default function LoginPage() {
   }
 
   async function verify() {
-    if (code.some((digit) => !digit)) {
+    // `aria-disabled` keeps the button focusable, so a repeat submission has to
+    // be blocked here as well as in the styling.
+    if (busy) return;
+
+    const missing = code.findIndex((digit) => !digit);
+
+    if (missing !== -1) {
+      setCodeError(t.login.errors.codeIncomplete);
+      otpRef.current?.focus(missing);
       return;
     }
 
+    setCodeError(null);
     setBusy(true);
     setError(null);
 
@@ -121,6 +144,10 @@ export default function LoginPage() {
   }
 
   async function chooseTenant(tenantId: string) {
+    // `aria-disabled` keeps the buttons focusable, so a repeat activation has to
+    // be blocked here as well as in the styling.
+    if (busy) return;
+
     if (!selectionToken) {
       return;
     }
@@ -143,6 +170,8 @@ export default function LoginPage() {
     setMode(mode === "phone" ? "email" : "phone");
     setStep("contact");
     setError(null);
+    setContactError(null);
+    setCodeError(null);
   }
 
   function onSubmitContact(event: FormEvent<HTMLFormElement>) {
@@ -176,9 +205,10 @@ export default function LoginPage() {
           <p className="m-0 text-[10px] font-bold tracking-[0.1em] text-[#7fc0a5]">
             {t.login.brand.label}
           </p>
-          <h1 className="max-w-[15ch] text-[42px] leading-[1.08] font-bold tracking-[-0.02em]">
+          {/* The form card owns the page's one heading; this is brand copy. */}
+          <p className="m-0 max-w-[15ch] text-[42px] leading-[1.08] font-bold tracking-[-0.02em]">
             {t.login.brand.title}
-          </h1>
+          </p>
           <p className="m-0 max-w-[56ch] text-[13px] leading-[1.6] text-[#a9c7bc]">
             {t.login.brand.subtitle}
           </p>
@@ -223,7 +253,7 @@ export default function LoginPage() {
         <p className="m-0 self-center text-[11px] text-ink-3 lg:self-end">
           {t.login.help}{" "}
           <a
-            className="font-semibold text-brand no-underline hover:underline"
+            className="font-semibold text-brand no-underline outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             href="mailto:halo@nata.id"
           >
             {t.login.contactSupport}
@@ -299,18 +329,42 @@ export default function LoginPage() {
             <form className="flex flex-col gap-3" onSubmit={onSubmitContact}>
               <Field label={isPhone ? t.login.phoneLabel : t.login.emailLabel}>
                 <Input
+                  ref={contactRef}
                   value={contact}
-                  onChange={(event) => setContact(event.target.value)}
+                  onChange={(event) => {
+                    setContact(event.target.value);
+                    setContactError(null);
+                  }}
                   placeholder={isPhone ? t.login.phonePlaceholder : t.login.emailPlaceholder}
                   type={isPhone ? "tel" : "email"}
                   inputMode={isPhone ? "tel" : "email"}
                   autoComplete={isPhone ? "tel" : "email"}
+                  name="contact"
                   autoFocus
                   required
+                  aria-invalid={contactError ? true : undefined}
+                  aria-describedby={
+                    contactError ? "login-contact-error" : undefined
+                  }
                 />
               </Field>
 
-              <Button type="submit" className="w-full" disabled={busy || !contact.trim()}>
+              {contactError && (
+                <p
+                  id="login-contact-error"
+                  role="alert"
+                  className="m-0 text-xs text-destructive"
+                >
+                  {contactError}
+                </p>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                aria-disabled={busy ? true : undefined}
+                aria-busy={busy ? true : undefined}
+              >
                 {busy ? t.login.sending : t.login.sendCode}
               </Button>
 
@@ -333,11 +387,12 @@ export default function LoginPage() {
                   </span>
                 </span>
                 <button
-                  className="ml-auto cursor-pointer p-0 font-semibold text-brand hover:underline"
+                  className="ml-auto cursor-pointer p-0 font-semibold text-brand outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   type="button"
                   onClick={() => {
                     setStep("contact");
                     setError(null);
+                    setCodeError(null);
                   }}
                 >
                   {t.login.change}
@@ -349,11 +404,26 @@ export default function LoginPage() {
                   {t.login.codeLabel}
                 </span>
                 <OtpInput
+                  ref={otpRef}
                   value={code}
-                  onChange={setCode}
+                  onChange={(next) => {
+                    setCode(next);
+                    setCodeError(null);
+                  }}
                   label={t.login.codeLabel}
                   disabled={busy}
+                  describedBy={codeError ? "login-code-error" : undefined}
                 />
+
+                {codeError && (
+                  <p
+                    id="login-code-error"
+                    role="alert"
+                    className="m-0 text-xs text-destructive"
+                  >
+                    {codeError}
+                  </p>
+                )}
               </div>
 
               <p className="m-0 text-center text-[10.5px] text-ink-3">
@@ -361,7 +431,7 @@ export default function LoginPage() {
                   fill(t.login.resendIn, { seconds })
                 ) : (
                   <button
-                    className="cursor-pointer p-0 font-semibold text-brand hover:underline"
+                    className="cursor-pointer p-0 font-semibold text-brand outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                     type="button"
                     onClick={() => void sendCode()}
                   >
@@ -373,7 +443,8 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={busy || code.some((digit) => !digit)}
+                aria-disabled={busy ? true : undefined}
+                aria-busy={busy ? true : undefined}
               >
                 {busy ? t.login.verifying : t.login.verify}
               </Button>
@@ -391,10 +462,11 @@ export default function LoginPage() {
               {tenants.map((tenant) => (
                 <li key={tenant.id}>
                   <button
-                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3.5 py-3.5 text-left transition-colors hover:border-brand disabled:opacity-55"
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3.5 py-3.5 text-left transition-colors outline-none hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-disabled:opacity-55"
                     type="button"
                     onClick={() => void chooseTenant(tenant.id)}
-                    disabled={busy}
+                    aria-disabled={busy ? true : undefined}
+                    aria-busy={busy ? true : undefined}
                   >
                     <span className="text-sm font-bold">{tenant.name}</span>
                     <span className="text-[10.5px] text-ink-3">
@@ -406,14 +478,10 @@ export default function LoginPage() {
             </ul>
           )}
 
-          {pendingInvitation && (
-              <p
-                className="m-0 rounded-lg bg-warning-soft px-3 py-2.5 text-xs leading-[1.45] text-warning"
-                role="status"
-              >
-              {t.login.invitationPending}
-            </p>
-          )}
+          <StatusMessage
+            message={pendingInvitation ? t.login.invitationPending : null}
+            className="m-0 rounded-lg bg-warning-soft px-3 py-2.5 text-xs leading-[1.45] text-warning"
+          />
 
           {error && <FormError>{error}</FormError>}
 
