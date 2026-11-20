@@ -188,6 +188,24 @@
     list-style: none;
   }
 
+  /* Controls do not inherit the document font or colour by default, and a
+     button arrives with the browser's own padding and gray face. Since
+     preflight is not loaded, every raw control in the app has to opt back in
+     or it renders in the browser's font on a chip nobody styled. */
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    padding: 0;
+    background-color: transparent;
+    cursor: pointer;
+  }
+
   body {
     min-height: 100vh;
     background: var(--bg);
