@@ -603,6 +603,7 @@ export type OnboardingTemplateItem = {
 export type OnboardingTemplate = {
   id: string;
   item_count: number;
+  product_count: number;
   items: OnboardingTemplateItem[];
 };
 
@@ -615,6 +616,8 @@ export type OnboardingResult = {
   created: number;
   skipped: number;
   errors: OnboardingRowError[];
+  products: number;
+  recipes: number;
 };
 
 export type AuthResponse = {

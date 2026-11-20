@@ -112,6 +112,9 @@ pub async fn import_materials(
         created,
         skipped,
         errors,
+        // The spreadsheet path only ever writes materials.
+        products: 0,
+        recipes: 0,
     }))
 }
 

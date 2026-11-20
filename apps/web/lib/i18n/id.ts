@@ -168,8 +168,9 @@ export const id: Dictionary = {
     openStock: "Buka stok",
     templates: {
       title: "Template usaha",
-      subtitle: "Pilih yang paling dekat. Semua bahan tetap bisa diubah.",
-      items: "{count} bahan",
+      subtitle:
+        "Pilih yang paling dekat. Template menambahkan bahan, produk, dan resep yang semuanya bisa diubah.",
+      items: "{count} bahan · {products} produk",
       apply: "Pakai template",
       applying: "Menambahkan…",
       bakery: {
@@ -212,6 +213,7 @@ export const id: Dictionary = {
     },
     result: {
       created: "{count} bahan ditambahkan.",
+      products: "{count} produk beserta resepnya ikut dibuat.",
       skipped: "{count} sudah ada dan dilewati.",
       errors: "{count} baris tidak bisa dibaca.",
     },
@@ -876,7 +878,7 @@ export const id: Dictionary = {
         id: "onboarding",
         icon: "onboarding",
         title: "Siapkan bahan",
-        goal: "Nata tidak bisa merencanakan apa pun sebelum tahu bahan apa yang kamu simpan di dapur. Layar ini menyiapkan daftar itu sekali, lewat template jenis usahamu atau lewat spreadsheet yang sudah kamu punya.",
+        goal: "Nata tidak bisa merencanakan apa pun sebelum tahu bahan apa yang kamu simpan di dapur. Layar ini menyiapkan daftar itu sekali, lewat template jenis usahamu atau lewat spreadsheet yang sudah kamu punya. Template juga menyiapkan beberapa produk dengan resep yang sudah jalan, jadi kamu bisa langsung produksi di hari pendaftaran.",
         before: [
           "Kamu sudah masuk.",
           "Menambah bahan butuh Pemilik atau Admin. Pengamat masih bisa mengunduh contoh.",
@@ -889,6 +891,7 @@ export const id: Dictionary = {
         ],
         outputs: [
           "Bahan dengan satuan dasar, stok minimum, dan umur simpan.",
+          "Produk dengan resep yang ditulis template, masing-masing versi 1 dan harga jual belum diisi.",
           "Panel hasil berisi jumlah dibuat, dilewati, dan ditolak, plus nomor baris setiap yang ditolak.",
         ],
         nextId: "products",
@@ -896,7 +899,7 @@ export const id: Dictionary = {
           "Impor berhenti pada 500 baris.",
           "Header contoh memakai bahasa Indonesia: Nama, Satuan, Stok minimum, Umur simpan.",
           "Baris yang ditolak dilaporkan per nomor baris, bukan per nama bahan, jadi buka file aslinya saat memperbaiki.",
-          "Menerapkan template tidak bisa dibatalkan di sini. Tambah bahan satu per satu di Bahan kalau mau lebih terkendali.",
+          "Menerapkan template tidak bisa dibatalkan di sini, dan template ikut menambahkan produk beserta resepnya. Tambah bahan satu per satu di Bahan kalau mau lebih terkendali.",
         ],
       },
       {
