@@ -10,6 +10,7 @@ import {
 import { Plus, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { FirstStepsHint } from "@/components/first-steps-hint";
 import { StatusMessage } from "@/components/status";
 import {
   LoadingRegion,
@@ -410,6 +411,8 @@ export default function SalesPage() {
                 {t.sales.subtitle}
               </p>
             </header>
+
+            <FirstStepsHint at="sales" />
 
             <StatusMessage
               message={notice}

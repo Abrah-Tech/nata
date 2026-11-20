@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, ChefHat } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { FirstStepsHint } from "@/components/first-steps-hint";
 import {
   LoadingRegion,
   SkeletonForm,
@@ -266,6 +267,8 @@ export default function ProductionPage() {
                 {t.production.subtitle}
               </p>
             </header>
+
+            <FirstStepsHint at="production" />
 
             {load.status === "loading" && (
               <LoadingRegion

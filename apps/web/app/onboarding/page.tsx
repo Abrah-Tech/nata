@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, Download, Upload } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { FirstStepsHint } from "@/components/first-steps-hint";
 import {
   LoadingRegion,
   SkeletonList,
@@ -179,6 +180,8 @@ export default function OnboardingPage() {
                 </Link>
               </Button>
             </header>
+
+            <FirstStepsHint at="materials" />
 
             {!canWrite && (
               <p className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs text-brand">
