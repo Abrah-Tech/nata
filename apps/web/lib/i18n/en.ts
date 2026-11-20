@@ -156,11 +156,6 @@ export const en = {
       overdue: "{days}d late",
       detail: "{qty} {unit} · {cost}/{unit}",
     },
-    emptyTenant: {
-      title: "No ingredients yet",
-      body: "Add what you keep in the kitchen, then record what you bought.",
-      cta: "Add ingredients",
-    },
     roles: {
       owner: "Owner",
       admin: "Admin",
@@ -820,6 +815,17 @@ export const en = {
 
     materialCreated: "Ingredient created.",
     signOut: "Sign out",
+  },
+  firstSteps: {
+    title: "First steps",
+    counter: "{done} of {total} done",
+    steps: {
+      materials: "Add your ingredients",
+      recipe: "Create a recipe",
+      stockIn: "Record a stock-in",
+      production: "Run a production",
+      sales: "Record a sale",
+    },
   },
   guide: {
     title: "Handbook",

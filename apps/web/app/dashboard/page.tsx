@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { FirstSteps } from "@/components/first-steps";
 import { LoadingRegion, SkeletonStats } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,10 @@ export default function DashboardPage() {
               </Button>
             </header>
 
+            {/* Rendered as soon as the overview lands, so the checklist fills in
+                above the metrics instead of pushing them down. */}
+            {data && <FirstSteps materials={data.summary.materials} />}
+
             {load.status === "loading" && (
               <DashboardSkeleton label={t.dashboard.loading} />
             )}
@@ -129,20 +134,6 @@ export default function DashboardPage() {
                   onClick={() => void fetchData()}
                 >
                   {t.dashboard.retry}
-                </Button>
-              </div>
-            )}
-
-            {data && data.summary.materials === 0 && (
-              <div className="flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-5">
-                <h2 className="text-lg font-bold">
-                  {t.dashboard.emptyTenant.title}
-                </h2>
-                <p className="max-w-[46ch] text-sm text-muted-foreground">
-                  {t.dashboard.emptyTenant.body}
-                </p>
-                <Button asChild className="mt-1">
-                  <Link href="/onboarding">{t.dashboard.emptyTenant.cta}</Link>
                 </Button>
               </div>
             )}

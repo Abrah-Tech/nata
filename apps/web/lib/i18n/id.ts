@@ -155,11 +155,6 @@ export const id: Dictionary = {
       overdue: "lewat {days} hari",
       detail: "{qty} {unit} · {cost}/{unit}",
     },
-    emptyTenant: {
-      title: "Belum ada bahan",
-      body: "Tambahkan bahan yang kamu simpan, lalu catat pembeliannya.",
-      cta: "Tambah bahan",
-    },
     roles: {
       owner: "Pemilik",
       admin: "Admin",
@@ -821,6 +816,17 @@ export const id: Dictionary = {
 
     materialCreated: "Bahan berhasil dibuat.",
     signOut: "Keluar",
+  },
+  firstSteps: {
+    title: "Langkah pertama",
+    counter: "{done} dari {total} selesai",
+    steps: {
+      materials: "Catat bahan yang kamu simpan",
+      recipe: "Buat resep untuk satu produk",
+      stockIn: "Catat stok masuk",
+      production: "Jalankan produksi",
+      sales: "Catat penjualan",
+    },
   },
   guide: {
     title: "Panduan",
