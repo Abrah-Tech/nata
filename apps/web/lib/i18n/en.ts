@@ -169,8 +169,9 @@ export const en = {
     openStock: "Open ingredients",
     templates: {
       title: "Business templates",
-      subtitle: "Pick the closest one. Every ingredient stays editable.",
-      items: "{count} ingredients",
+      subtitle:
+        "Pick the closest one. It adds ingredients, products and recipes, all editable.",
+      items: "{count} ingredients · {products} products",
       apply: "Use template",
       applying: "Adding…",
       bakery: {
@@ -213,6 +214,7 @@ export const en = {
     },
     result: {
       created: "{count} ingredients added.",
+      products: "{count} products with their recipes were added too.",
       skipped: "{count} already existed and were skipped.",
       errors: "{count} rows could not be read.",
     },
@@ -875,7 +877,7 @@ export const en = {
         id: "onboarding",
         icon: "onboarding",
         title: "Set up your ingredients",
-        goal: "Nata cannot plan anything until it knows what you keep in the kitchen. This screen seeds that list once, either from a template for your kind of business or from a spreadsheet you already keep.",
+        goal: "Nata cannot plan anything until it knows what you keep in the kitchen. This screen seeds that list once, either from a template for your kind of business or from a spreadsheet you already keep. A template also brings a few products with a working recipe, so you can run a production order on the day you sign up.",
         before: [
           "You are signed in.",
           "Adding ingredients takes an owner or an admin. A viewer can still download the sample.",
@@ -888,6 +890,7 @@ export const en = {
         ],
         outputs: [
           "Ingredients with their base unit, minimum stock and shelf life.",
+          "Products carrying the recipe the template wrote, each at version 1 and with no sell price yet.",
           "A result panel with created, skipped and rejected counts, plus the row number of every rejected row.",
         ],
         nextId: "products",
@@ -895,7 +898,7 @@ export const en = {
           "The import stops at 500 rows.",
           "The sample headers are Indonesian: Nama, Satuan, Stok minimum, Umur simpan.",
           "Rejected rows are reported by row number, not by ingredient name, so keep the original file open while you fix them.",
-          "Applying a template cannot be undone here. Add ingredients one at a time in Ingredients if you want tighter control.",
+          "Applying a template cannot be undone here, and it adds products and recipes along with the ingredients. Add ingredients one at a time in Ingredients if you want tighter control.",
         ],
       },
       {

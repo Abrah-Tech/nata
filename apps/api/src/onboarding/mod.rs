@@ -30,6 +30,10 @@ pub struct ImportResult {
     pub created: i64,
     pub skipped: i64,
     pub errors: Vec<RowError>,
+    /// Finished products a template brought, with the recipe each one produces.
+    /// Always zero on the spreadsheet path, which only ever writes materials.
+    pub products: i64,
+    pub recipes: i64,
 }
 
 pub fn routes() -> Router<AppState> {

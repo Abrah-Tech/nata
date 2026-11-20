@@ -9,6 +9,7 @@ use common::{add_member, call, login, signup, tenant_of, test_app, CaptureOtp};
 use http_body_util::BodyExt;
 use serde_json::Value;
 use sqlx::PgPool;
+use std::str::FromStr;
 use tower::ServiceExt;
 
 async fn upload(app: &Router, token: &str, format: &str, body: &str) -> (StatusCode, Value) {
@@ -33,6 +34,20 @@ async fn upload(app: &Router, token: &str, format: &str, body: &str) -> (StatusC
         status,
         serde_json::from_slice(&bytes).unwrap_or(Value::Null),
     )
+}
+
+async fn product_names(app: &Router, token: &str) -> Vec<String> {
+    let (status, body) = call(app, "GET", "/products", None, Some(token)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let mut names: Vec<String> = body
+        .as_array()
+        .expect("products")
+        .iter()
+        .map(|row| row["name"].as_str().expect("name").to_string())
+        .collect();
+    names.sort();
+    names
 }
 
 async fn material_names(app: &Router, token: &str) -> Vec<String> {
@@ -69,6 +84,7 @@ async fn templates_are_listed_with_their_items(pool: PgPool) {
 
     assert_eq!(bakery["item_count"], 20);
     assert_eq!(bakery["items"].as_array().expect("items").len(), 20);
+    assert_eq!(bakery["product_count"], 3);
 
     let first = &bakery["items"][0];
     assert!(first["name"].as_str().expect("name").len() > 3);
@@ -95,6 +111,8 @@ async fn applying_a_template_is_idempotent(pool: PgPool) {
     assert_eq!(body["created"], 20);
     assert_eq!(body["skipped"], 0);
     assert_eq!(body["errors"].as_array().expect("errors").len(), 0);
+    assert_eq!(body["products"], 3);
+    assert_eq!(body["recipes"], 3);
 
     let names = material_names(&app, token).await;
     assert_eq!(names.len(), 20);
@@ -110,8 +128,69 @@ async fn applying_a_template_is_idempotent(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["created"], 0);
-    assert_eq!(body["skipped"], 20);
+    assert_eq!(body["skipped"], 23, "materials and products both count");
+    assert_eq!(body["products"], 0);
+    assert_eq!(body["recipes"], 0);
     assert_eq!(material_names(&app, token).await.len(), 20);
+    assert_eq!(product_names(&app, token).await.len(), 3);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn applying_a_template_creates_products_that_can_produce(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool, otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/onboarding/templates/coffee/apply",
+        None,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["products"], 3);
+
+    let products = product_names(&app, token).await;
+    assert_eq!(products.len(), 3);
+    assert!(products.contains(&"Es kopi susu".to_string()));
+
+    // Each product carries the recipe the template wrote, so production can
+    // plan it without the user rebuilding the BOM.
+    let (_, rows) = call(&app, "GET", "/products", None, Some(token)).await;
+    let rows = rows.as_array().expect("products");
+
+    for row in rows {
+        let recipe = row["current_recipe_id"].as_str().expect("recipe id");
+        assert!(!recipe.is_empty(), "{row}");
+        assert_eq!(row["current_recipe_version"], 1, "{row}");
+        let price = rust_decimal::Decimal::from_str(row["sell_price"].as_str().expect("price"))
+            .expect("price is numeric");
+        assert_eq!(
+            price,
+            rust_decimal::Decimal::ZERO,
+            "a template never invents a price"
+        );
+    }
+
+    // The recipe items name the template's own materials, in their base unit.
+    let (_, recipe) = call(
+        &app,
+        "GET",
+        &format!(
+            "/recipes/{}",
+            rows[0]["current_recipe_id"].as_str().expect("id")
+        ),
+        None,
+        Some(token),
+    )
+    .await;
+    let items = recipe["items"].as_array().expect("recipe items");
+    assert!(!items.is_empty(), "{recipe}");
+    assert!(items.iter().all(|item| item["material_id"].is_string()));
+    assert!(items.iter().all(|item| item["qty"].as_str().is_some()));
 }
 
 #[sqlx::test(migrations = "../../migrations")]

@@ -238,6 +238,7 @@ export default function OnboardingPage() {
                       <span className="mb-2 text-xs text-ink-3">
                         {fill(t.onboarding.templates.items, {
                           count: template.item_count,
+                          products: template.product_count,
                         })}
                       </span>
                       <Button
@@ -321,6 +322,10 @@ export default function OnboardingPage() {
 function resultSummary(t: Dictionary, result: OnboardingResult): string {
   const parts = [fill(t.onboarding.result.created, { count: result.created })];
 
+  if (result.products > 0) {
+    parts.push(fill(t.onboarding.result.products, { count: result.products }));
+  }
+
   if (result.skipped > 0) {
     parts.push(fill(t.onboarding.result.skipped, { count: result.skipped }));
   }
@@ -342,6 +347,11 @@ function Result({ result }: { result: OnboardingResult }) {
         <strong className="text-sm font-bold">
           {fill(t.onboarding.result.created, { count: result.created })}
         </strong>
+        {result.products > 0 && (
+          <span className="text-muted-foreground">
+            {fill(t.onboarding.result.products, { count: result.products })}
+          </span>
+        )}
         {result.skipped > 0 && (
           <span className="text-muted-foreground">
             {fill(t.onboarding.result.skipped, { count: result.skipped })}
