@@ -2,26 +2,11 @@
 
 import { Check, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 import { LoadingRegion } from "@/components/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
-import { fill, useI18n, type Dictionary } from "@/lib/i18n";
-import { readToken } from "@/lib/session";
-
-type TaskId = keyof Dictionary["firstSteps"]["steps"];
-
-type Task = {
-  id: TaskId;
-  done: boolean;
-  href: string;
-};
-
-type Load =
-  | { status: "loading" }
-  | { status: "ready"; tasks: Task[] }
-  | { status: "error" };
+import { fill, useI18n } from "@/lib/i18n";
+import { useFirstSteps } from "@/lib/first-steps";
 
 /**
  * The five things a business needs before Nata can plan anything. Each one is
@@ -30,78 +15,14 @@ type Load =
  */
 function FirstSteps({ materials }: { materials: number }) {
   const { t } = useI18n();
-  const [load, setLoad] = useState<Load>({ status: "loading" });
-
-  useEffect(() => {
-    const token = readToken();
-
-    if (!token) return;
-
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        // Four reads, because no single screen owns all five answers. They
-        // travel in parallel with the overview rather than after it.
-        const [products, movements, productBatches, sales] = await Promise.all([
-          api.listProducts(token),
-          api.listMovements(token, { limit: 1 }),
-          api.listProductBatches(token),
-          api.listSales(token, 1),
-        ]);
-
-        if (cancelled) return;
-
-        setLoad({
-          status: "ready",
-          tasks: [
-            {
-              id: "materials",
-              done: materials > 0,
-              href: materials > 0 ? "/stock" : "/onboarding",
-            },
-            {
-              id: "recipe",
-              done: products.some(
-                (product) => product.current_recipe_id !== null,
-              ),
-              href: "/products",
-            },
-            {
-              // Every batch opens with its purchase movement, so one movement
-              // means one stock-in. Counting batches instead would read as
-              // "nothing left" once a busy day consumes the last of them.
-              id: "stockIn",
-              done: movements.length > 0,
-              href: "/stock",
-            },
-            {
-              id: "production",
-              done: productBatches.length > 0,
-              href: "/production",
-            },
-            { id: "sales", done: sales.items.length > 0, href: "/sales" },
-          ],
-        });
-      } catch {
-        // The card is auxiliary. A failed read leaves it hidden instead of
-        // showing a list that might be wrong.
-        if (!cancelled) setLoad({ status: "error" });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [materials]);
+  const load = useFirstSteps(materials);
 
   if (load.status === "error") return null;
 
-  const done = load.status === "ready"
-    ? load.tasks.filter((task) => task.done).length
-    : 0;
+  const tasks = load.status === "ready" ? load.steps : [];
+  const done = tasks.filter((task) => task.done).length;
 
-  if (load.status === "ready" && done === load.tasks.length) return null;
+  if (load.status === "ready" && done === tasks.length) return null;
 
   return (
     <section className="flex flex-col gap-2.5 rounded-xl border border-border bg-card px-4 py-3.5">
@@ -113,7 +34,7 @@ function FirstSteps({ materials }: { materials: number }) {
           <span className="text-2xs font-semibold text-ink-3 tabular-nums">
             {fill(t.firstSteps.counter, {
               done,
-              total: load.tasks.length,
+              total: tasks.length,
             })}
           </span>
         )}
@@ -128,7 +49,7 @@ function FirstSteps({ materials }: { materials: number }) {
         </LoadingRegion>
       ) : (
         <ol className="flex list-none flex-col p-0">
-          {load.tasks.map((task, index) => {
+          {tasks.map((task, index) => {
             const label = t.firstSteps.steps[task.id];
 
             return (

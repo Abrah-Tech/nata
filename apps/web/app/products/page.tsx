@@ -4,6 +4,7 @@ import type { Material, Product, Recipe } from "@nata/api-client";
 import { Boxes, ChevronDown, ChevronUp, Pencil, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { FirstStepsHint } from "@/components/first-steps-hint";
 import { StatusMessage } from "@/components/status";
 import { LoadingRegion, SkeletonList } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
@@ -191,6 +192,8 @@ export default function ProductsPage() {
                 </Button>
               )}
             </header>
+
+            <FirstStepsHint at="recipe" />
 
             <StatusMessage
               message={notice}

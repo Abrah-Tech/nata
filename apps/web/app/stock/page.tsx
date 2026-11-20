@@ -11,6 +11,7 @@ import { Ellipsis, Plus, RotateCcw, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { FirstStepsHint } from "@/components/first-steps-hint";
 import { StatusMessage } from "@/components/status";
 import { LoadingRegion, SkeletonTable } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
@@ -464,6 +465,8 @@ export default function StockPage() {
                 )}
               </div>
             </header>
+
+            <FirstStepsHint at="stockIn" />
 
             {summary && (
               <section

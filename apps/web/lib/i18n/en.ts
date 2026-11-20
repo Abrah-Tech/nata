@@ -819,6 +819,7 @@ export const en = {
   firstSteps: {
     title: "First steps",
     counter: "{done} of {total} done",
+    next: "Next:",
     steps: {
       materials: "Add your ingredients",
       recipe: "Create a recipe",

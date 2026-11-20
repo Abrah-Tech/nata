@@ -820,6 +820,7 @@ export const id: Dictionary = {
   firstSteps: {
     title: "Langkah pertama",
     counter: "{done} dari {total} selesai",
+    next: "Selanjutnya:",
     steps: {
       materials: "Catat bahan yang kamu simpan",
       recipe: "Buat resep untuk satu produk",
