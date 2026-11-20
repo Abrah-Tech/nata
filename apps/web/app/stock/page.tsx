@@ -728,15 +728,18 @@ export default function StockPage() {
                     </p>
                   ) : (
                     <div role="table" aria-label={t.stock.title} className="@container">
-                      {/* A container, not a breakpoint: the desktop grid needs
-                          696px plus the 32px row inset, so it switches on when
-                          this box reaches 728px. A viewport breakpoint would
-                          clip again once the 246px sidebar appears at 961px. */}
+                      {/* A container, not a breakpoint: the seven fixed columns
+                          need 612px, the seven gaps 84px and the row inset 32px,
+                          so the name column only gets room once this box passes
+                          728px. Switching on there leaves it 0px wide, so the
+                          bar sits at 878px, which guarantees the name 150px. A
+                          viewport breakpoint would clip again once the 246px
+                          sidebar appears at 961px. */}
                       {/* The mobile grid shows three columns, so it needs its
                           own header row; the desktop grid keeps the full one. */}
                       <div
                         role="row"
-                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-surface-alt px-3.5 py-2 text-2xs font-bold tracking-wider text-ink-3 uppercase @min-[728px]:hidden"
+                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-surface-alt px-3.5 py-2 text-2xs font-bold tracking-wider text-ink-3 uppercase @min-[878px]:hidden"
                       >
                         <span role="columnheader">
                           {t.stock.table.material}
@@ -747,7 +750,7 @@ export default function StockPage() {
 
                       <div
                         role="row"
-                        className="hidden items-center gap-3 bg-surface-alt px-4 py-2.5 text-2xs font-bold tracking-wider text-ink-3 uppercase @min-[728px]:grid @min-[728px]:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px]"
+                        className="hidden items-center gap-3 bg-surface-alt px-4 py-2.5 text-2xs font-bold tracking-wider text-ink-3 uppercase @min-[878px]:grid @min-[878px]:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px]"
                       >
                         <span role="columnheader">
                           {t.stock.table.material}
@@ -777,7 +780,7 @@ export default function StockPage() {
                           <div
                             role="row"
                             key={row.material_id}
-                            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border px-3.5 py-3 text-sm last:border-b-0 @min-[728px]:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px] @min-[728px]:gap-3 @min-[728px]:px-4"
+                            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border px-3.5 py-3 text-sm last:border-b-0 @min-[878px]:grid-cols-[minmax(0,1fr)_110px_70px_62px_130px_96px_104px_40px] @min-[878px]:gap-3 @min-[878px]:px-4"
                           >
                             <div
                               role="cell"
@@ -800,7 +803,7 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="flex items-baseline justify-self-end gap-1 @min-[728px]:justify-self-auto"
+                              className="flex items-baseline justify-self-end gap-1 @min-[878px]:justify-self-auto"
                             >
                               <strong className="text-sm font-bold tabular-nums">
                                 {formatQty(row.on_hand, locale)}
@@ -812,7 +815,7 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="hidden text-xs text-ink-3 @min-[728px]:block"
+                              className="hidden text-xs text-ink-3 @min-[878px]:block"
                             >
                               {formatQty(row.min_stock, locale)}{" "}
                               {row.base_unit.code}
@@ -820,14 +823,14 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="hidden text-xs text-ink-2 @min-[728px]:block"
+                              className="hidden text-xs text-ink-2 @min-[878px]:block"
                             >
                               {row.active_batches}
                             </div>
 
                             <div
                               role="cell"
-                              className="hidden text-xs text-ink-2 @min-[728px]:block"
+                              className="hidden text-xs text-ink-2 @min-[878px]:block"
                             >
                               {expiryLabel(row)}
                             </div>
@@ -840,7 +843,7 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="hidden text-xs font-semibold tabular-nums @min-[728px]:block"
+                              className="hidden text-xs font-semibold tabular-nums @min-[878px]:block"
                             >
                               {formatMoney(
                                 Number(row.on_hand) * Number(row.last_cost),
@@ -850,7 +853,7 @@ export default function StockPage() {
 
                             <div
                               role="cell"
-                              className="hidden justify-self-end @min-[728px]:block"
+                              className="hidden justify-self-end @min-[878px]:block"
                             >
                               <Button
                                 variant="ghost"
