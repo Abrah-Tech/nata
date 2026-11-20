@@ -30,6 +30,8 @@ function titleFor(pathname: string, t: Dictionary): string {
       return t.stock.title;
     case "login":
       return t.login.title;
+    case "guide":
+      return t.guide.title;
     default:
       return t.common.appName;
   }
