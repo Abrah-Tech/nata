@@ -10,29 +10,191 @@ export const id: Dictionary = {
     skipToContent: "Lewati ke konten",
   },
   home: {
-    eyebrow: "PPIC + POS ringan",
-    lede: "Stok, tanggal expired, dan HPP produksi nyata untuk produsen F&B kecil.",
-    cards: {
-      web: {
-        title: "Antarmuka web",
-        detail: "Next.js static export, dipakai browser dan WebView Tauri.",
-      },
-      shell: {
-        title: "Aplikasi native",
-        detail: "Tauri 2 untuk desktop. Android menyusul setelah SDK siap.",
-      },
-      api: {
-        title: "API",
-        detail: "Layanan Axum dengan health check dan dokumen OpenAPI.",
-      },
-      core: {
-        title: "Inti kalkulasi",
-        detail: "Crate Rust murni untuk FEFO, HPP, dan konversi satuan.",
+    nav: {
+      features: "Fitur",
+      how: "Cara pakai",
+      pricing: "Harga",
+      guide: "Panduan",
+      signIn: "Masuk",
+      cta: "Coba gratis",
+    },
+    hero: {
+      eyebrow: "PPIC + POS ringan untuk UMKM F&B",
+      title: "Berhenti menghitung stok di buku tulis.",
+      subtitle:
+        "Nata mencatat tiap batch, tanggal expired, resep, dan HPP produksi nyata dalam satu alur — dikirim dari HP, dengan laporan dan alert WhatsApp menyusul.",
+      primaryCta: "Coba 14 hari gratis",
+      secondaryCta: "Lihat harga",
+      note: "Tanpa kartu kredit · siap dalam 5 menit · batal kapan saja",
+      preview: {
+        title: "Tepung terigu",
+        chip: "{count} batch",
+        useFirst: "dipakai duluan",
+        noExpiry: "Tanpa tanggal",
+        unit: "kg",
+        // Dated far enough out that the panel never shows an already-expired
+        // batch marked as the one FEFO takes first.
+        batches: [
+          { expiry: "2027-05-12", qty: "5" },
+          { expiry: "2027-05-28", qty: "10" },
+          { expiry: null, qty: "2.5" },
+        ],
+        alertTitle: "Expired dalam 7 hari",
+        alertDetail: "2 bahan",
       },
     },
+    assurance: {
+      items: [
+        {
+          icon: "shield",
+          title: "Datamu tetap milikmu",
+          detail: "Row-level security memisah tiap usaha secara tegas.",
+        },
+        {
+          icon: "card",
+          title: "Tanpa kartu kredit",
+          detail: "Trial 14 hari aktif begitu kamu masuk.",
+        },
+        {
+          icon: "bell",
+          title: "Pengingat tiap pagi",
+          detail:
+            "Expired dan stok minimum masuk ke WhatsApp tim sebelum hari dimulai.",
+        },
+      ],
+    },
+    features: {
+      eyebrow: "Yang dikerjakan Nata",
+      title: "Buku produksi yang rapi, tanpa ERP",
+      subtitle:
+        "Dibuat untuk 1 sampai 15 orang yang sudah sehari-hari pakai WhatsApp, dan ingin pembukuan mengimbangi — bukan sebaliknya.",
+      items: [
+        {
+          icon: "batches",
+          title: "Stok per batch",
+          detail:
+            "Setiap belanja jadi batch sendiri dengan tanggal beli dan expired. Stok bukan satu angka, jadi FEFO dan HPP riil bisa dihitung.",
+        },
+        {
+          icon: "hpp",
+          title: "HPP otomatis",
+          detail:
+            "Resep dikali harga batch aktual, plus tenaga kerja dan overhead. Harga jual tidak lagi ditebak.",
+        },
+        {
+          icon: "recipe",
+          title: "Resep terversi",
+          detail:
+            "Resep tidak pernah di-edit di tempat. Tiap perubahan jadi versi baru, dan produksi menyimpan versi yang dipakai.",
+        },
+        {
+          icon: "planning",
+          title: "Rencana produksi",
+          detail:
+            "Lihat kebutuhan bahan sebelum produksi jalan. Kalau stok kurang, Nata menolak seluruh run sebelum apa pun berpindah.",
+        },
+        {
+          icon: "alert",
+          title: "Alert WhatsApp",
+          detail:
+            "H-7, H-3, dan stok minimum dikirim ke nomor tim tiap pagi, supaya tidak ada bahan yang habis diam-diam.",
+        },
+        {
+          icon: "pos",
+          title: "POS ringan",
+          detail:
+            "Catat penjualan, stok langsung berkurang. Margin per produk terlihat begitu dokumen tersimpan.",
+        },
+      ],
+    },
+    steps: {
+      eyebrow: "Cara pakai",
+      title: "Jalan sebelum minggu ini habis",
+      subtitle: "Tiga kebiasaan baru, tanpa diketik ulang.",
+      items: [
+        {
+          title: "Catat bahan dan batch",
+          detail:
+            "Impor dari Excel atau mulai dari template bahan dan resep umum F&B.",
+        },
+        {
+          title: "Produksi dan lihat HPP",
+          detail:
+            "Nata mengambil batch yang expired terdekat lebih dulu, dan menghitung run itu dari harga yang benar-benar kamu bayar.",
+        },
+        {
+          title: "Jual dan pantau",
+          detail:
+            "Penjualan mengurangi stok, margin per produk muncul, dan alert menyala sebelum bahan habis.",
+        },
+      ],
+    },
+    pricing: {
+      eyebrow: "Harga",
+      title: "Mulai gratis, tumbuh bersama usaha",
+      subtitle:
+        "Batas di bawah adalah batas yang benar-benar dipakai aplikasi. Tidak ada fitur yang terkunci di balik paket yang sudah kamu bayar.",
+      perMonth: "/bulan",
+      annualNote: "Bayar tahunan: 10 bulan untuk 12, hemat sekitar 17%.",
+      popular: "Paling populer",
+      trialCta: "Mulai gratis",
+      planCta: "Pilih {name}",
+      items: [
+        {
+          name: "Trial",
+          caption: "Coba produknya",
+          price: 0,
+          includes: "Semua fitur MVP selama 14 hari",
+          limits: ["1 pengguna", "20 bahan", "5 resep", "1 gudang"],
+        },
+        {
+          name: "Starter",
+          caption: "Satu orang atau tim kecil",
+          price: 79_000,
+          includes:
+            "Stok, batch, expired, BOM, HPP, alert WhatsApp, penjualan sederhana",
+          limits: ["2 pengguna", "50 bahan", "15 resep", "1 gudang"],
+        },
+        {
+          name: "Pro",
+          caption: "Produksi rutin",
+          price: 199_000,
+          includes:
+            "Semua isi Starter, plus rekomendasi belanja, laporan, dan impor Excel",
+          limits: [
+            "5 pengguna",
+            "200 bahan",
+            "Resep tanpa batas",
+            "2 gudang",
+          ],
+        },
+        {
+          name: "Business",
+          caption: "Usaha yang sedang tumbuh",
+          price: 499_000,
+          includes:
+            "Semua isi Pro, plus laporan lanjutan, role akses, export, dan prioritas support",
+          limits: [
+            "20 pengguna",
+            "Bahan tanpa batas",
+            "Resep tanpa batas",
+            "10 gudang",
+          ],
+        },
+      ],
+    },
+    cta: {
+      title: "Siap menutup buku tulis?",
+      subtitle:
+        "Pemasangan cukup satu sore. Angka HPP produksi pertamamu sudah lebih berharga daripada biaya langganan.",
+      primary: "Coba 14 hari gratis",
+      secondary: "Lihat harga",
+    },
     footer: {
-      phase: "Kerangka fase 0",
-      api: "OpenAPI di /api-docs/openapi.json",
+      tagline: "PPIC + POS ringan untuk UMKM F&B",
+      product: "Produk",
+      contact: "halo@nata.id",
+      rights: "© 2026 Nata",
     },
   },
   health: {

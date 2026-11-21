@@ -2,57 +2,43 @@
 
 import { useI18n } from "@/lib/i18n";
 
-import { HealthBadge } from "./health-badge";
-import { LocaleSwitch } from "./locale-switch";
+import { HomeFooter } from "./home/footer";
+import { Cta } from "./home/cta";
+import { Features } from "./home/features";
+import { Hero } from "./home/hero";
+import { HomeNav } from "./home/nav";
+import { Pricing } from "./home/pricing";
+import { Assurance } from "./home/assurance";
+import { Steps } from "./home/steps";
 
 export default function HomePage() {
   const { t } = useI18n();
 
-  const cards = [
-    t.home.cards.web,
-    t.home.cards.shell,
-    t.home.cards.api,
-    t.home.cards.core,
-  ];
-
   return (
-    <main className="mx-auto max-w-[960px] px-[18px] pt-8 pb-10 sm:px-6 sm:pt-14">
-      <header className="flex flex-col items-start gap-6 border-b border-border pb-7 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="mt-0 mb-2 text-sm font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-            {t.home.eyebrow}
-          </p>
-          <h1 className="m-0 text-4xl leading-[1.05] tracking-[-0.03em] sm:text-5xl">
-            {t.common.appName}
-          </h1>
-          <p className="mt-3 mb-0 max-w-[46ch] text-lg leading-[1.55] text-muted-foreground">
-            {t.home.lede}
-          </p>
-        </div>
-        <div className="flex flex-col items-start gap-2.5 sm:items-end">
-          <HealthBadge />
-          <LocaleSwitch />
-        </div>
-      </header>
+    <>
+      <a href="#main" className="skip-link">
+        {t.common.skipToContent}
+      </a>
 
-      <section className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
-        {cards.map((card) => (
-          <article
-            className="rounded-xl border border-border bg-surface p-5"
-            key={card.title}
-          >
-            <h2 className="mt-0 mb-2 text-lg font-bold">{card.title}</h2>
-            <p className="m-0 text-base leading-[1.55] text-muted-foreground">
-              {card.detail}
-            </p>
-          </article>
-        ))}
-      </section>
+      <HomeNav />
 
-      <footer className="mt-10 flex flex-col justify-between gap-4 border-t border-border pt-4 text-sm text-muted-foreground sm:flex-row">
-        <span>{t.home.footer.phase}</span>
-        <span>{t.home.footer.api}</span>
-      </footer>
-    </main>
+      <main
+        id="main"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-[1080px] px-4 sm:px-8"
+      >
+        <Hero />
+
+        <div className="flex flex-col gap-16 sm:gap-20">
+          <Assurance />
+          <Features />
+          <Steps />
+          <Pricing />
+          <Cta />
+        </div>
+      </main>
+
+      <HomeFooter />
+    </>
   );
 }

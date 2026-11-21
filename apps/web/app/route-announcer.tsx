@@ -38,6 +38,10 @@ function titleFor(pathname: string, t: Dictionary): string {
       return t.login.title;
     case "guide":
       return t.guide.title;
+    case "":
+      // The landing page has no view name of its own, and falling through to
+      // the app name would title the tab "Nata · Nata".
+      return t.common.tagline;
     default:
       return t.common.appName;
   }
