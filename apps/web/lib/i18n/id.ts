@@ -3,7 +3,7 @@ import type { Dictionary } from "./en";
 export const id: Dictionary = {
   common: {
     appName: "Nata",
-    tagline: "PPIC + POS untuk UMKM F&B",
+    tagline: "Aplikasi produksi untuk usaha makanan",
     language: "Bahasa",
     localeId: "Bahasa Indonesia",
     localeEn: "English",
@@ -19,10 +19,10 @@ export const id: Dictionary = {
       cta: "Coba gratis",
     },
     hero: {
-      eyebrow: "PPIC + POS ringan untuk UMKM F&B",
+      eyebrow: "Dibuat untuk usaha makanan",
       title: "Berhenti menghitung stok di buku tulis.",
       subtitle:
-        "Nata mencatat tiap batch, tanggal expired, resep, dan HPP produksi nyata dalam satu alur — dikirim dari HP, dengan laporan dan alert WhatsApp menyusul.",
+        "Nata mencatat tiap batch, tanggal expired, resep, dan biaya produksi asli dalam satu alur — cukup dari HP, dengan laporan dan kabar WhatsApp.",
       primaryCta: "Coba 14 hari gratis",
       secondaryCta: "Lihat harga",
       note: "Tanpa kartu kredit · siap dalam 5 menit · batal kapan saja",
@@ -48,7 +48,8 @@ export const id: Dictionary = {
         {
           icon: "shield",
           title: "Datamu tetap milikmu",
-          detail: "Row-level security memisah tiap usaha secara tegas.",
+          detail:
+            "Tiap usaha hanya melihat datanya sendiri. Punya kamu tidak dicampur dengan punya orang lain.",
         },
         {
           icon: "card",
@@ -59,51 +60,51 @@ export const id: Dictionary = {
           icon: "bell",
           title: "Pengingat tiap pagi",
           detail:
-            "Expired dan stok minimum masuk ke WhatsApp tim sebelum hari dimulai.",
+            "Bahan yang mau expired dan stok yang menipis masuk ke WhatsApp tim sebelum hari dimulai.",
         },
       ],
     },
     features: {
       eyebrow: "Yang dikerjakan Nata",
-      title: "Buku produksi yang rapi, tanpa ERP",
+      title: "Yang dipakai, harganya, dan yang mau habis",
       subtitle:
-        "Dibuat untuk 1 sampai 15 orang yang sudah sehari-hari pakai WhatsApp, dan ingin pembukuan mengimbangi — bukan sebaliknya.",
+        "Dibuat untuk tim 1 sampai 15 orang yang sehari-hari pakai WhatsApp. Nata yang bikin angka-angkanya update.",
       items: [
         {
           icon: "batches",
           title: "Stok per batch",
           detail:
-            "Setiap belanja jadi batch sendiri dengan tanggal beli dan expired. Stok bukan satu angka, jadi FEFO dan HPP riil bisa dihitung.",
+            "Setiap belanja jadi batch sendiri dengan tanggal beli dan expired, jadi Nata selalu tahu mana yang dipakai lebih dulu. Tidak ada bahan yang terlupa di sudut.",
         },
         {
           icon: "hpp",
           title: "HPP otomatis",
           detail:
-            "Resep dikali harga batch aktual, plus tenaga kerja dan overhead. Harga jual tidak lagi ditebak.",
+            "Resep dikali harga yang benar-benar kamu bayar, plus tenaga kerja dan biaya operasional. Harga jual tidak lagi ditebak.",
         },
         {
           icon: "recipe",
-          title: "Resep terversi",
+          title: "Resep dengan riwayatnya",
           detail:
-            "Resep tidak pernah di-edit di tempat. Tiap perubahan jadi versi baru, dan produksi menyimpan versi yang dipakai.",
+            "Resep tidak pernah ditimpa. Tiap perubahan tersimpan sebagai versi baru, dan tiap produksi mengingat versi yang dipakai.",
         },
         {
           icon: "planning",
           title: "Rencana produksi",
           detail:
-            "Lihat kebutuhan bahan sebelum produksi jalan. Kalau stok kurang, Nata menolak seluruh run sebelum apa pun berpindah.",
+            "Lihat kebutuhan bahan sebelum produksi jalan. Kalau stok kurang, Nata menghentikan seluruh run sebelum apa pun berpindah.",
         },
         {
           icon: "alert",
-          title: "Alert WhatsApp",
+          title: "Kabar WhatsApp",
           detail:
-            "H-7, H-3, dan stok minimum dikirim ke nomor tim tiap pagi, supaya tidak ada bahan yang habis diam-diam.",
+            "Seminggu sebelum expired, tiga hari sebelum, dan setiap stok menipis — tim langsung dapat pesan.",
         },
         {
           icon: "pos",
           title: "POS ringan",
           detail:
-            "Catat penjualan, stok langsung berkurang. Margin per produk terlihat begitu dokumen tersimpan.",
+            "Catat penjualan, stok langsung berkurang. Untung per produk terlihat begitu penjualan tersimpan.",
         },
       ],
     },
@@ -115,17 +116,17 @@ export const id: Dictionary = {
         {
           title: "Catat bahan dan batch",
           detail:
-            "Impor dari Excel atau mulai dari template bahan dan resep umum F&B.",
+            "Impor dari Excel, atau mulai dari template bahan dan resep yang sudah ada di Nata.",
         },
         {
-          title: "Produksi dan lihat HPP",
+          title: "Produksi dan lihat biayanya",
           detail:
-            "Nata mengambil batch yang expired terdekat lebih dulu, dan menghitung run itu dari harga yang benar-benar kamu bayar.",
+            "Nata memakai batch yang expired terdekat lebih dulu, lalu menghitung biaya produksi dari harga yang benar-benar kamu bayar.",
         },
         {
           title: "Jual dan pantau",
           detail:
-            "Penjualan mengurangi stok, margin per produk muncul, dan alert menyala sebelum bahan habis.",
+            "Penjualan mengurangi stok, untung per produk muncul, dan kabar masuk sebelum bahan habis.",
         },
       ],
     },
@@ -133,7 +134,7 @@ export const id: Dictionary = {
       eyebrow: "Harga",
       title: "Mulai gratis, tumbuh bersama usaha",
       subtitle:
-        "Batas di bawah adalah batas yang benar-benar dipakai aplikasi. Tidak ada fitur yang terkunci di balik paket yang sudah kamu bayar.",
+        "Angka di bawah adalah batas yang benar-benar berlaku di aplikasi. Semua fitur ada di semua paket.",
       perMonth: "/bulan",
       annualNote: "Bayar tahunan: 10 bulan untuk 12, hemat sekitar 17%.",
       popular: "Paling populer",
@@ -144,7 +145,7 @@ export const id: Dictionary = {
           name: "Trial",
           caption: "Coba produknya",
           price: 0,
-          includes: "Semua fitur MVP selama 14 hari",
+          includes: "Semua fitur selama 14 hari",
           limits: ["1 pengguna", "20 bahan", "5 resep", "1 gudang"],
         },
         {
@@ -152,7 +153,7 @@ export const id: Dictionary = {
           caption: "Satu orang atau tim kecil",
           price: 79_000,
           includes:
-            "Stok, batch, expired, BOM, HPP, alert WhatsApp, penjualan sederhana",
+            "Stok, batch, tanggal expired, resep, HPP, kabar WhatsApp, dan penjualan sederhana",
           limits: ["2 pengguna", "50 bahan", "15 resep", "1 gudang"],
         },
         {
@@ -173,7 +174,7 @@ export const id: Dictionary = {
           caption: "Usaha yang sedang tumbuh",
           price: 499_000,
           includes:
-            "Semua isi Pro, plus laporan lanjutan, role akses, export, dan prioritas support",
+            "Semua isi Pro, plus laporan lanjutan, peran pengguna, export, dan prioritas support",
           limits: [
             "20 pengguna",
             "Bahan tanpa batas",
@@ -186,12 +187,12 @@ export const id: Dictionary = {
     cta: {
       title: "Siap menutup buku tulis?",
       subtitle:
-        "Pemasangan cukup satu sore. Angka HPP produksi pertamamu sudah lebih berharga daripada biaya langganan.",
+        "Pemasangan cukup satu sore. Angka biaya produksi pertamamu sudah lebih berharga daripada biaya langganan.",
       primary: "Coba 14 hari gratis",
       secondary: "Lihat harga",
     },
     footer: {
-      tagline: "PPIC + POS ringan untuk UMKM F&B",
+      tagline: "Aplikasi produksi untuk usaha makanan",
       product: "Produk",
       contact: "techabrah@gmail.com",
       rights: "© 2026 Nata",

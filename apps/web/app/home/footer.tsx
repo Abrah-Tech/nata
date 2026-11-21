@@ -19,7 +19,7 @@ export function HomeFooter() {
   ];
 
   const linkClass =
-    "rounded-md text-sm text-ink-2 transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+    "rounded-md text-sm text-ink-2 no-underline transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 
   return (
     <footer className="border-t border-border">
@@ -28,7 +28,7 @@ export function HomeFooter() {
           <div className="flex flex-col gap-2">
             <Link
               href="/"
-              className="flex w-fit items-center gap-2 rounded-md text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              className="flex w-fit items-center gap-2 rounded-md text-ink no-underline outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             >
               <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-white">
                 <Wheat size={16} strokeWidth={2.2} aria-hidden="true" />
@@ -65,7 +65,7 @@ export function HomeFooter() {
           <span>{footer.rights}</span>
           <a
             href={`mailto:${footer.contact}`}
-            className="rounded-md font-semibold text-ink-2 transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="rounded-md font-semibold text-ink-2 no-underline transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             {footer.contact}
           </a>
