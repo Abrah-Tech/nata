@@ -46,6 +46,12 @@ impl OtpSender for CaptureOtp {
 }
 
 impl CaptureOtp {
+    /// How many messages were actually handed to the provider. A request that
+    /// reuses a pending code must not add to this.
+    pub fn sent(&self) -> usize {
+        self.codes.lock().expect("lock").len()
+    }
+
     pub fn last_code(&self) -> String {
         self.codes
             .lock()

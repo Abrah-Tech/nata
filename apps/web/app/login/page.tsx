@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
+import { StatusMessage } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,9 @@ import { api } from "@/lib/api";
 import { fill, useI18n } from "@/lib/i18n";
 import {
   type PendingInvite,
+  clearToken,
   readPendingInvite,
+  readToken,
   writePendingInvite,
   writeToken,
 } from "@/lib/session";
@@ -26,7 +29,6 @@ type Step = "contact" | "code" | "tenant";
 type ContactMode = "phone" | "email";
 
 const EMPTY_CODE = Array.from({ length: OTP_LENGTH }, () => "");
-const RESEND_SECONDS = 60;
 
 export default function LoginPage() {
   const { t } = useI18n();
@@ -40,6 +42,7 @@ export default function LoginPage() {
   const [selectionToken, setSelectionToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [contactError, setContactError] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -54,6 +57,40 @@ export default function LoginPage() {
     const timer = window.setTimeout(() => setSeconds((value) => value - 1), 1000);
     return () => window.clearTimeout(timer);
   }, [seconds]);
+
+  useEffect(() => {
+    const token = readToken();
+
+    if (!token) {
+      return;
+    }
+
+    let cancelled = false;
+
+    // A visitor who already holds a session has nothing to do here. The token
+    // is checked rather than trusted so an expired one is dropped on this side
+    // instead of bouncing between /login and /dashboard.
+    api
+      .me(token)
+      .then(() => {
+        if (!cancelled) {
+          router.replace("/dashboard");
+        }
+      })
+      .catch((cause) => {
+        if (
+          !cancelled &&
+          cause instanceof ApiError &&
+          (cause.status === 401 || cause.status === 403)
+        ) {
+          clearToken();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   function messageFor(cause: unknown): string {
     if (cause instanceof ApiError) {
@@ -102,10 +139,17 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      await api.requestOtp(value);
+      const result = await api.requestOtp(value);
       setCode(EMPTY_CODE);
+
+      // The server refuses to issue a second code while one is still valid.
+      // That code is the one to enter, so the visitor lands on the code screen
+      // either way and is told which message to look at.
+      setNotice(result.pending ? t.login.otpPending : null);
       setStep("code");
-      setSeconds(RESEND_SECONDS);
+      // Count down to the code's own expiry: a resend before then cannot
+      // produce a new code, so offering it earlier would be a dead end.
+      setSeconds(result.expires_in);
     } catch (cause) {
       setError(messageFor(cause));
     } finally {
@@ -129,6 +173,7 @@ export default function LoginPage() {
     setCodeError(null);
     setBusy(true);
     setError(null);
+    setNotice(null);
 
     try {
       const result = await api.verifyOtp({
@@ -166,6 +211,13 @@ export default function LoginPage() {
       router.replace(joinPath(invite) ?? "/join");
     } catch (cause) {
       setError(messageFor(cause));
+
+      // A code that burned its five attempts is dead, and the message just told
+      // the visitor to request a new one. The server issues it now, so the
+      // resend link should not sit behind the countdown.
+      if (cause instanceof ApiError && cause.code === "too_many_attempts") {
+        setSeconds(0);
+      }
     } finally {
       setBusy(false);
     }
@@ -202,6 +254,7 @@ export default function LoginPage() {
     setMode(mode === "phone" ? "email" : "phone");
     setStep("contact");
     setError(null);
+    setNotice(null);
     setContactError(null);
     setCodeError(null);
   }
@@ -426,12 +479,18 @@ export default function LoginPage() {
                   onClick={() => {
                     setStep("contact");
                     setError(null);
+                    setNotice(null);
                     setCodeError(null);
                   }}
                 >
                   {t.login.change}
                 </button>
               </div>
+
+              <StatusMessage
+                message={notice}
+                className="rounded-lg bg-brand-soft px-3 py-2.5 text-xs font-medium text-brand"
+              />
 
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-semibold text-muted-foreground">

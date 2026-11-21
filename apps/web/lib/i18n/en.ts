@@ -64,6 +64,8 @@ export const en = {
     change: "Change",
     resendIn: "Resend in {seconds}s",
     resend: "Resend code",
+    otpPending:
+      "This number already has a code that is still valid. Check your messages and enter that code.",
     verify: "Verify and sign in",
     verifying: "Verifying…",
     or: "or",
