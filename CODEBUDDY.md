@@ -154,6 +154,29 @@ Every tenant starts on `trial` with `trial_ends_at` set to 14 days after creatio
 
 A create over the limit is refused with `403 plan_limit_reached` and `details { resource, plan, limit, current }`. Only creates are checked — a downgrade never deletes or hides rows, it just blocks the next one.
 
+### Members & invitations
+
+`memberships` is the join table: `(tenant_id, user_id, role, status, invited_by, joined_at)`. `Role::rank` is owner 3, admin 2, production 1, viewer 0, and `can_manage(mine, target)` is `rank(mine) > rank(target)`, or an owner managing another owner.
+
+The guards live in `apps/api/src/auth/members.rs`:
+
+| Route | Guard |
+| --- | --- |
+| `GET /members`, `GET /members/invitations` | `CanReadMembers` |
+| `POST /members/invitations`, `DELETE /members/invitations/{id}` | `CanInviteMembers` |
+| `PATCH /members/{id}/role` | `CanChangeRoles` (owner only) |
+| `PATCH /members/{id}/status`, `DELETE /members/{id}` | `CanManageMembers` plus `can_manage` |
+
+`change_role` carries no `can_manage` check of its own because the guard is already owner-only; it does refuse to leave a business without an owner. The web client still gates the control on `can_manage`, for consistency with suspend and remove.
+
+An invitation is a 64-character token from `secret::random_token()`. `POST /members/invitations` returns it once and stores only `secret::hash(&hash_pepper, token)` — the same construction an OTP code uses. It expires after `INVITATION_TTL_DAYS = 7`, and `ensure_capacity(Resource::Users)` runs on create, so a pending invitation reserves a seat until it is accepted, revoked, or expires.
+
+`POST /auth/accept-invitation` takes `UserIdentity` rather than `AuthContext`, because an invitee may hold a tenant-selection token with no membership at all. It matches the token hash, requires the invitation to be pending and unexpired, requires the signed-in contact to match the invited one, then inserts the membership and marks the invitation accepted in one tenant-scoped transaction. It returns a fresh session token for the joined tenant, so the client replaces whatever it stored. Capacity is not re-checked on accept.
+
+On the web, `/team` creates the invitation and shows the code, and `/join` accepts it. A signed-out visitor is sent to `/login` with the code parked in `sessionStorage` (`nata.invite`), which the login screen hands back after the OTP step. An invitation-only account's tenant-selection token is parked there too, never in `nata.token`, because `/me` requires a session token and `useMe` would clear it and bounce the visitor.
+
+The invite dialog builds a `/join?token=…` link from `NEXT_PUBLIC_APP_URL` (`apps/web/lib/site.ts`). It is deliberately not derived from `window.location.origin`: the Tauri shell serves this same export from a WebView origin a browser cannot open. When the variable is unset the dialog offers only the raw code.
+
 ### Billing
 
 Access is derived, never stored: `nata_domain::billing::access` reads `tenants.trial_ends_at` and `tenants.paid_until` and returns `active`, `grace` or `read_only`. It runs to the later of the two dates plus seven days of grace, so a support extension or an early payment can only lengthen access. A tenant with neither date stays active — locking out an account we cannot date would be a bug, not a policy.

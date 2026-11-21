@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Sparkles,
   Truck,
+  UserPlus,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -41,6 +42,7 @@ const ICONS: Record<
   purchasing: Truck,
   reports: BarChart3,
   team: Users,
+  invite: UserPlus,
   settings: Settings,
 };
 
