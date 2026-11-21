@@ -11,29 +11,191 @@ export const en = {
     skipToContent: "Skip to content",
   },
   home: {
-    eyebrow: "PPIC + light POS",
-    lede: "Stock, expiry, and real production cost for small F&B producers.",
-    cards: {
-      web: {
-        title: "Web UI",
-        detail: "Next.js static export, shared by the browser and the Tauri WebView.",
-      },
-      shell: {
-        title: "Native shell",
-        detail: "Tauri 2 desktop build. Android follows once the SDK is available.",
-      },
-      api: {
-        title: "API",
-        detail: "Axum service with a health check and a generated OpenAPI document.",
-      },
-      core: {
-        title: "Core",
-        detail: "Pure Rust crate for FEFO, HPP, and unit conversion.",
+    nav: {
+      features: "Features",
+      how: "How it works",
+      pricing: "Pricing",
+      guide: "Guide",
+      signIn: "Sign in",
+      cta: "Try free",
+    },
+    hero: {
+      eyebrow: "PPIC + light POS for F&B SMEs",
+      title: "Stop counting stock in a notebook.",
+      subtitle:
+        "Nata records every batch, expiry date, recipe, and real production cost in one flow — entered from the phone, with reports and WhatsApp alerts on top.",
+      primaryCta: "Try 14 days free",
+      secondaryCta: "See pricing",
+      note: "No credit card · ready in 5 minutes · cancel anytime",
+      preview: {
+        title: "Tepung terigu",
+        chip: "{count} batches",
+        useFirst: "used first",
+        noExpiry: "No expiry",
+        unit: "kg",
+        // Dated far enough out that the panel never shows an already-expired
+        // batch marked as the one FEFO takes first.
+        batches: [
+          { expiry: "2027-05-12", qty: "5" },
+          { expiry: "2027-05-28", qty: "10" },
+          { expiry: null, qty: "2.5" },
+        ],
+        alertTitle: "Expiring in 7 days",
+        alertDetail: "2 materials",
       },
     },
+    assurance: {
+      items: [
+        {
+          icon: "shield",
+          title: "Your data stays yours",
+          detail: "Row-level security keeps every business in its own lane.",
+        },
+        {
+          icon: "card",
+          title: "No credit card",
+          detail: "The 14-day trial starts the moment you sign in.",
+        },
+        {
+          icon: "bell",
+          title: "A nudge every morning",
+          detail:
+            "Expiry and minimum stock land on the team's WhatsApp before the day starts.",
+        },
+      ],
+    },
+    features: {
+      eyebrow: "What Nata does",
+      title: "The production ledger, without the ERP",
+      subtitle:
+        "Built for 1 to 15 people who already live on WhatsApp and want the bookkeeping to keep up, not the other way round.",
+      items: [
+        {
+          icon: "batches",
+          title: "Stock per batch",
+          detail:
+            "Every purchase lands as its own batch with a buy date and an expiry. Stock is never one number, so FEFO and real costing are possible.",
+        },
+        {
+          icon: "hpp",
+          title: "Automatic HPP",
+          detail:
+            "Recipe times the actual batch price, plus labour and overhead. The selling price stops being a guess.",
+        },
+        {
+          icon: "recipe",
+          title: "Versioned recipes",
+          detail:
+            "A recipe is never edited in place. Each change is a new version, and every production run records the one it used.",
+        },
+        {
+          icon: "planning",
+          title: "Production planning",
+          detail:
+            "See the material requirement before a run starts. If stock is short, Nata refuses the whole run before anything moves.",
+        },
+        {
+          icon: "alert",
+          title: "WhatsApp alerts",
+          detail:
+            "D-7, D-3, and minimum stock go out to the team's number each morning, so nothing expires quietly.",
+        },
+        {
+          icon: "pos",
+          title: "Light POS",
+          detail:
+            "Record a sale and the stock goes down with it. Margin per product is on screen the moment the document is saved.",
+        },
+      ],
+    },
+    steps: {
+      eyebrow: "How it works",
+      title: "Running by the end of the week",
+      subtitle: "Three habits, no manual retyping.",
+      items: [
+        {
+          title: "Record materials and batches",
+          detail:
+            "Import from Excel or start from the shared F&B material and recipe templates.",
+        },
+        {
+          title: "Produce and see the cost",
+          detail:
+            "Nata takes the batch closest to expiry first and prices the run from what you actually paid.",
+        },
+        {
+          title: "Sell and keep watch",
+          detail:
+            "Sales reduce stock, margin per product shows up, and alerts fire before a material runs out.",
+        },
+      ],
+    },
+    pricing: {
+      eyebrow: "Pricing",
+      title: "Starts free, grows with the business",
+      subtitle:
+        "The limits below are the ones the app enforces. Every feature ships in every plan.",
+      perMonth: "/month",
+      annualNote: "Pay annually: 10 months for 12, about 17% off.",
+      popular: "Most popular",
+      trialCta: "Start free",
+      planCta: "Choose {name}",
+      items: [
+        {
+          name: "Trial",
+          caption: "Try the product",
+          price: 0,
+          includes: "Every MVP feature for 14 days",
+          limits: ["1 user", "20 materials", "5 recipes", "1 warehouse"],
+        },
+        {
+          name: "Starter",
+          caption: "One person or a small team",
+          price: 79_000,
+          includes:
+            "Stock, batch, expiry, BOM, HPP, WhatsApp alerts, simple sales",
+          limits: ["2 users", "50 materials", "15 recipes", "1 warehouse"],
+        },
+        {
+          name: "Pro",
+          caption: "Regular production",
+          price: 199_000,
+          includes:
+            "Everything in Starter, plus purchasing suggestions, reports, and Excel import",
+          limits: [
+            "5 users",
+            "200 materials",
+            "Unlimited recipes",
+            "2 warehouses",
+          ],
+        },
+        {
+          name: "Business",
+          caption: "Growing businesses",
+          price: 499_000,
+          includes:
+            "Everything in Pro, plus advanced reports, access roles, export, and priority support",
+          limits: [
+            "20 users",
+            "Unlimited materials",
+            "Unlimited recipes",
+            "10 warehouses",
+          ],
+        },
+      ],
+    },
+    cta: {
+      title: "Ready to close the notebook?",
+      subtitle:
+        "Set up takes one afternoon. Your first real production cost is already worth more than the subscription.",
+      primary: "Try 14 days free",
+      secondary: "See pricing",
+    },
     footer: {
-      phase: "Phase 0 scaffold",
-      api: "OpenAPI at /api-docs/openapi.json",
+      tagline: "PPIC + light POS for F&B SMEs",
+      product: "Product",
+      contact: "techabrah@gmail.com",
+      rights: "© 2026 Nata",
     },
   },
   health: {
