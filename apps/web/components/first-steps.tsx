@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronRight } from "lucide-react";
+import { ArrowRight, Check, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 import { LoadingRegion } from "@/components/skeletons";
@@ -88,6 +88,20 @@ function FirstSteps({ materials }: { materials: number }) {
           })}
         </ol>
       )}
+
+      {/* The list is the five things this screen needs; the handbook is the
+          long version, one tap away while the list is still open. */}
+      <Link
+        href="/guide"
+        className="group mt-1 flex items-center gap-1.5 border-t border-border pt-2.5 text-xs font-semibold text-ink-3 transition-colors duration-150 hover:text-brand focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
+      >
+        <span>{t.firstSteps.guide}</span>
+        <ArrowRight
+          size={13}
+          aria-hidden="true"
+          className="transition-transform duration-150 group-hover:translate-x-0.5"
+        />
+      </Link>
     </section>
   );
 }
