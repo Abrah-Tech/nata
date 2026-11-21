@@ -12,6 +12,7 @@ import {
   Settings,
   ShoppingCart,
   Truck,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType } from "react";
@@ -32,6 +33,7 @@ type Active =
   | "pos"
   | "purchasing"
   | "reports"
+  | "team"
   | "settings"
   | "guide";
 
@@ -123,6 +125,12 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
     {
       label: t.nav.other,
       items: [
+        {
+          key: "team",
+          label: t.nav.team,
+          icon: Users,
+          href: "/team",
+        },
         {
           key: "settings",
           label: t.nav.settings,

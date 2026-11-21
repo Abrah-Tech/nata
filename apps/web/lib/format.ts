@@ -40,6 +40,17 @@ export function formatDate(value: string, locale: Locale): string {
   }).format(parseDate(value));
 }
 
+/**
+ * A timestamp rendered as a short local date. `formatDate` is for date-only
+ * values; feeding it an ISO timestamp would parse the time as the day.
+ */
+export function formatTimestampDate(value: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(localeTag(locale), {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(value));
+}
+
 export function formatLongDate(value: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(localeTag(locale), {
     weekday: "long",

@@ -523,6 +523,44 @@ export type AuditEntry = {
   created_at: string;
 };
 
+/** One membership of the signed-in tenant. */
+export type Member = {
+  user_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: Role;
+  /** `active` or `suspended`. */
+  status: string;
+  joined_at: string;
+};
+
+/** A pending invitation. The list endpoint returns pending rows only. */
+export type Invitation = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  role: Role;
+  /** Always `pending` from the list endpoint. */
+  status: string;
+  expires_at: string;
+  created_at: string;
+};
+
+/**
+ * The create response. `token` is returned once, the way an OTP code is: only
+ * its hash is stored, so the caller has to show it now or it is lost.
+ */
+export type InvitationCreated = Invitation & {
+  token: string;
+};
+
+export type CreateInvitationRequest = {
+  /** An email address or a phone number, matched against the invitee's contact. */
+  contact: string;
+  role: Role;
+};
+
 export type StockInRequest = {
   material_id: string;
   supplier_id?: string | null;
@@ -779,6 +817,63 @@ export class ApiClient {
 
   me(token: string): Promise<MeResponse> {
     return this.request<MeResponse>("/me", { token });
+  }
+
+  listMembers(token: string): Promise<Member[]> {
+    return this.request<Member[]>("/members", { token });
+  }
+
+  changeMemberRole(
+    token: string,
+    userId: string,
+    role: Role,
+  ): Promise<Member> {
+    return this.request<Member>(`/members/${userId}/role`, {
+      method: "PATCH",
+      token,
+      body: { role },
+    });
+  }
+
+  changeMemberStatus(
+    token: string,
+    userId: string,
+    status: "active" | "suspended",
+  ): Promise<Member> {
+    return this.request<Member>(`/members/${userId}/status`, {
+      method: "PATCH",
+      token,
+      body: { status },
+    });
+  }
+
+  removeMember(token: string, userId: string): Promise<void> {
+    return this.request<void>(`/members/${userId}`, {
+      method: "DELETE",
+      token,
+    });
+  }
+
+  listInvitations(token: string): Promise<Invitation[]> {
+    return this.request<Invitation[]>("/members/invitations", { token });
+  }
+
+  createInvitation(
+    token: string,
+    body: CreateInvitationRequest,
+  ): Promise<InvitationCreated> {
+    return this.request<InvitationCreated>("/members/invitations", {
+      method: "POST",
+      token,
+      body,
+    });
+  }
+
+  revokeInvitation(token: string, id: string): Promise<void> {
+    return this.request<void>(`/members/invitations/${id}`, {
+      method: "DELETE",
+      token,
+    });
   }
 
   listSales(token: string, limit?: number): Promise<SaleList> {
