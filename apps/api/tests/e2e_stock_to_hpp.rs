@@ -243,7 +243,9 @@ async fn stock_to_hpp_to_sale_ties_out(pool: PgPool) {
         "FEFO takes the near batch"
     );
     assert_eq!(decimal(&preview["materials"][0]["required"]), dec("2.625"));
-    assert_eq!(decimal(&preview["materials"][0]["available"]), dec("2.625"));
+    // 1 + 5 kg on hand. The run only needs 2.625 kg, so stock is not the same
+    // number as the requirement.
+    assert_eq!(decimal(&preview["materials"][0]["available"]), dec("6.000"));
     assert_eq!(decimal(&preview["materials"][0]["shortfall"]), dec("0"));
     assert_eq!(decimal(&planned[0]["qty"]), dec("1.000"));
     assert_eq!(planned[1]["batch_id"], far["id"]);
