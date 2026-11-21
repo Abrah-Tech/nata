@@ -20,6 +20,8 @@ function titleFor(pathname: string, t: Dictionary): string {
       return t.sales.title;
     case "reports":
       return t.reports.title;
+    case "team":
+      return t.team.title;
     case "settings":
       return t.settings.title;
     case "purchasing":
