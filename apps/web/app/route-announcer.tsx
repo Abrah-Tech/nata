@@ -28,6 +28,8 @@ function titleFor(pathname: string, t: Dictionary): string {
       return t.production.title;
     case "stock":
       return t.stock.title;
+    case "batches":
+      return t.batches.title;
     case "login":
       return t.login.title;
     case "guide":

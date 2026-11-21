@@ -107,3 +107,17 @@ export function normalizeDecimal(value: string): string | null {
 
   return normalized;
 }
+
+/**
+ * The signed form of the same rule, for corrections: "2,5" becomes "2.5" and
+ * a leading minus is kept. Returns null when the value is not a plain decimal.
+ */
+export function normalizeSignedDecimal(value: string): string | null {
+  const normalized = value.trim().replace(",", ".");
+
+  if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
+    return null;
+  }
+
+  return normalized;
+}
