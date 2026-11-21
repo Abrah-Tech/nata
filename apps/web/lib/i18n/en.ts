@@ -70,10 +70,9 @@ export const en = {
     switchToEmail: "Sign in with email",
     switchToPhone: "Sign in with WhatsApp",
     terms: "By signing in you agree to the Terms of Service and Privacy Policy.",
+    haveCode: "Have an invitation code?",
     tenantTitle: "Choose a business",
     tenantSubtitle: "This account belongs to more than one business.",
-    invitationPending:
-      "This contact has a pending invitation. Open the invitation link to join that business.",
     steps: {
       contact: "Number",
       code: "Verification",
@@ -114,6 +113,34 @@ export const en = {
       noteTitle: "One business never sees another business's data",
       noteSubtitle: "Row-level security per tenant · works offline on the phone",
       version: "v1.0",
+    },
+  },
+  join: {
+    loading: "Loading the invitation…",
+    title: "You are invited",
+    subtitle:
+      "Enter the invitation code to join that business. It works once and expires after 7 days.",
+    signedOutTitle: "Sign in to accept",
+    signedOutBody:
+      "Sign in with the email or WhatsApp number that received the invitation. The code is accepted as soon as you are signed in.",
+    signIn: "Sign in",
+    code: "Invitation code",
+    codeHint:
+      "The 64-character code from the invitation link. Paste it rather than typing it.",
+    submit: "Accept invitation",
+    accepting: "Accepting…",
+    wrongContact: "Signed in with a different contact?",
+    signOut: "Sign out and use another contact",
+    errors: {
+      codeRequired: "Paste the invitation code.",
+      invitationNotFound: "That code is not valid.",
+      invitationNotPending: "That invitation has already been accepted.",
+      invitationExpired: "That invitation has expired. Ask for a new one.",
+      invitationContactMismatch:
+        "Sign in with the email or WhatsApp number that received this invitation.",
+      alreadyAMember: "You are already a member of this business.",
+      invalidToken: "Your session has expired. Sign in again.",
+      generic: "Something went wrong. Try again.",
     },
   },
   dashboard: {
@@ -980,9 +1007,10 @@ export const en = {
         close: "Close",
         createdTitle: "Invitation for {contact}",
         createdBody:
-          "Share this code with {contact}. It works once and expires on {date}.",
+          "Send this to {contact}. It works once and expires on {date}.",
         code: "Invitation code",
         copy: "Copy code",
+        copyLink: "Copy link",
         copied: "Copied",
       },
       role: {

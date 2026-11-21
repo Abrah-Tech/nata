@@ -17,7 +17,8 @@ nginx, ACME, direktori release) ada di repo
 ```
 GitHub Actions (deploy.yml, setelah CI hijau)
   ├─ cargo build --release -p nata-api       (ubuntu-24.04, glibc 2.39)
-  ├─ NEXT_PUBLIC_API_URL=https://nata.arifinoid.web.id/api bun run build
+  ├─ NEXT_PUBLIC_API_URL=https://nata.arifinoid.web.id/api \
+  │  NEXT_PUBLIC_APP_URL=https://nata.arifinoid.web.id bun run build
   ├─ stage: bin/nata-api + out/ + migrations/ + deploy/vps/grant.sql
   ├─ rsync → /srv/nata/releases/<sha>/
   ├─ symlink /srv/nata/current → release baru (atomik)

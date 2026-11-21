@@ -561,6 +561,11 @@ export type CreateInvitationRequest = {
   role: Role;
 };
 
+export type AcceptInvitationRequest = {
+  /** The 64-character code from the invitation link. */
+  token: string;
+};
+
 export type StockInRequest = {
   material_id: string;
   supplier_id?: string | null;
@@ -873,6 +878,23 @@ export class ApiClient {
     return this.request<void>(`/members/invitations/${id}`, {
       method: "DELETE",
       token,
+    });
+  }
+
+  /**
+   * Joins the tenant that sent the invitation. Any bearer token works, because
+   * an invitee may still hold a tenant-selection token with no membership. The
+   * response carries a new session token for the joined tenant, so the caller
+   * has to store it.
+   */
+  acceptInvitation(
+    token: string,
+    body: AcceptInvitationRequest,
+  ): Promise<AuthResponse> {
+    return this.request<AuthResponse>("/auth/accept-invitation", {
+      method: "POST",
+      token,
+      body,
     });
   }
 

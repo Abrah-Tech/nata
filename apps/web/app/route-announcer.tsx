@@ -24,6 +24,8 @@ function titleFor(pathname: string, t: Dictionary): string {
       return t.team.title;
     case "settings":
       return t.settings.title;
+    case "join":
+      return t.join.title;
     case "purchasing":
       return t.purchasing.title;
     case "production":

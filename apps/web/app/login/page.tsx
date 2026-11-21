@@ -2,17 +2,22 @@
 
 import { ApiError, type TenantSummary } from "@nata/api-client";
 import { Check } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-import { StatusMessage } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { fill, useI18n } from "@/lib/i18n";
-import { writeToken } from "@/lib/session";
+import {
+  type PendingInvite,
+  readPendingInvite,
+  writePendingInvite,
+  writeToken,
+} from "@/lib/session";
 
 import { LocaleSwitch } from "../locale-switch";
 import { OTP_LENGTH, OtpInput, type OtpInputHandle } from "./otp-input";
@@ -33,7 +38,6 @@ export default function LoginPage() {
   const [code, setCode] = useState<string[]>(EMPTY_CODE);
   const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [selectionToken, setSelectionToken] = useState<string | null>(null);
-  const [pendingInvitation, setPendingInvitation] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contactError, setContactError] = useState<string | null>(null);
@@ -68,6 +72,16 @@ export default function LoginPage() {
     }
 
     return t.login.errors.generic;
+  }
+
+  /**
+   * The invitation link the visitor arrived with, if any. A parked invitation
+   * with no code has to fall back to the code-entry screen instead.
+   */
+  function joinPath(invite: PendingInvite | null): string | null {
+    return invite && invite.code
+      ? `/join?token=${encodeURIComponent(invite.code)}`
+      : null;
   }
 
   async function sendCode() {
@@ -122,6 +136,8 @@ export default function LoginPage() {
         code: code.join(""),
       });
 
+      const invite = readPendingInvite();
+
       if (result.tenants.length > 1) {
         setTenants(result.tenants);
         setSelectionToken(result.access_token);
@@ -131,11 +147,23 @@ export default function LoginPage() {
 
       if (result.tenants.length === 1) {
         writeToken(result.access_token);
-        router.replace("/dashboard");
+
+        // A pending invitation is followed even when the code was never in a
+        // link, so signing in by hand still reaches the screen that accepts it.
+        // An invitation this contact cannot claim lands there too, where the
+        // mismatch is named, rather than dropping back to the overview.
+        const target =
+          result.pending_invitation || invite ? (joinPath(invite) ?? "/join") : null;
+
+        router.replace(target ?? "/dashboard");
         return;
       }
 
-      setPendingInvitation(true);
+      // No membership yet: the account exists only to carry the invitation, so
+      // the tenant-selection token is parked rather than stored as a session —
+      // `/me` rejects one and `useMe` would sign the visitor straight out.
+      writePendingInvite({ code: invite?.code ?? "", token: result.access_token });
+      router.replace(joinPath(invite) ?? "/join");
     } catch (cause) {
       setError(messageFor(cause));
     } finally {
@@ -158,7 +186,11 @@ export default function LoginPage() {
     try {
       const result = await api.selectTenant(selectionToken, tenantId);
       writeToken(result.access_token);
-      router.replace("/dashboard");
+
+      const invite = readPendingInvite();
+      router.replace(
+        result.pending_invitation ? (joinPath(invite) ?? "/join") : "/dashboard",
+      );
     } catch (cause) {
       setError(messageFor(cause));
     } finally {
@@ -480,14 +512,18 @@ export default function LoginPage() {
             </ul>
           )}
 
-          <StatusMessage
-            message={pendingInvitation ? t.login.invitationPending : null}
-            className="m-0 rounded-lg bg-warning-soft px-3 py-2.5 text-xs leading-[1.45] text-warning"
-          />
-
           {error && <FormError>{error}</FormError>}
 
           <p className="m-0 text-2xs leading-[1.5] text-ink-3">{t.login.terms}</p>
+
+          {/* The invitation code reaches the invitee by message, so the join
+              screen needs an entry point that does not depend on a link. */}
+          <Link
+            href="/join"
+            className="m-0 text-center text-2xs font-semibold text-brand no-underline outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            {t.login.haveCode}
+          </Link>
         </div>
 
         <footer className="mx-auto flex w-full max-w-[392px] items-center justify-between gap-3.5 text-2xs text-ink-3">

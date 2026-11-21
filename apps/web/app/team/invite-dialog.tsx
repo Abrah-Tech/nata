@@ -16,6 +16,7 @@ import { api } from "@/lib/api";
 import { formatTimestampDate } from "@/lib/format";
 import { fill, useI18n } from "@/lib/i18n";
 import { readToken } from "@/lib/session";
+import { siteOrigin } from "@/lib/site";
 
 import { teamError } from "./error-copy";
 import { roleLabel } from "./roles";
@@ -36,13 +37,14 @@ type Props = {
  */
 export function InviteDialog({ seats, roles, onClose, onCreated }: Props) {
   const { t, locale } = useI18n();
+  const origin = siteOrigin();
 
   const [contact, setContact] = useState("");
   const [role, setRole] = useState<Role>("production");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<InvitationCreated | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"code" | "link" | null>(null);
 
   const full = seats.limit !== null && seats.used >= seats.limit;
   const selected = roles.includes(role) ? role : roles[0];
@@ -86,12 +88,21 @@ export function InviteDialog({ seats, roles, onClose, onCreated }: Props) {
     }
   }
 
-  async function copyCode() {
+  /** The link is what an invitee actually opens; the code is the fallback. */
+  const link =
+    created && origin ? `${origin}/join?token=${created.token}` : null;
+
+  async function copy(kind: "code" | "link") {
     if (!created) return;
 
+    const value = kind === "code" ? created.token : link;
+
+    // No configured public origin means there is no link to copy.
+    if (!value) return;
+
     try {
-      await navigator.clipboard.writeText(created.token);
-      setCopied(true);
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
       return;
     } catch {
       // A plain HTTP origin is not a secure context, so the async clipboard
@@ -99,7 +110,7 @@ export function InviteDialog({ seats, roles, onClose, onCreated }: Props) {
     }
 
     const area = document.createElement("textarea");
-    area.value = created.token;
+    area.value = value;
     area.setAttribute("readonly", "");
     area.style.position = "fixed";
     area.style.opacity = "0";
@@ -107,7 +118,7 @@ export function InviteDialog({ seats, roles, onClose, onCreated }: Props) {
     area.select();
     document.execCommand("copy");
     document.body.removeChild(area);
-    setCopied(true);
+    setCopied(kind);
   }
 
   if (created) {
@@ -137,10 +148,27 @@ export function InviteDialog({ seats, roles, onClose, onCreated }: Props) {
             </code>
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" type="button" onClick={copyCode}>
-              {copied ? t.team.dialog.invite.copied : t.team.dialog.invite.copy}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => void copy("code")}
+            >
+              {copied === "code"
+                ? t.team.dialog.invite.copied
+                : t.team.dialog.invite.copy}
             </Button>
+            {link && (
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => void copy("link")}
+              >
+                {copied === "link"
+                  ? t.team.dialog.invite.copied
+                  : t.team.dialog.invite.copyLink}
+              </Button>
+            )}
             <Button type="button" onClick={onClose}>
               {t.team.dialog.invite.close}
             </Button>
