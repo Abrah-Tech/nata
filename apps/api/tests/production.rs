@@ -581,7 +581,9 @@ async fn preview_shows_requirements_batches_and_hpp(pool: PgPool) {
     assert_eq!(materials[0]["material_name"], "Tepung terigu");
     assert_eq!(materials[0]["unit_code"], "kg");
     assert_eq!(materials[0]["required"], "2.625");
-    assert_eq!(materials[0]["available"], "2.625");
+    // Six kilograms are on hand, so `available` reports the stock. Only 2.625
+    // would be consumed, which is what the batch lines below add up to.
+    assert_eq!(materials[0]["available"], "6.000");
     assert_eq!(materials[0]["shortfall"], "0.000");
 
     let batches = materials[0]["batches"].as_array().expect("batches");

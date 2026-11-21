@@ -101,7 +101,8 @@ pub struct PreviewMaterialView {
     pub material_name: String,
     pub unit_code: String,
     pub required: Decimal,
-    /// What the active batches can cover.
+    /// On hand across the active batches, not what this run would take. The two
+    /// differ whenever stock exceeds the requirement, which is the common case.
     pub available: Decimal,
     pub shortfall: Decimal,
     /// The batches FEFO would consume, with the quantity from each.
@@ -147,6 +148,9 @@ struct MaterialPlan {
     material_name: String,
     unit_code: String,
     required: Decimal,
+    /// Total `qty_remaining` over the usable batches. Reported to the client as
+    /// on-hand stock, so it is independent of `required`.
+    available: Decimal,
     allocation: Allocation<Uuid>,
     costs: HashMap<Uuid, Decimal>,
     lines: Vec<PlannedLine>,
@@ -330,6 +334,15 @@ async fn plan_order(
             });
         }
 
+        // `qty_remaining` is `numeric(18,3)` and the query already dropped
+        // non-positive rows, so this sum is exact at ledger scale.
+        let available = at_scale(
+            batches
+                .iter()
+                .fold(Decimal::ZERO, |total, batch| total + batch.qty_remaining),
+            LEDGER_SCALE,
+        );
+
         let allocation = nata_core::allocate(&batches, required)
             .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?;
 
@@ -338,7 +351,7 @@ async fn plan_order(
                 material_id,
                 material_name: material_name.clone(),
                 required,
-                available: allocation.allocated,
+                available,
                 shortfall: allocation.shortfall,
             });
         }
@@ -359,6 +372,7 @@ async fn plan_order(
             material_name,
             unit_code,
             required,
+            available,
             allocation,
             costs,
             lines,
@@ -459,7 +473,7 @@ pub async fn preview_order(
             material_name: material.material_name.clone(),
             unit_code: material.unit_code.clone(),
             required: material.required,
-            available: material.allocation.allocated,
+            available: material.available,
             shortfall: material.allocation.shortfall,
             batches: material
                 .lines
