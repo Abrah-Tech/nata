@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookOpen,
   Boxes,
+  CalendarClock,
   ChefHat,
   LayoutDashboard,
   Package,
@@ -25,6 +26,7 @@ import { LocaleSwitch } from "./locale-switch";
 type Active =
   | "overview"
   | "stock"
+  | "batches"
   | "production"
   | "products"
   | "pos"
@@ -87,6 +89,12 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           href: "/products",
         },
         { key: "stock", label: t.nav.stock, icon: Package, href: "/stock" },
+        {
+          key: "batches",
+          label: t.nav.batches,
+          icon: CalendarClock,
+          href: "/batches",
+        },
       ],
     },
     {
