@@ -339,7 +339,7 @@ export default function LoginPage() {
           {t.login.help}{" "}
           <a
             className="font-semibold text-brand no-underline outline-none hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-            href="mailto:halo@nata.id"
+            href="mailto:techabrah@gmail.com"
           >
             {t.login.contactSupport}
           </a>
