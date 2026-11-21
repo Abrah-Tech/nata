@@ -24,14 +24,14 @@ export function HomeNav() {
   const labels = t.home.nav;
 
   const linkClass =
-    "rounded-md px-2.5 py-1.5 text-sm font-semibold text-ink-2 transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+    "rounded-md px-2.5 py-1.5 text-sm font-semibold text-ink-2 no-underline transition-colors outline-none hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-[1080px] items-center gap-1.5 px-4 sm:gap-2 sm:px-8">
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-md text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          className="flex items-center gap-2 rounded-md text-ink no-underline outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-white">
             <Wheat size={16} strokeWidth={2.2} aria-hidden="true" />

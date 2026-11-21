@@ -4,7 +4,7 @@
 export const en = {
   common: {
     appName: "Nata",
-    tagline: "PPIC + light POS for F&B SMEs",
+    tagline: "The production app for food businesses",
     language: "Language",
     localeId: "Bahasa Indonesia",
     localeEn: "English",
@@ -20,10 +20,10 @@ export const en = {
       cta: "Try free",
     },
     hero: {
-      eyebrow: "PPIC + light POS for F&B SMEs",
+      eyebrow: "Built for food businesses",
       title: "Stop counting stock in a notebook.",
       subtitle:
-        "Nata records every batch, expiry date, recipe, and real production cost in one flow — entered from the phone, with reports and WhatsApp alerts on top.",
+        "Nata writes down every batch, expiry date, recipe, and real production cost in one flow — from your phone, with reports and WhatsApp messages on top.",
       primaryCta: "Try 14 days free",
       secondaryCta: "See pricing",
       note: "No credit card · ready in 5 minutes · cancel anytime",
@@ -49,7 +49,8 @@ export const en = {
         {
           icon: "shield",
           title: "Your data stays yours",
-          detail: "Row-level security keeps every business in its own lane.",
+          detail:
+            "Each business sees only its own data. Yours is never mixed with anyone else's.",
         },
         {
           icon: "card",
@@ -60,51 +61,51 @@ export const en = {
           icon: "bell",
           title: "A nudge every morning",
           detail:
-            "Expiry and minimum stock land on the team's WhatsApp before the day starts.",
+            "Expiring stock and low stock land on the team's WhatsApp before the day starts.",
         },
       ],
     },
     features: {
       eyebrow: "What Nata does",
-      title: "The production ledger, without the ERP",
+      title: "What you use, what it costs, what runs out",
       subtitle:
-        "Built for 1 to 15 people who already live on WhatsApp and want the bookkeeping to keep up, not the other way round.",
+        "Made for teams of 1 to 15 who already run their day on WhatsApp. Nata keeps the numbers up to date, so you don't have to.",
       items: [
         {
           icon: "batches",
           title: "Stock per batch",
           detail:
-            "Every purchase lands as its own batch with a buy date and an expiry. Stock is never one number, so FEFO and real costing are possible.",
+            "Every purchase is its own batch with a buy date and an expiry date, so Nata always knows which one to use first. Nothing sits forgotten in a corner.",
         },
         {
           icon: "hpp",
           title: "Automatic HPP",
           detail:
-            "Recipe times the actual batch price, plus labour and overhead. The selling price stops being a guess.",
+            "Your recipe multiplied by the price you actually paid, plus labour and overhead. The selling price stops being a guess.",
         },
         {
           icon: "recipe",
-          title: "Versioned recipes",
+          title: "Recipes that keep their history",
           detail:
-            "A recipe is never edited in place. Each change is a new version, and every production run records the one it used.",
+            "A recipe is never overwritten. Every change is saved as a new version, and each production run remembers the version it used.",
         },
         {
           icon: "planning",
           title: "Production planning",
           detail:
-            "See the material requirement before a run starts. If stock is short, Nata refuses the whole run before anything moves.",
+            "See what you need before a run starts. If stock is short, Nata stops the whole run before anything moves.",
         },
         {
           icon: "alert",
           title: "WhatsApp alerts",
           detail:
-            "D-7, D-3, and minimum stock go out to the team's number each morning, so nothing expires quietly.",
+            "A week before something expires, three days before, and whenever stock runs low — the team gets a message.",
         },
         {
           icon: "pos",
           title: "Light POS",
           detail:
-            "Record a sale and the stock goes down with it. Margin per product is on screen the moment the document is saved.",
+            "Record a sale and the stock goes down with it. Profit per product shows up the moment the sale is saved.",
         },
       ],
     },
@@ -116,17 +117,17 @@ export const en = {
         {
           title: "Record materials and batches",
           detail:
-            "Import from Excel or start from the shared F&B material and recipe templates.",
+            "Import from Excel, or start from the food material and recipe templates already in Nata.",
         },
         {
           title: "Produce and see the cost",
           detail:
-            "Nata takes the batch closest to expiry first and prices the run from what you actually paid.",
+            "Nata uses the batch closest to expiry first and costs the run from what you actually paid.",
         },
         {
           title: "Sell and keep watch",
           detail:
-            "Sales reduce stock, margin per product shows up, and alerts fire before a material runs out.",
+            "Sales reduce stock, profit per product appears, and a message goes out before a material runs out.",
         },
       ],
     },
@@ -134,7 +135,7 @@ export const en = {
       eyebrow: "Pricing",
       title: "Starts free, grows with the business",
       subtitle:
-        "The limits below are the ones the app enforces. Every feature ships in every plan.",
+        "The numbers below are the limits the app really enforces. Every feature is in every plan.",
       perMonth: "/month",
       annualNote: "Pay annually: 10 months for 12, about 17% off.",
       popular: "Most popular",
@@ -145,7 +146,7 @@ export const en = {
           name: "Trial",
           caption: "Try the product",
           price: 0,
-          includes: "Every MVP feature for 14 days",
+          includes: "Every feature for 14 days",
           limits: ["1 user", "20 materials", "5 recipes", "1 warehouse"],
         },
         {
@@ -153,7 +154,7 @@ export const en = {
           caption: "One person or a small team",
           price: 79_000,
           includes:
-            "Stock, batch, expiry, BOM, HPP, WhatsApp alerts, simple sales",
+            "Stock, batches, expiry dates, recipes, HPP, WhatsApp alerts, and simple sales",
           limits: ["2 users", "50 materials", "15 recipes", "1 warehouse"],
         },
         {
@@ -174,7 +175,7 @@ export const en = {
           caption: "Growing businesses",
           price: 499_000,
           includes:
-            "Everything in Pro, plus advanced reports, access roles, export, and priority support",
+            "Everything in Pro, plus deeper reports, user roles, export, and priority support",
           limits: [
             "20 users",
             "Unlimited materials",
@@ -192,7 +193,7 @@ export const en = {
       secondary: "See pricing",
     },
     footer: {
-      tagline: "PPIC + light POS for F&B SMEs",
+      tagline: "The production app for food businesses",
       product: "Product",
       contact: "techabrah@gmail.com",
       rights: "© 2026 Nata",
