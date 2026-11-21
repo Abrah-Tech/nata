@@ -5,15 +5,12 @@ import {
   BarChart3,
   BookOpen,
   Boxes,
-  CalendarClock,
   ChefHat,
   LayoutDashboard,
-  MessageCircle,
   Package,
   Settings,
   ShoppingCart,
   Truck,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType } from "react";
@@ -40,7 +37,7 @@ type Item = {
   key: string;
   label: string;
   icon: ComponentType<{ size?: number; strokeWidth?: number }>;
-  href?: string;
+  href: string;
 };
 
 type Props = {
@@ -90,7 +87,6 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           href: "/products",
         },
         { key: "stock", label: t.nav.stock, icon: Package, href: "/stock" },
-        { key: "batches", label: t.nav.batches, icon: CalendarClock },
       ],
     },
     {
@@ -119,8 +115,6 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
     {
       label: t.nav.other,
       items: [
-        { key: "alerts", label: t.nav.alerts, icon: MessageCircle },
-        { key: "team", label: t.nav.team, icon: Users },
         {
           key: "settings",
           label: t.nav.settings,
@@ -178,36 +172,21 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
               <p className="px-2.5 py-1 text-2xs font-bold tracking-[0.09em] text-ink-3">
                 {group.label}
               </p>
-              {group.items.map((item) =>
-                item.href ? (
-                  <Link
-                    key={item.key}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-ink-2 no-underline transition-colors hover:bg-surface-alt",
-                      item.key === active &&
-                        "bg-brand-soft font-bold text-brand hover:bg-brand-soft",
-                    )}
-                    aria-current={item.key === active ? "page" : undefined}
-                  >
-                    <item.icon size={16} />
-                    <span>{item.label}</span>
-                  </Link>
-                ) : (
-                  <span
-                    key={item.key}
-                    role="link"
-                    tabIndex={0}
-                    className="flex cursor-default items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-ink-2 opacity-50"
-                    title={t.nav.soon}
-                    aria-disabled="true"
-                  >
-                    <item.icon size={16} />
-                    <span>{item.label}</span>
-                    <span className="sr-only">{t.nav.soon}</span>
-                  </span>
-                ),
-              )}
+              {group.items.map((item) => (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-ink-2 no-underline transition-colors hover:bg-surface-alt",
+                    item.key === active &&
+                      "bg-brand-soft font-bold text-brand hover:bg-brand-soft",
+                  )}
+                  aria-current={item.key === active ? "page" : undefined}
+                >
+                  <item.icon size={16} />
+                  <span>{item.label}</span>
+                </Link>
+              ))}
             </div>
           ))}
         </nav>

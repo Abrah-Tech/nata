@@ -227,15 +227,11 @@ export const id: Dictionary = {
     production: "Produksi & HPP",
     products: "Produk & Resep",
     stock: "Stok Bahan",
-    batches: "Batch & Expired",
     pos: "POS / Penjualan",
     purchasing: "Belanja",
     reports: "Laporan",
-    alerts: "Alert WhatsApp",
-    team: "Tim & Langganan",
     settings: "Pengaturan",
     guide: "Panduan",
-    soon: "Segera hadir",
     main: "Navigasi utama",
     signOut: "Keluar",
     mobileHome: "Beranda",
@@ -823,6 +819,7 @@ export const id: Dictionary = {
     title: "Langkah pertama",
     counter: "{done} dari {total} selesai",
     next: "Selanjutnya:",
+    guide: "Baca panduan lengkap",
     steps: {
       materials: "Catat bahan yang kamu simpan",
       recipe: "Buat resep untuk satu produk",
@@ -846,7 +843,7 @@ export const id: Dictionary = {
     },
     soonTitle: "Belum ada di aplikasi",
     soonBody:
-      "Tiga item di navigasi belum kalau diklik: Batch & Expired, Alert WhatsApp, dan Tim & Langganan. Batch sebenarnya sudah jalan — buka Bahan dan ketuk bahan mana pun untuk melihat buku batch dan jejak pergerakannya. Alert sudah berjalan di server sesuai jadwal, jadi tidak butuh layar. Tim & tagihan sebagian sudah jalan: Pengaturan sudah menampilkan pemakaian dan mencatat pembayaran.",
+      "Tiga bagian belum ada di aplikasi: daftar batch beserta koreksinya, riwayat alert WhatsApp, dan pengelolaan tim. Batch sebagian sudah jalan — buka Bahan dan ketuk bahan mana pun untuk melihat buku batch dan jejak pergerakannya. Alert sudah berjalan di server sesuai jadwal, jadi tidak butuh layar. Tim & tagihan sebagian sudah jalan: Pengaturan sudah menampilkan pemakaian dan mencatat pembayaran.",
     steps: [
       {
         id: "login",

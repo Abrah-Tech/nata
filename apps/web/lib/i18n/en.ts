@@ -228,15 +228,11 @@ export const en = {
     production: "Production & HPP",
     products: "Products & recipes",
     stock: "Ingredients",
-    batches: "Batches & expiry",
     pos: "POS / Sales",
     purchasing: "Purchasing",
     reports: "Reports",
-    alerts: "WhatsApp alerts",
-    team: "Team & billing",
     settings: "Settings",
-    guide: "Guide",
-    soon: "Coming soon",
+    guide: "Handbook",
     main: "Main navigation",
     signOut: "Sign out",
     mobileHome: "Home",
@@ -822,6 +818,7 @@ export const en = {
     title: "First steps",
     counter: "{done} of {total} done",
     next: "Next:",
+    guide: "Read the full handbook",
     steps: {
       materials: "Add your ingredients",
       recipe: "Create a recipe",
@@ -845,7 +842,7 @@ export const en = {
     },
     soonTitle: "Not in the app yet",
     soonBody:
-      "Three items in the navigation do nothing when you tap them: Batches & expiry, WhatsApp alerts, and Team & billing. Batches are live — open Ingredients and tap any ingredient to see its batch ledger and movement trail. Alerts already run on the server on a schedule, so they need no screen. Team & billing is partly live: Settings already shows usage and records payments.",
+      "Three pieces are not in the app yet: a batch list with corrections, the WhatsApp alert history, and team management. Batches are partly live — open Ingredients and tap any ingredient to see its batch ledger and movement trail. Alerts already run on the server on a schedule, so they need no screen. Team & billing is partly live: Settings already shows usage and records payments.",
     steps: [
       {
         id: "login",
