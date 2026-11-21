@@ -23,6 +23,15 @@ let cached: MeResponse | null = null;
  * Loads the signed-in user and redirects to the login screen when the session
  * is missing or rejected. Shared by every authenticated page.
  */
+/**
+ * Drops the cached `/me` answer. Needed when the stored token is replaced by a
+ * different tenant's session, as accepting an invitation does: the cached
+ * membership would otherwise render one navigation behind.
+ */
+export function clearMeCache(): void {
+  cached = null;
+}
+
 export function useMe() {
   const router = useRouter();
   const [state, setState] = useState<MeState>(() =>

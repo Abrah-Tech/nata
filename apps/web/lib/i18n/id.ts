@@ -69,10 +69,9 @@ export const id: Dictionary = {
     switchToEmail: "Masuk dengan email",
     switchToPhone: "Masuk dengan WhatsApp",
     terms: "Dengan masuk, kamu setuju Ketentuan Layanan & Kebijakan Privasi.",
+    haveCode: "Punya kode undangan?",
     tenantTitle: "Pilih usaha",
     tenantSubtitle: "Akun ini terdaftar di lebih dari satu usaha.",
-    invitationPending:
-      "Kontak ini punya undangan yang belum diterima. Buka tautan undangan untuk bergabung.",
     steps: {
       contact: "Nomor",
       code: "Verifikasi",
@@ -113,6 +112,34 @@ export const id: Dictionary = {
       noteTitle: "Data satu usaha tidak bercampur dengan usaha lain",
       noteSubtitle: "Row-level security per tenant · bisa dipakai offline di HP",
       version: "v1.0",
+    },
+  },
+  join: {
+    loading: "Memuat undangan…",
+    title: "Kamu diundang",
+    subtitle:
+      "Masukkan kode undangan untuk bergabung ke usaha itu. Sekali pakai dan berlaku 7 hari.",
+    signedOutTitle: "Masuk dulu untuk menerima",
+    signedOutBody:
+      "Masuk dengan email atau nomor WhatsApp yang menerima undangan. Kode langsung diterima setelah kamu masuk.",
+    signIn: "Masuk",
+    code: "Kode undangan",
+    codeHint:
+      "Kode 64 karakter dari tautan undangan. Lebih baik ditempel daripada diketik.",
+    submit: "Terima undangan",
+    accepting: "Menerima…",
+    wrongContact: "Masuk dengan kontak lain?",
+    signOut: "Keluar dan pakai kontak lain",
+    errors: {
+      codeRequired: "Tempel kode undangan.",
+      invitationNotFound: "Kode itu tidak valid.",
+      invitationNotPending: "Undangan itu sudah diterima.",
+      invitationExpired: "Undangan itu sudah kedaluwarsa. Minta yang baru.",
+      invitationContactMismatch:
+        "Masuk dengan email atau nomor WhatsApp yang menerima undangan ini.",
+      alreadyAMember: "Kamu sudah jadi anggota usaha ini.",
+      invalidToken: "Sesi kamu sudah kedaluwarsa. Masuk lagi.",
+      generic: "Ada yang salah. Coba lagi.",
     },
   },
   dashboard: {
@@ -981,9 +1008,10 @@ export const id: Dictionary = {
         close: "Tutup",
         createdTitle: "Undangan untuk {contact}",
         createdBody:
-          "Bagikan kode ini ke {contact}. Kode hanya berlaku sekali dan berakhir pada {date}.",
+          "Kirimkan ini ke {contact}. Hanya berlaku sekali dan berakhir pada {date}.",
         code: "Kode undangan",
         copy: "Salin kode",
+        copyLink: "Salin tautan",
         copied: "Tersalin",
       },
       role: {

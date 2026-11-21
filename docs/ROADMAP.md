@@ -73,6 +73,8 @@ Do not build these screens before their frame exists in the design file.
 
 **Exception (2026-11-21):** 03 · Batch & FEFO (PR #28, `apps/web/app/batches`) and 10 · Tim & Langganan (PR #29, `apps/web/app/team`) were built from the tokens and patterns that already ship in `/stock` and `/settings`, because the backend for both is complete and the design system covers the screens. Both frames still need a pen.dev drawing; until it lands, the existing-token build stands in for it.
 
+The acceptance half of 10 is `apps/web/app/join` (PR #31). `POST /auth/accept-invitation` already existed but had no client method and no screen, so the code `/team` produces had nowhere to go. It follows the same tokens; the invite dialog now offers a `/join?token=…` link next to the raw code.
+
 ### UI polish backlog
 
 Audit 2026-11-18 against `apps/web`: the component library plus the screens that
