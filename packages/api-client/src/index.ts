@@ -688,7 +688,13 @@ export type MeResponse = {
 };
 
 export type OtpRequestResponse = {
+  /** Seconds the code is valid for, or the remainder when one is pending. */
   expires_in: number;
+  /**
+   * True when a still-valid code already existed and no new one was sent. The
+   * caller should go to the code-entry screen rather than wait for a message.
+   */
+  pending?: boolean;
 };
 
 export type VerifyOtpRequest = {

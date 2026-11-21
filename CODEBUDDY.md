@@ -37,6 +37,10 @@ Local sign-in: the API loads `.env` at startup. With `DEV_OTP_CODE` set (default
 
 OTP delivery is picked from the environment, never from code: `EMAIL_PROVIDER=brevo` with `BREVO_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, and `WHATSAPP_PROVIDER=fonnte` with `FONNTE_TOKEN`. With none set, debug builds write the message to the log and release builds answer `otp_delivery_failed`. Transports live in `apps/api/src/notify/` and are reused for alerts in P1-07; adding a provider is one module, not a change to the OTP path. A contact may request five codes per ten minutes.
 
+A code inside its TTL is not replaced: `POST /auth/otp/request` answers `202` with `{ "expires_in": <remaining>, "pending": true }` and sends nothing, so a second request cannot rotate the code out from under a message already on its way. A code that has burned its five attempts is dead and does not block a fresh one — otherwise the "request a new code" the `too_many_attempts` error suggests would be a dead end until the TTL runs out. On the web, a pending answer lands on the code screen with a notice, and the resend countdown runs to the code's expiry because a resend before then cannot produce a new code.
+
+`/login` bounces a visitor who already holds a valid session to `/dashboard`. The token is checked with `/me` rather than trusted, so an expired one is cleared there instead of looping between the two screens.
+
 Database:
 
 ```bash

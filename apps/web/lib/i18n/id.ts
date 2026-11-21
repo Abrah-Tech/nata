@@ -63,6 +63,8 @@ export const id: Dictionary = {
     change: "Ganti",
     resendIn: "Kirim ulang dalam {seconds} dtk",
     resend: "Kirim ulang kode",
+    otpPending:
+      "Nomor ini masih punya kode yang berlaku. Cek pesanmu dan masukkan kode itu.",
     verify: "Verifikasi & masuk",
     verifying: "Memverifikasi…",
     or: "atau",

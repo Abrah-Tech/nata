@@ -302,17 +302,133 @@ async fn local_phone_format_signs_into_the_same_account(pool: PgPool) {
     }
 }
 
+/// A code inside its TTL is the one the contact should use. Asking again must
+/// not rotate it out from under a message already on its way, so the server
+/// answers with the pending code instead of issuing a second one.
 #[sqlx::test(migrations = "../../migrations")]
-async fn requesting_codes_is_throttled_per_contact(pool: PgPool) {
+async fn a_valid_code_is_reused_instead_of_issued_again(pool: PgPool) {
     let otp = CaptureOtp::default();
     let app = test_app(pool, otp.clone());
 
     let body = json!({ "contact": "+6281234567890" });
 
+    let (status, first) = call(&app, "POST", "/auth/otp/request", Some(body.clone()), None).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{first}");
+    assert!(
+        first["pending"].is_null(),
+        "no code was pending yet: {first}"
+    );
+    let ttl = first["expires_in"].as_i64().expect("ttl");
+    assert!(ttl > 0, "ttl was {ttl}");
+
+    let code = otp.last_code();
+
+    let (status, second) = call(&app, "POST", "/auth/otp/request", Some(body.clone()), None).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{second}");
+    assert_eq!(second["pending"], true, "the valid code is reported back");
+    let remaining = second["expires_in"].as_i64().expect("remaining");
+    assert!(
+        remaining > 0 && remaining <= ttl,
+        "remaining {remaining} is outside 0..={ttl}"
+    );
+    assert_eq!(otp.sent(), 1, "no second message was sent");
+    assert_eq!(otp.last_code(), code, "the pending code was left alone");
+
+    // The code that is already pending is the one that verifies.
+    let (status, verified) = call(
+        &app,
+        "POST",
+        "/auth/otp/verify",
+        Some(json!({ "contact": "+6281234567890", "code": code })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{verified}");
+}
+
+/// Five wrong entries kill a code, so it must stop blocking a fresh one: the
+/// alternative is a contact locked out for the rest of the TTL with a message
+/// telling them to request a new code.
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_exhausted_code_does_not_block_a_new_one(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool, otp.clone());
+
+    let contact = "+6287654321098";
+    let request = json!({ "contact": contact });
+
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/auth/otp/request",
+        Some(request.clone()),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+
+    let code = otp.last_code();
+    let wrong = if code == "000000" { "000001" } else { "000000" };
+
+    for attempt in 0..5 {
+        let (status, response) = call(
+            &app,
+            "POST",
+            "/auth/otp/verify",
+            Some(json!({ "contact": contact, "code": wrong })),
+            None,
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "attempt {attempt}: {response}"
+        );
+    }
+
+    let (status, fresh) = call(&app, "POST", "/auth/otp/request", Some(request), None).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{fresh}");
+    assert!(
+        fresh["pending"].is_null(),
+        "the dead code no longer blocks: {fresh}"
+    );
+    assert_eq!(otp.sent(), 2, "a replacement code was sent");
+
+    let (status, verified) = call(
+        &app,
+        "POST",
+        "/auth/otp/verify",
+        Some(json!({ "contact": contact, "code": otp.last_code() })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{verified}");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn requesting_codes_is_throttled_per_contact(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool, otp.clone());
+
+    let contact = "+6281234567890";
+    let body = json!({ "contact": contact });
+
+    // Each code is consumed before the next is asked for, because a valid code
+    // is reused rather than replaced.
     for _ in 0..5 {
         let (status, response) =
             call(&app, "POST", "/auth/otp/request", Some(body.clone()), None).await;
         assert_eq!(status, StatusCode::ACCEPTED, "{response}");
+
+        let (status, response) = call(
+            &app,
+            "POST",
+            "/auth/otp/verify",
+            Some(json!({ "contact": contact, "code": otp.last_code() })),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{response}");
     }
 
     let (status, response) = call(&app, "POST", "/auth/otp/request", Some(body), None).await;

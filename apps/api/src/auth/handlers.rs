@@ -1,5 +1,5 @@
 use axum::{extract::State, http::StatusCode, Json};
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -85,12 +85,41 @@ fn dev_code(state: &AppState) -> Option<String> {
 /// burn a free provider quota.
 const MAX_CODES_PER_WINDOW: i64 = 5;
 
+/// Wrong entries a single code survives before it stops being usable.
+const MAX_OTP_ATTEMPTS: i32 = 5;
+
 pub async fn request_otp(
     State(state): State<AppState>,
     Json(body): Json<OtpRequestBody>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     let contact = Contact::parse(&body.contact)?;
     let db = state.db()?;
+
+    // A code still inside its TTL is the one the contact should use. Issuing
+    // another would rotate it out from under a message already on its way and
+    // spend a provider send on a code nobody can use, so the request is
+    // answered with the code that is already pending. A code that has burned
+    // its attempts is dead: verify refuses it, so it must not block a fresh one.
+    let pending: Option<(DateTime<Utc>,)> = sqlx::query_as(
+        "select expires_at from otp_codes
+         where contact = $1 and consumed_at is null and expires_at > now()
+           and attempts < $2
+         order by created_at desc
+         limit 1",
+    )
+    .bind(contact.as_str())
+    .bind(MAX_OTP_ATTEMPTS)
+    .fetch_optional(db)
+    .await?;
+
+    if let Some((expires_at,)) = pending {
+        let remaining = (expires_at - Utc::now()).num_seconds().max(0);
+
+        return Ok((
+            StatusCode::ACCEPTED,
+            Json(serde_json::json!({ "expires_in": remaining, "pending": true })),
+        ));
+    }
 
     // Free provider quotas are finite, so one contact cannot ask for a new code
     // as often as it likes.
@@ -153,7 +182,7 @@ pub async fn verify_otp(
 
     let (otp_id, code_hash, attempts) = row.ok_or(ApiError::Unauthorized("invalid_code"))?;
 
-    if attempts >= 5 {
+    if attempts >= MAX_OTP_ATTEMPTS {
         return Err(ApiError::TooManyRequests("too_many_attempts"));
     }
 
