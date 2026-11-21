@@ -268,6 +268,37 @@
     animation: ui-slide-in 200ms cubic-bezier(0.2, 0, 0, 1);
   }
 
+  /* The hero enters on load, driven by CSS alone so a phone that is still
+     downloading JavaScript sees the page come up rather than a blank one. */
+  @media (prefers-reduced-motion: no-preference) {
+    .home-enter {
+      animation: home-enter 480ms cubic-bezier(0.2, 0, 0, 1) both;
+    }
+  }
+
+  /* The landing page reveals each band once, as it scrolls into view. The
+     hidden state is scoped to `html.js`, which the root layout sets before the
+     body renders, so a band never flashes on its way in. Without JavaScript
+     there is no `html.js` and everything is visible; under reduced motion the
+     rule does not apply at all, so nobody is left looking at an empty band. */
+  @media (prefers-reduced-motion: no-preference) {
+    html.js .home-reveal {
+      opacity: 0;
+      transform: translateY(12px);
+      filter: blur(4px);
+      transition:
+        opacity 480ms cubic-bezier(0.2, 0, 0, 1),
+        transform 480ms cubic-bezier(0.2, 0, 0, 1),
+        filter 480ms cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    html.js .home-reveal.is-shown {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .ui-overlay[data-state="open"],
     .ui-content,
@@ -287,6 +318,19 @@
   :is(a, button, input, select, textarea, [tabindex]):focus-visible:not(main) {
     outline: 2px solid Highlight;
     outline-offset: 2px;
+  }
+}
+
+@keyframes home-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
   }
 }
 

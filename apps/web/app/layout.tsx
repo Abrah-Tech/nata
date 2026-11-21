@@ -16,6 +16,14 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body>
+        {/* Marks that JavaScript is running, before the body renders. The
+            landing page scopes its reveal animation to `html.js` so a band is
+            never visible one frame and hidden the next. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "document.documentElement.classList.add('js')",
+          }}
+        />
         <I18nProvider>
           <RouteAnnouncer />
           {children}
