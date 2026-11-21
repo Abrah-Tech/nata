@@ -193,7 +193,7 @@ export const id: Dictionary = {
     footer: {
       tagline: "PPIC + POS ringan untuk UMKM F&B",
       product: "Produk",
-      contact: "halo@nata.id",
+      contact: "techabrah@gmail.com",
       rights: "© 2026 Nata",
     },
   },

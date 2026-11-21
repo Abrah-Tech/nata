@@ -194,7 +194,7 @@ export const en = {
     footer: {
       tagline: "PPIC + light POS for F&B SMEs",
       product: "Product",
-      contact: "halo@nata.id",
+      contact: "techabrah@gmail.com",
       rights: "© 2026 Nata",
     },
   },
