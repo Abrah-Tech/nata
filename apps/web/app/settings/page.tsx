@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 
 import { AppShell } from "../app-shell";
 import { AuditSection } from "./audit-list";
+import { AlertsSection } from "./alerts-section";
 import { Intro } from "./intro";
 import { methodName, planName } from "./labels";
 
@@ -671,6 +672,8 @@ export default function SettingsPage() {
                 )}
               </section>
             )}
+
+            <AlertsSection locale={locale} readOnly={!canManage} t={t} />
 
             {canReadAudit && (
               <AuditSection
