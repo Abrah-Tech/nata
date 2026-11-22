@@ -434,7 +434,11 @@ export const en = {
     mobileProduction: "Production",
     mobileCashier: "Cashier",
     mobileAlerts: "Alerts",
-    mobileGuide: "Guide",
+    mobileMore: "More",
+    more: {
+      title: "More",
+      close: "Close",
+    },
   },
   products: {
     title: "Products & recipes",

@@ -8,6 +8,7 @@ import {
   CalendarClock,
   ChefHat,
   LayoutDashboard,
+  Menu,
   Package,
   Settings,
   ShoppingCart,
@@ -15,8 +16,9 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import type { ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 
+import { Modal } from "@/components/modal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/lib/i18n";
@@ -65,9 +67,42 @@ function initials(name: string): string {
     .join("");
 }
 
+/**
+ * One destination in the phone's bottom bar. A five-slot bar is still one tap
+ * each, and the active pill keeps the same treatment as the desktop nav.
+ */
+function MobileTab({
+  href,
+  icon: Icon,
+  label,
+  active,
+}: {
+  href: string;
+  icon: ComponentType<{ size?: number; strokeWidth?: number }>;
+  label: string;
+  active?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline transition-colors hover:bg-surface-alt",
+        active && "bg-brand-soft font-bold text-brand hover:bg-brand-soft",
+      )}
+      aria-current={active ? "page" : undefined}
+    >
+      <Icon size={18} />
+      <span>{label}</span>
+    </Link>
+  );
+}
+
 export function AppShell({ me, active, onSignOut, children }: Props) {
   const { t } = useI18n();
+  const [moreOpen, setMoreOpen] = useState(false);
 
+  // Buying happens between counting stock and running production, so it sits
+  // between the two on the way down the sidebar.
   const groups: { label: string; items: Item[] }[] = [
     {
       label: t.nav.operations,
@@ -77,6 +112,19 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           label: t.nav.overview,
           icon: LayoutDashboard,
           href: "/dashboard",
+        },
+        { key: "stock", label: t.nav.stock, icon: Package, href: "/stock" },
+        {
+          key: "batches",
+          label: t.nav.batches,
+          icon: CalendarClock,
+          href: "/batches",
+        },
+        {
+          key: "purchasing",
+          label: t.nav.purchasing,
+          icon: Truck,
+          href: "/purchasing",
         },
         {
           key: "production",
@@ -90,13 +138,6 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           icon: Boxes,
           href: "/products",
         },
-        { key: "stock", label: t.nav.stock, icon: Package, href: "/stock" },
-        {
-          key: "batches",
-          label: t.nav.batches,
-          icon: CalendarClock,
-          href: "/batches",
-        },
       ],
     },
     {
@@ -107,12 +148,6 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           label: t.nav.pos,
           icon: ShoppingCart,
           href: "/sales",
-        },
-        {
-          key: "purchasing",
-          label: t.nav.purchasing,
-          icon: Truck,
-          href: "/purchasing",
         },
         {
           key: "reports",
@@ -145,6 +180,39 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         },
       ],
     },
+  ];
+
+  // Everything a phone cannot fit in the bar. Without this list those screens
+  // had no link from anywhere on a phone, because the desktop sidebar is the
+  // only other place they were listed.
+  const moreItems: Item[] = [
+    {
+      key: "reports",
+      label: t.nav.reports,
+      icon: BarChart3,
+      href: "/reports",
+    },
+    {
+      key: "purchasing",
+      label: t.nav.purchasing,
+      icon: Truck,
+      href: "/purchasing",
+    },
+    {
+      key: "batches",
+      label: t.nav.batches,
+      icon: CalendarClock,
+      href: "/batches",
+    },
+    { key: "products", label: t.nav.products, icon: Boxes, href: "/products" },
+    { key: "team", label: t.nav.team, icon: Users, href: "/team" },
+    {
+      key: "settings",
+      label: t.nav.settings,
+      icon: Settings,
+      href: "/settings",
+    },
+    { key: "guide", label: t.nav.guide, icon: BookOpen, href: "/guide" },
   ];
 
   return (
@@ -276,57 +344,77 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
       </div>
 
       <nav
-        className="fixed inset-x-4 bottom-3 z-20 grid h-14 grid-cols-4 gap-1 rounded-[28px] border border-border bg-white/95 p-1.5 backdrop-blur min-[961px]:hidden"
+        className="fixed inset-x-4 bottom-3 z-20 grid h-14 grid-cols-5 gap-1 rounded-[28px] border border-border bg-white/95 p-1.5 backdrop-blur min-[961px]:hidden"
         aria-label={t.nav.main}
       >
-        <Link
+        <MobileTab
           href="/dashboard"
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline",
-            active === "overview" && "bg-brand-soft font-bold text-brand",
-          )}
-          aria-current={active === "overview" ? "page" : undefined}
-        >
-          <LayoutDashboard size={18} />
-          <span>{t.nav.mobileHome}</span>
-        </Link>
-        <Link
+          icon={LayoutDashboard}
+          label={t.nav.mobileHome}
+          active={active === "overview"}
+        />
+        <MobileTab
           href="/stock"
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline",
-            active === "stock" && "bg-brand-soft font-bold text-brand",
-          )}
-          aria-current={active === "stock" ? "page" : undefined}
-        >
-          <Package size={18} />
-          <span>{t.nav.mobileStock}</span>
-        </Link>
-        <Link
+          icon={Package}
+          label={t.nav.mobileStock}
+          active={active === "stock"}
+        />
+        {/* The cashier's screen earns a slot of its own. It used to have no link
+            anywhere on a phone, so a shop that only works from one could not
+            take a sale at all. */}
+        <MobileTab
+          href="/sales"
+          icon={ShoppingCart}
+          label={t.nav.mobileCashier}
+          active={active === "pos"}
+        />
+        <MobileTab
           href="/production"
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline",
-            active === "production" && "bg-brand-soft font-bold text-brand",
-          )}
-          aria-current={active === "production" ? "page" : undefined}
+          icon={ChefHat}
+          label={t.nav.mobileProduction}
+          active={active === "production"}
+        />
+        <button
+          type="button"
+          onClick={() => setMoreOpen(true)}
+          className="flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline transition-colors hover:bg-surface-alt"
         >
-          <ChefHat size={18} />
-          <span>{t.nav.mobileProduction}</span>
-        </Link>
-        {/* The fourth slot used to hold the alerts placeholder, which is not
-            reachable yet. The handbook earns it: on a phone it is the only
-            way in, and a disabled item should not own primary chrome. */}
-        <Link
-          href="/guide"
-          className={cn(
-            "flex flex-col items-center justify-center gap-0.5 rounded-[21px] text-2xs font-semibold text-ink-3 no-underline",
-            active === "guide" && "bg-brand-soft font-bold text-brand",
-          )}
-          aria-current={active === "guide" ? "page" : undefined}
-        >
-          <BookOpen size={18} />
-          <span>{t.nav.mobileGuide}</span>
-        </Link>
+          <Menu size={18} />
+          <span>{t.nav.mobileMore}</span>
+        </button>
       </nav>
+
+      <Modal
+        open={moreOpen}
+        title={t.nav.more.title}
+        closeLabel={t.nav.more.close}
+        onClose={() => setMoreOpen(false)}
+      >
+        <div className="flex flex-col gap-0.5">
+          {moreItems.map((item) => (
+            <Link
+              key={item.key}
+              href={item.href}
+              onClick={() => setMoreOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-ink-2 no-underline transition-colors hover:bg-surface-alt"
+            >
+              <item.icon size={16} />
+              <span>{item.label}</span>
+            </Link>
+          ))}
+          {onSignOut && (
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              className="justify-start"
+              onClick={onSignOut}
+            >
+              {t.nav.signOut}
+            </Button>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
