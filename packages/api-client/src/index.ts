@@ -483,6 +483,13 @@ export type AlertRule = {
   created_at: string;
 };
 
+/** Omitted fields keep their stored value. */
+export type AlertRuleUpdate = {
+  days_before?: number;
+  channel?: "whatsapp" | "email";
+  is_active?: boolean;
+};
+
 export type Alert = {
   id: string;
   type: "expiry" | "low_stock";
@@ -1178,6 +1185,18 @@ export class ApiClient {
 
   listAlertRules(token: string): Promise<AlertRule[]> {
     return this.request<AlertRule[]>("/alert-rules", { token });
+  }
+
+  updateAlertRule(
+    token: string,
+    ruleId: string,
+    body: AlertRuleUpdate,
+  ): Promise<AlertRule> {
+    return this.request<AlertRule>(`/alert-rules/${ruleId}`, {
+      method: "PATCH",
+      token,
+      body,
+    });
   }
 
   listAuditLogs(token: string, limit?: number): Promise<AuditEntry[]> {

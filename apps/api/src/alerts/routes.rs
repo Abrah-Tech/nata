@@ -1,23 +1,28 @@
-//! Alert reads: the tenant's rules and its alert history.
+//! Alerts: the tenant's rules, its alert history, and the one write.
 //!
-//! The daily job writes alerts; these two routes are how a screen reads them
-//! back. They are tenant-scoped like every other read, so RLS applies.
+//! The daily job writes alerts; these routes are how a screen reads them back
+//! and how an owner tunes when a rule fires. Everything is tenant-scoped, so
+//! RLS applies to the reads and to the row the update locks.
 
 use axum::{
-    extract::{Query, State},
-    routing::get,
+    extract::{Path, Query, State},
+    routing::{get, patch},
     Json, Router,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
 use uuid::Uuid;
 
-use crate::auth::guard::{CanReadMaterials, Require};
+use crate::auth::guard::{CanManageTenant, CanReadMaterials, Require};
 use crate::{error::ApiError, AppState};
 
 const DEFAULT_ALERT_LIMIT: i64 = 50;
 const MAX_ALERT_LIMIT: i64 = 200;
+
+/// Matches the `alert_rules.channel` check.
+const CHANNELS: [&str; 2] = ["whatsapp", "email"];
 
 #[derive(Debug, Serialize)]
 pub struct AlertRuleView {
@@ -63,6 +68,17 @@ pub struct AlertFilter {
     /// `open`, `resolved`, or omitted for both.
     pub status: Option<String>,
     pub limit: Option<i64>,
+}
+
+/// Every field is optional, so a screen can send the one it changed. Omitted
+/// fields keep their stored value.
+#[derive(Debug, Deserialize)]
+pub struct AlertRuleUpdate {
+    /// Days before expiry. A low-stock rule carries none, so a value sent for
+    /// one is rejected rather than silently dropped.
+    pub days_before: Option<i32>,
+    pub channel: Option<String>,
+    pub is_active: Option<bool>,
 }
 
 type RuleRow = (Uuid, String, Option<i32>, String, bool, DateTime<Utc>);
@@ -222,8 +238,135 @@ pub async fn list_alerts(
     ))
 }
 
+/// Updates one rule's timing, channel, or on/off state.
+///
+/// Adding and removing rules is deliberately not here: the seeded set is what
+/// a tenant starts from, and a rule that does not exist yet is a separate
+/// decision with its own limits (one low-stock rule per tenant, one expiry
+/// rule per lead time).
+///
+/// The row is locked and re-read in the same transaction, so two screens
+/// editing the same rule cannot interleave, and the audit entry records the
+/// values before and after.
+pub async fn update_rule(
+    State(state): State<AppState>,
+    guard: Require<CanManageTenant>,
+    Path(rule_id): Path<Uuid>,
+    Json(body): Json<AlertRuleUpdate>,
+) -> Result<Json<AlertRuleView>, ApiError> {
+    let auth = guard.auth;
+
+    let channel = match body.channel.as_deref() {
+        Some(value) if CHANNELS.contains(&value) => Some(value.to_string()),
+        Some(_) => return Err(ApiError::BadRequest("invalid_channel")),
+        None => None,
+    };
+
+    if body.days_before.is_some_and(|days| days < 0) {
+        return Err(ApiError::BadRequest("invalid_days_before"));
+    }
+
+    let db = state.db()?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+
+    let existing: Option<(String, Option<i32>, String, bool)> = sqlx::query_as(
+        "select type, days_before, channel, is_active
+         from alert_rules
+         where id = $1 and tenant_id = $2
+         for update",
+    )
+    .bind(rule_id)
+    .bind(auth.tenant_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    let (rule_type, previous_days, previous_channel, previous_active) =
+        existing.ok_or(ApiError::NotFound("rule_not_found"))?;
+
+    // `alert_rules_shape` requires a low-stock rule to carry no lead time, so
+    // letting this through would fail the check with a database error instead
+    // of a message the screen can show.
+    if rule_type == "low_stock" && body.days_before.is_some() {
+        return Err(ApiError::BadRequest("invalid_days_before"));
+    }
+
+    let (rule_type, days_before, channel, is_active, created_at): (
+        String,
+        Option<i32>,
+        String,
+        bool,
+        DateTime<Utc>,
+    ) = sqlx::query_as(
+        "update alert_rules
+         set days_before = coalesce($2, days_before),
+             channel = coalesce($3, channel),
+             is_active = coalesce($4, is_active)
+         where id = $1 and tenant_id = $5
+         returning type, days_before, channel, is_active, created_at",
+    )
+    .bind(rule_id)
+    .bind(body.days_before)
+    .bind(channel)
+    .bind(body.is_active)
+    .bind(auth.tenant_id)
+    .fetch_one(&mut *tx)
+    .await
+    // Two expiry rules cannot share a lead time; the screen needs a code, not
+    // a database error.
+    .map_err(|error| ApiError::from_write(error, "duplicate_rule_days"))?;
+
+    let mut metadata = Map::new();
+
+    if previous_days != days_before {
+        metadata.insert(
+            "days_before".to_string(),
+            json!({ "from": previous_days, "to": days_before }),
+        );
+    }
+
+    if previous_channel != channel {
+        metadata.insert(
+            "channel".to_string(),
+            json!({ "from": previous_channel, "to": channel }),
+        );
+    }
+
+    if previous_active != is_active {
+        metadata.insert(
+            "is_active".to_string(),
+            json!({ "from": previous_active, "to": is_active }),
+        );
+    }
+
+    // A request that changes nothing succeeds and simply has no history.
+    if !metadata.is_empty() {
+        nata_db::audit::record(
+            &mut tx,
+            auth.tenant_id,
+            Some(auth.user_id),
+            "alert_rules.updated",
+            "alert_rule",
+            Some(rule_id),
+            Some(Value::Object(metadata)),
+        )
+        .await?;
+    }
+
+    tx.commit().await?;
+
+    Ok(Json(AlertRuleView {
+        id: rule_id,
+        rule_type,
+        days_before,
+        channel,
+        is_active,
+        created_at,
+    }))
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/alerts", get(list_alerts))
         .route("/alert-rules", get(list_rules))
+        .route("/alert-rules/{id}", patch(update_rule))
 }
