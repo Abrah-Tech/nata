@@ -515,6 +515,17 @@ export type Alert = {
   attempts: number;
 };
 
+/**
+ * The message the next alert run would send, composed by the server so the
+ * preview cannot drift from the text that actually goes out.
+ */
+export type AlertPreview = {
+  subject: string;
+  body: string;
+  /** How many alerts the digest covers; zero means nothing is waiting. */
+  count: number;
+};
+
 /** One entry of the tenant's audit log. Owner-only on the server. */
 export type AuditEntry = {
   id: string;
@@ -1181,6 +1192,11 @@ export class ApiClient {
     const suffix = query.size > 0 ? `?${query.toString()}` : "";
 
     return this.request<Alert[]>(`/alerts${suffix}`, { token });
+  }
+
+  /** The digest the next run would send. `count` 0 means nothing is waiting. */
+  previewAlerts(token: string): Promise<AlertPreview> {
+    return this.request<AlertPreview>("/alerts/preview", { token });
   }
 
   listAlertRules(token: string): Promise<AlertRule[]> {

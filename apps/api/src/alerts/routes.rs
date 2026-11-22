@@ -63,6 +63,17 @@ pub struct AlertView {
     pub attempts: i32,
 }
 
+/// The digest the next alert run would send, composed by the server so the
+/// screen shows the text that actually goes out rather than a second template.
+#[derive(Debug, Serialize)]
+pub struct AlertPreviewView {
+    /// Empty when nothing is waiting, so the screen can say so in its own words.
+    pub subject: String,
+    pub body: String,
+    /// How many alerts the digest covers.
+    pub count: i64,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct AlertFilter {
     /// `open`, `resolved`, or omitted for both.
@@ -364,9 +375,49 @@ pub async fn update_rule(
     }))
 }
 
+/// Shows the message the next run would send for this tenant.
+///
+/// It selects the same pending set the sender does, so the preview is the
+/// digest and not a sample. An empty set returns an empty message with
+/// `count` 0 rather than a digest about nothing.
+pub async fn preview(
+    State(state): State<AppState>,
+    guard: Require<CanReadMaterials>,
+) -> Result<Json<AlertPreviewView>, ApiError> {
+    let auth = guard.auth;
+    let db = state.db()?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+
+    let alerts = nata_db::alert_delivery::pending_for_tenant(&mut tx, auth.tenant_id).await?;
+
+    tx.commit().await?;
+
+    if alerts.is_empty() {
+        return Ok(Json(AlertPreviewView {
+            subject: String::new(),
+            body: String::new(),
+            count: 0,
+        }));
+    }
+
+    let digest = super::message::Digest {
+        tenant: &alerts[0].tenant_name,
+        today: Utc::now().date_naive(),
+        app_url: &state.app_url,
+        alerts: &alerts,
+    };
+
+    Ok(Json(AlertPreviewView {
+        subject: super::message::subject(&digest),
+        body: super::message::compose(&digest),
+        count: alerts.len() as i64,
+    }))
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/alerts", get(list_alerts))
+        .route("/alerts/preview", get(preview))
         .route("/alert-rules", get(list_rules))
         .route("/alert-rules/{id}", patch(update_rule))
 }

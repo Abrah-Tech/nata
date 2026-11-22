@@ -1,6 +1,6 @@
 "use client";
 
-import type { Alert, AlertRule } from "@nata/api-client";
+import type { Alert, AlertPreview, AlertRule } from "@nata/api-client";
 import { ApiError } from "@nata/api-client";
 import { useEffect, useState } from "react";
 
@@ -46,6 +46,8 @@ export function AlertsSection({ locale, readOnly, t }: AlertsSectionProps) {
   const [rules, setRules] = useState<AlertRule[] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, RuleDraft>>({});
   const [alerts, setAlerts] = useState<Alert[] | null>(null);
+  const [preview, setPreview] = useState<AlertPreview | null>(null);
+  const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
   const [status, setStatus] = useState<StatusFilter>("all");
   const [limit, setLimit] = useState(FIRST_PAGE);
@@ -68,8 +70,9 @@ export function AlertsSection({ locale, readOnly, t }: AlertsSectionProps) {
         status: status === "all" ? undefined : status,
         limit,
       }),
+      api.previewAlerts(token),
     ])
-      .then(([ruleList, alertList]) => {
+      .then(([ruleList, alertList, digest]) => {
         if (!active) return;
 
         setRules(ruleList);
@@ -77,6 +80,7 @@ export function AlertsSection({ locale, readOnly, t }: AlertsSectionProps) {
           Object.fromEntries(ruleList.map((rule) => [rule.id, draftFrom(rule)])),
         );
         setAlerts(alertList);
+        setPreview(digest);
         setFailed(false);
       })
       .catch(() => {
@@ -95,6 +99,13 @@ export function AlertsSection({ locale, readOnly, t }: AlertsSectionProps) {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    if (!copied) return;
+
+    const timer = window.setTimeout(() => setCopied(false), 2_000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
   const loading = rules === null && !failed;
   const dirty =
     rules !== null &&
@@ -104,8 +115,36 @@ export function AlertsSection({ locale, readOnly, t }: AlertsSectionProps) {
   function retry() {
     setRules(null);
     setAlerts(null);
+    setPreview(null);
     setFailed(false);
     setAttempt((value) => value + 1);
+  }
+
+  /** Copies the subject and the body together, the way they are sent. */
+  async function copyPreview() {
+    if (!preview || preview.body.length === 0) return;
+
+    const value = `${preview.subject}\n\n${preview.body}`;
+
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      return;
+    } catch {
+      // A plain HTTP origin is not a secure context, so the async clipboard API
+      // is missing on the Android WebView. The textarea path still works.
+    }
+
+    const area = document.createElement("textarea");
+    area.value = value;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    document.body.removeChild(area);
+    setCopied(true);
   }
 
   function edit(rule: AlertRule, patch: Partial<RuleDraft>) {
@@ -249,6 +288,27 @@ export function AlertsSection({ locale, readOnly, t }: AlertsSectionProps) {
                 {saving ? copy.saving : copy.save}
               </Button>
             </div>
+          )}
+
+          <h3 className="mt-2 text-sm font-bold">{copy.preview.title}</h3>
+          <p className="m-0 text-sm leading-relaxed text-muted-foreground">
+            {copy.preview.body}
+          </p>
+
+          {preview === null ? (
+            <LoadingRegion
+              label={copy.preview.loading}
+              className="flex flex-col gap-2"
+            >
+              <SkeletonList rows={2} />
+            </LoadingRegion>
+          ) : (
+            <DigestPreview
+              preview={preview}
+              copied={copied}
+              onCopy={() => void copyPreview()}
+              t={t}
+            />
           )}
 
           <h3 className="mt-2 text-sm font-bold">{copy.history.title}</h3>
@@ -397,6 +457,46 @@ function RuleRow({
         </span>
       )}
     </li>
+  );
+}
+
+/**
+ * The digest itself, exactly as the server composed it.
+ *
+ * A waiting set of zero is a state with nothing to show, so it gets its own
+ * line rather than an empty bubble.
+ */
+function DigestPreview({
+  preview,
+  copied,
+  onCopy,
+  t,
+}: {
+  preview: AlertPreview;
+  copied: boolean;
+  onCopy: () => void;
+  t: Dictionary;
+}) {
+  const copy = t.settings.alerts.preview;
+
+  if (preview.count === 0) {
+    return <p className="text-sm text-muted-foreground">{copy.empty}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-alt px-3 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <strong className="text-xs font-semibold text-ink-2">
+          {preview.subject}
+        </strong>
+        <Button variant="ghost" size="sm" type="button" onClick={onCopy}>
+          {copied ? copy.copied : copy.copy}
+        </Button>
+      </div>
+      <p className="m-0 whitespace-pre-wrap break-words text-xs leading-relaxed text-ink-2">
+        {preview.body}
+      </p>
+    </div>
   );
 }
 

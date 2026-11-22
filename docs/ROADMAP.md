@@ -66,8 +66,8 @@ clear before any of them can be drawn, so keep them out of a phase gate.
 
 | Frame | Backend ready | Still needed |
 | --- | --- | --- |
-| 09 · Alert WhatsApp | `alert_rules`, `/alert-rules`, `/alerts`, `alert_job`, `alert_delivery`, `PATCH /alert-rules/{id}` | Digest preview. The rules and the open versus resolved history are built on `/settings` |
-| 12 · Pengaturan (suggested) | `audit_logs`, `/audit-logs`, `nata_db::audit::record` | Who changed a role, revoked an invitation, deleted or verified a payment, or moved the labor rate — newest first, owner-only |
+| 09 · Alert WhatsApp | `alert_rules`, `/alert-rules`, `/alerts`, `/alerts/preview`, `alert_job`, `alert_delivery`, `PATCH /alert-rules/{id}` | Only the pen.dev drawing. The rules editor, the open versus resolved history, and the digest preview are built on `/settings` |
+| 12 · Pengaturan (suggested) | `audit_logs`, `/audit-logs`, `nata_db::audit::record` | Only the pen.dev drawing. The owner-only audit feed is built on `/settings` |
 
 Do not build these screens before their frame exists in the design file.
 
@@ -76,6 +76,8 @@ Do not build these screens before their frame exists in the design file.
 The acceptance half of 10 is `apps/web/app/join` (PR #31). `POST /auth/accept-invitation` already existed but had no client method and no screen, so the code `/team` produces had nowhere to go. It follows the same tokens; the invite dialog now offers a `/join?token=…` link next to the raw code.
 
 09 · Alert WhatsApp needed API work before it could be built: `/alert-rules` was read only, so `PATCH /alert-rules/{id}` (PR #39) writes `days_before`, `channel`, and `is_active`, guarded by `CanManageTenant` like `PUT /settings`. The screen is `apps/web/app/settings/alerts-section.tsx`, on `/settings`: the rules editor plus the open versus resolved history. Same standing as 03, 10, and 12 — the frame still needs a pen.dev drawing.
+
+The digest preview is `GET /alerts/preview`, readable with `CanReadMaterials` like the rest of the screen. It composes the message server-side through the same `alerts::message::compose` the sender uses, so a preview cannot drift from the text that actually goes out, and it selects the same pending set as `nata_db::alert_delivery::pending` — open, undelivered, and under the attempt cap — so what the owner reads is what the next run would send. A tenant with nothing pending gets `count` 0 and an empty message rather than a digest about nothing, and the screen says so in its own words. The preview is rendered as the message body with its line breaks intact, with a copy button for the owner who wants to forward it.
 
 12 · Pengaturan's audit half is `apps/web/app/settings/audit-list.tsx` (PR #38). `audit_logs`, `GET /audit-logs`, and `nata_db::audit::record` were already complete and owner-only, so the screen reads them from `/settings` behind the `audit_read` permission. The frame still needs a pen.dev drawing; until it lands, the existing-token build stands in for it.
 

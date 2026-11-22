@@ -90,6 +90,7 @@ pub fn state_with_secrets(
         otp_ttl_seconds: 300,
         jwt_ttl_seconds: 3_600,
         dev_otp_code: None,
+        app_url: "https://nata.test".to_string(),
     }
 }
 

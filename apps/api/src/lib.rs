@@ -50,6 +50,8 @@ pub struct AppState {
     pub jwt_ttl_seconds: i64,
     /// Fixed OTP for local sign-in. Ignored by release builds.
     pub dev_otp_code: Option<String>,
+    /// Public origin used for the link at the foot of an alert digest.
+    pub app_url: String,
 }
 
 impl AppState {

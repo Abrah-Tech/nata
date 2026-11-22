@@ -6,7 +6,7 @@
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 /// How many times one alert may be attempted before it is left alone.
@@ -56,6 +56,27 @@ impl PendingAlert {
 /// Runs outside a tenant scope on purpose: the job role bypasses RLS and walks
 /// every tenant in one pass.
 pub async fn pending(pool: &PgPool) -> Result<Vec<PendingAlert>, sqlx::Error> {
+    let mut connection = pool.acquire().await?;
+    pending_from(&mut connection, None).await
+}
+
+/// The same set for one tenant, read inside a tenant-scoped transaction.
+///
+/// The preview on the settings screen shows what the next run would send, so it
+/// has to select exactly what `pending` selects. The scope comes from the
+/// transaction as well as from the filter, which keeps a screen from ever
+/// reading another tenant's digest.
+pub async fn pending_for_tenant(
+    connection: &mut PgConnection,
+    tenant_id: Uuid,
+) -> Result<Vec<PendingAlert>, sqlx::Error> {
+    pending_from(connection, Some(tenant_id)).await
+}
+
+async fn pending_from(
+    connection: &mut PgConnection,
+    tenant_id: Option<Uuid>,
+) -> Result<Vec<PendingAlert>, sqlx::Error> {
     // One row per alert, whichever ledger it belongs to. A material alert joins
     // the material side; a finished-goods alert joins the product side. The
     // unused side is null, so `coalesce` picks the name and the unit is null.
@@ -113,10 +134,12 @@ pub async fn pending(pool: &PgPool) -> Result<Vec<PendingAlert>, sqlx::Error> {
            and a.resolved_at is null
            and a.delivery_status in ('pending', 'failed')
            and a.attempts < $1
+           and ($2::uuid is null or a.tenant_id = $2)
          order by a.tenant_id, a.created_at, a.id",
     )
     .bind(MAX_ATTEMPTS)
-    .fetch_all(pool)
+    .bind(tenant_id)
+    .fetch_all(connection)
     .await
 }
 

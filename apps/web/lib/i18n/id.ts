@@ -767,6 +767,14 @@ export const id: Dictionary = {
         expiry: "Peringatan kedaluwarsa",
         lowStock: "Peringatan stok menipis",
       },
+      preview: {
+        title: "Pratinjau pesan",
+        body: "Pesan yang akan dikirim pada jalannya alert berikutnya untuk notifikasi yang masih menunggu.",
+        loading: "Memuat pratinjau pesan…",
+        empty: "Belum ada yang menunggu dikirim, jadi belum ada pesan untuk dipratinjau.",
+        copy: "Salin pesan",
+        copied: "Tersalin",
+      },
       history: {
         title: "Riwayat notifikasi",
         body: "Yang ditandai Nata dan apakah pesannya terkirim. Selesai berarti kondisinya sudah tidak berlaku.",
