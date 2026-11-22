@@ -5,11 +5,15 @@
 //! this long, and the minimum stock keeps a reserve. The arithmetic lives in
 //! `nata_core::reorder`; this module only gathers the inputs.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use axum::{extract::State, routing::get, Json, Router};
+use axum::{
+    extract::{Query, State},
+    routing::get,
+    Json, Router,
+};
 use rust_decimal::Decimal;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use nata_core::reorder::{average_daily_usage, reorder_plan, ReorderInput};
@@ -176,6 +180,155 @@ pub async fn recommendations(
     Ok(Json(RecommendationList { window_days, items }))
 }
 
+/// Price history for one ingredient, grouped by the supplier it was bought from.
+#[derive(Debug, Deserialize)]
+pub struct PriceHistoryQuery {
+    pub material_id: Uuid,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PriceHistory {
+    pub material_id: Uuid,
+    pub material_name: String,
+    pub unit_code: String,
+    pub suppliers: Vec<SupplierPriceHistory>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SupplierPriceHistory {
+    pub supplier_id: Option<Uuid>,
+    pub supplier_name: Option<String>,
+    /// The most recent receipt, which is what the next purchase is priced from.
+    pub last_price: Decimal,
+    pub lowest_price: Decimal,
+    pub highest_price: Decimal,
+    pub total_qty: Decimal,
+    pub purchases: Vec<PurchasePrice>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PurchasePrice {
+    pub id: Uuid,
+    pub received_at: chrono::NaiveDate,
+    pub qty: Decimal,
+    pub unit_cost: Decimal,
+    /// `qty * unit_cost`, computed with `Decimal` so the screen never multiplies
+    /// two decimals in floating point.
+    pub total: Decimal,
+}
+
+type BatchPriceRow = (
+    Uuid,
+    chrono::NaiveDate,
+    Decimal,
+    Decimal,
+    Option<Uuid>,
+    Option<String>,
+);
+
+pub async fn price_history(
+    State(state): State<AppState>,
+    guard: Require<CanReadMaterials>,
+    Query(query): Query<PriceHistoryQuery>,
+) -> Result<Json<PriceHistory>, ApiError> {
+    let auth = guard.auth;
+    let db = state.db()?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+
+    let material: Option<(String, String)> = sqlx::query_as(
+        "select m.name, u.code
+         from materials m
+         join units u on u.id = m.base_unit_id
+         where m.tenant_id = $1 and m.id = $2",
+    )
+    .bind(auth.tenant_id)
+    .bind(query.material_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    let (material_name, unit_code) = material.ok_or(ApiError::NotFound("material_not_found"))?;
+
+    // A batch is the receipt, so its `unit_cost` is the price actually paid.
+    // History therefore never needs a separate price table to drift from it.
+    let rows: Vec<BatchPriceRow> = sqlx::query_as(
+        "select b.id, b.received_at, b.qty_received, b.unit_cost, b.supplier_id, s.name
+         from material_batches b
+         left join suppliers s on s.id = b.supplier_id
+         where b.tenant_id = $1 and b.material_id = $2
+         order by b.received_at desc, b.created_at desc",
+    )
+    .bind(auth.tenant_id)
+    .bind(query.material_id)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    // Newest supplier first, which is the order the rows already arrive in.
+    let mut order: Vec<Option<Uuid>> = Vec::new();
+    let mut names: HashMap<Option<Uuid>, Option<String>> = HashMap::new();
+    let mut seen: HashSet<Option<Uuid>> = HashSet::new();
+    let mut grouped: HashMap<Option<Uuid>, Vec<PurchasePrice>> = HashMap::new();
+
+    for (id, received_at, qty, unit_cost, supplier_id, supplier_name) in rows {
+        if seen.insert(supplier_id) {
+            order.push(supplier_id);
+            names.insert(supplier_id, supplier_name);
+        }
+
+        grouped.entry(supplier_id).or_default().push(PurchasePrice {
+            id,
+            received_at,
+            qty,
+            unit_cost,
+            total: (qty * unit_cost).round_dp(2),
+        });
+    }
+
+    let suppliers = order
+        .into_iter()
+        .map(|supplier_id| {
+            let purchases = grouped.remove(&supplier_id).unwrap_or_default();
+            let last_price = purchases
+                .first()
+                .map(|purchase| purchase.unit_cost)
+                .unwrap_or(Decimal::ZERO);
+            let lowest_price = purchases
+                .iter()
+                .map(|purchase| purchase.unit_cost)
+                .min()
+                .unwrap_or(last_price);
+            let highest_price = purchases
+                .iter()
+                .map(|purchase| purchase.unit_cost)
+                .max()
+                .unwrap_or(last_price);
+            let total_qty = purchases
+                .iter()
+                .fold(Decimal::ZERO, |total, purchase| total + purchase.qty);
+
+            SupplierPriceHistory {
+                supplier_id,
+                supplier_name: names.get(&supplier_id).cloned().flatten(),
+                last_price,
+                lowest_price,
+                highest_price,
+                total_qty,
+                purchases,
+            }
+        })
+        .collect();
+
+    Ok(Json(PriceHistory {
+        material_id: query.material_id,
+        material_name,
+        unit_code,
+        suppliers,
+    }))
+}
+
 pub fn routes() -> Router<AppState> {
-    Router::new().route("/purchasing/recommendations", get(recommendations))
+    Router::new()
+        .route("/purchasing/recommendations", get(recommendations))
+        .route("/purchasing/price-history", get(price_history))
 }

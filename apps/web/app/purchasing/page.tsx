@@ -1,7 +1,7 @@
 "use client";
 
-import type { RecommendationList } from "@nata/api-client";
-import { ShoppingBasket } from "lucide-react";
+import type { PurchaseRecommendation, RecommendationList } from "@nata/api-client";
+import { History, ShoppingBasket } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { readToken } from "@/lib/session";
 import { useMe } from "@/lib/use-me";
 
 import { AppShell } from "../app-shell";
+import { PriceHistoryPanel } from "./price-history-panel";
 
 type Load =
   | { status: "loading" }
@@ -26,6 +27,8 @@ export default function PurchasingPage() {
   const { state: session, reload: reloadSession, signOut } = useMe();
 
   const [load, setLoad] = useState<Load>({ status: "loading" });
+  const [priceHistoryFor, setPriceHistoryFor] =
+    useState<PurchaseRecommendation | null>(null);
 
   useEffect(() => {
     if (session.status !== "ready") return;
@@ -233,12 +236,30 @@ export default function PurchasingPage() {
                           )}
                         </div>
                       )}
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="self-start"
+                        type="button"
+                        onClick={() => setPriceHistoryFor(item)}
+                      >
+                        <History size={14} />
+                        {t.purchasing.priceHistory.button}
+                      </Button>
                     </article>
                   ))}
                 </div>
               </>
             )}
           </div>
+
+          {priceHistoryFor && (
+            <PriceHistoryPanel
+              recommendation={priceHistoryFor}
+              onClose={() => setPriceHistoryFor(null)}
+            />
+          )}
         </AppShell>
       )}
     </>
