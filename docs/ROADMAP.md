@@ -288,7 +288,7 @@ Goal: the repo builds, multi-tenant auth works, and the Android app installs on 
 
 **Status (2026-11-14):** P0-01 through P0-07 and P0-09 through P0-12 are built. P0-08, the interviews, is the open gate.
 
-**Status (2026-11-22):** the interview notes are tracked at `interview.md` in the repository root — eleven findings, each checked against the code, so a finding that is already built is not mistaken for a gap. The first item pulled from them is the navigation order and the cashier's reach to POS (PR #43).
+**Status (2026-11-22):** the interview notes are tracked at `interview.md` in the repository root — eleven findings, each checked against the code, so a finding that is already built is not mistaken for a gap. The navigation order and the cashier's reach to POS shipped in PR #43; the dashboard summary shipped in PR #45; a per-batch stock take, prefilled with the ledger's quantity, is the work on this branch. The other eight findings are still open, and three of them (overhead allocation, the cashier role, offline POS) need a product decision before any code.
 
 ---
 

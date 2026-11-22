@@ -1107,6 +1107,24 @@ export const id: Dictionary = {
       create: "Buat bahan",
       creating: "Membuat…",
     },
+    opname: {
+      title: "Stok opname",
+      subtitle:
+        "Setiap batch sudah diisi jumlah yang dipunyai pembukuan. Ubah hanya yang benar-benar berbeda, dan hanya baris itu yang ditulis.",
+      note: "Catatan",
+      noteHint: "Dicatat pada setiap penyesuaian dari lembar ini.",
+      notePlaceholder: "Opsional",
+      system: "Sistem: {qty} {unit}",
+      countLabel: "Jumlah hitungan untuk batch yang diterima {batch}, dalam {unit}",
+      materialTotal: "Sistem {system} · dihitung {counted} {unit}",
+      noChange: "Belum ada yang berbeda.",
+      summary: "{count} batch berbeda · selisih {difference}",
+      submit: "Terapkan {count} koreksi",
+      empty: "Belum ada batch aktif untuk dihitung.",
+      done: "{count} batch dikoreksi.",
+      doneSingle: "1 batch dikoreksi.",
+      doneNone: "Tidak ada yang berbeda, jadi tidak ada yang ditulis.",
+    },
     errors: {
       generic: "Ada yang salah. Coba lagi.",
       invalidQuantity: "Jumlah harus lebih dari nol.",
@@ -1119,6 +1137,11 @@ export const id: Dictionary = {
       invalidShelfLife: "Masa simpan tidak boleh negatif.",
       planLimit: "Paketmu sudah penuh. Upgrade untuk menambah bahan.",
       invalidNumber: "Masukkan angka yang valid.",
+      emptyCountSheet: "Catat setidaknya satu batch yang dihitung.",
+      invalidCount: "Hitungan minimal nol, dan setiap batch hanya muncul sekali.",
+      batchNotFound: "Batch itu sudah tidak ada.",
+      quantityExceedsReceived:
+        "Hitungan di atas total yang pernah diterima berarti ada penerimaan yang terlewat.",
     },
     saved: "Stok masuk tersimpan.",
     offline: {
