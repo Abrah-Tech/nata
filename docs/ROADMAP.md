@@ -359,7 +359,7 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 
 | ID | Task | Notes |
 | --- | --- | --- |
-| P4-01 | Multi-warehouse | Requires the `warehouse_id` migration; see D6 |
+| P4-01 | Multi-warehouse | The columns and the `warehouses` table landed in `0021_warehouses.sql` (D6); this task is the API and the UI |
 | P4-02 | RBAC extension: custom roles or per-tenant overrides, only if customers ask | Base roles ship in P0-09 through P0-11 |
 | P4-03 | POS add-on: multi-payment, QRIS | Only after the phase 3 gate passes |
 | P4-04 | Advanced reports + priority support (Business) | |
@@ -423,7 +423,7 @@ The draft SQL in the product document is not ready to use as-is. Settle these in
 
 1. **Child tables without `tenant_id`** — `recipe_items`, `sale_items`, `production_consumptions`, `unit_conversions`. RLS cannot be attached directly. Choose either an added `tenant_id` column or an `EXISTS` policy against the parent table. `EXISTS` keeps the schema smaller but is slower and easier to get wrong.
 2. **`unit_conversions` has no `tenant_id`** while `units.tenant_id` is nullable. **Decided:** conversions are global and seeded with the system units (kg→g, l→ml, lusin→pcs); material-specific conversions such as "1 sack = 25 kg" are deferred until a customer needs them.
-3. **No `warehouse_id`** even though Pro sells 2 warehouses. Add a nullable column to batches and movements now, or accept a large migration in phase 4.
+3. **No `warehouse_id`** even though Pro sells 2 warehouses. **Decided (2026-11-22):** a nullable `warehouse_id` on `material_batches`, `product_batches`, and `stock_movements`, plus the `warehouses` table that owns the names; see D6 and `0021_warehouses.sql`.
 4. **`products.stock_qty` is a single number** — finished goods cannot be FEFO-allocated or expiry-tracked. **Decided (2026-11-17):** `product_batches` is the ledger and `products.stock_qty` stays as a read-only cache written in the same transaction; see D8.
 5. **`stock_movements.qty`** has no sign convention or constraint. **Decided:** inbound is positive and outbound is negative, enforced by the `stock_movements_sign` check added in `0005_batches.sql`; only `adjustment` may go either way.
 6. **`materials.last_cost`** is derived data that can drift. **Decided:** it is a read-only cache, written only by stock-in from the latest purchase; batches stay authoritative.
@@ -444,7 +444,7 @@ Do not decide these alone. Ask the user, then record the outcome here.
 | D3 | Shortage during production: block or allow partial? | Block and show the shortfall list; core already returns an explicit shortfall |
 | D4 | Billing: manual transfer with admin verification, or a gateway? | **Decided (2026-11-12):** manual verification now, gateway-ready by construction. A payment is a row carrying amount, method, proof, and the period it covers; one `activate()` writes the subscription and is called by the admin endpoint today and by a gateway webhook later. Gateway (Midtrans or Xendit hosted checkout: QRIS, virtual account, e-wallet) once there are ~10 paying customers or manual reconciliation becomes the bottleneck. No card auto-debit in this phase. Expiry means read-only after a 7-day grace period; data is never deleted |
 | D5 | OTP channel: WhatsApp, email, or both? | WhatsApp primary, email fallback |
-| D6 | Multi-warehouse: prepare now or later? | Nullable column now, UI in phase 4 |
+| D6 | Multi-warehouse: prepare now or later? | **Decided (2026-11-22):** nullable columns now, UI in phase 4. `0021_warehouses.sql` adds `warehouses` and a nullable `warehouse_id` to `material_batches`, `product_batches`, and `stock_movements`, each behind a composite foreign key to `warehouses (id, tenant_id)` so a row cannot name another tenant's location. `ON DELETE RESTRICT` keeps a location while stock still points at it, and `SubscriptionUsage::warehouses` counts real rows instead of a hardcoded `0`. P4-01 is endpoints and UI only |
 | D7 | HPP rounding: how many decimals are stored and displayed? | Store 4 decimals, display whole Rupiah, round up when setting a selling price |
 | D8 | Do finished goods need batches and expiry tracking? | **Decided (2026-11-17):** yes. `product_batches` becomes the ledger and `products.stock_qty` stays only as a read-only cache written in the same transaction. Expiry comes from a new `products.shelf_life_days` (`expires_at = produced_on + shelf_life_days`, null when unset). Finished-goods movements extend `stock_movements` with a nullable `product_batch_id` and the `production`/`sale` types. First PR is backend + tests; the batch screen waits for a pen.dev design update. Existing stock is backfilled into one synthetic batch per product |
 | D9 | Crate and package naming: `nata-` prefix? | **Decided (2026-11-16):** the workspace uses the `nata-` prefix across crates, binaries, packages, and the Android app id. |

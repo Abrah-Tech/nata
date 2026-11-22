@@ -179,8 +179,10 @@ Neon owner), backup, and rollback.
 - Server push (FCM/APNs) is out of MVP scope; alerts go through WhatsApp.
 - sqlx compile-time checked queries need `DATABASE_URL` at build time or a
   committed `.sqlx` cache.
-- The draft schema has no `warehouse_id` although Pro promises two warehouses.
-  Follow the roadmap decision; do not add ad-hoc columns in phase 1.
+- `warehouse_id` is nullable on `material_batches`, `product_batches`, and
+  `stock_movements`, and `warehouses` exists (D6, migration `0021`), but nothing
+  writes it yet. P4-01 owns the endpoints and the UI; do not invent a warehouse
+  workflow before it.
 - Dates: `expires_at` is a `date`, not a timestamp.
 
 ## Conventions
