@@ -66,7 +66,7 @@ clear before any of them can be drawn, so keep them out of a phase gate.
 
 | Frame | Backend ready | Still needed |
 | --- | --- | --- |
-| 09 · Alert WhatsApp | `alert_rules`, `/alert-rules`, `/alerts`, `alert_job`, `alert_delivery` | Digest preview, open versus resolved history. There is no rule-editor endpoint: `/alert-rules` is read only, so the rule half needs API work first |
+| 09 · Alert WhatsApp | `alert_rules`, `/alert-rules`, `/alerts`, `alert_job`, `alert_delivery`, `PATCH /alert-rules/{id}` | Digest preview. The rules and the open versus resolved history are built on `/settings` |
 | 12 · Pengaturan (suggested) | `audit_logs`, `/audit-logs`, `nata_db::audit::record` | Who changed a role, revoked an invitation, deleted or verified a payment, or moved the labor rate — newest first, owner-only |
 
 Do not build these screens before their frame exists in the design file.
@@ -74,6 +74,8 @@ Do not build these screens before their frame exists in the design file.
 **Exception (2026-11-21):** 03 · Batch & FEFO (PR #28, `apps/web/app/batches`) and 10 · Tim & Langganan (PR #29, `apps/web/app/team`) were built from the tokens and patterns that already ship in `/stock` and `/settings`, because the backend for both is complete and the design system covers the screens. Both frames still need a pen.dev drawing; until it lands, the existing-token build stands in for it.
 
 The acceptance half of 10 is `apps/web/app/join` (PR #31). `POST /auth/accept-invitation` already existed but had no client method and no screen, so the code `/team` produces had nowhere to go. It follows the same tokens; the invite dialog now offers a `/join?token=…` link next to the raw code.
+
+09 · Alert WhatsApp needed API work before it could be built: `/alert-rules` was read only, so `PATCH /alert-rules/{id}` (PR #39) writes `days_before`, `channel`, and `is_active`, guarded by `CanManageTenant` like `PUT /settings`. The screen is `apps/web/app/settings/alerts-section.tsx`, on `/settings`: the rules editor plus the open versus resolved history. Same standing as 03, 10, and 12 — the frame still needs a pen.dev drawing.
 
 12 · Pengaturan's audit half is `apps/web/app/settings/audit-list.tsx` (PR #38). `audit_logs`, `GET /audit-logs`, and `nata_db::audit::record` were already complete and owner-only, so the screen reads them from `/settings` behind the `audit_read` permission. The frame still needs a pen.dev drawing; until it lands, the existing-token build stands in for it.
 

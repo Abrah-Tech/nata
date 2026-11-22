@@ -104,8 +104,23 @@ function scalar(
     return DATE_ONLY.test(text) ? formatDate(text, locale) : text;
   }
 
-  if (key === "usage_window_days") {
+  if (key === "usage_window_days" || key === "days_before") {
     return fill(t.settings.audit.days, { n: String(value) });
+  }
+
+  // Stored as the raw `whatsapp`/`email` the column accepts.
+  if (key === "channel") {
+    const channels = t.settings.alerts.channels as Record<
+      string,
+      string | undefined
+    >;
+    const text = String(value);
+
+    return channels[text] ?? text;
+  }
+
+  if (key === "is_active") {
+    return value ? t.settings.alerts.on : t.settings.alerts.off;
   }
 
   if (key === "plan") return planName(t, String(value));

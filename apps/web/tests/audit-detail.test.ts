@@ -95,6 +95,27 @@ describe("detailParts", () => {
     ).toEqual([{ label: "Peran", value: "Produksi" }]);
   });
 
+  test("formats an alert rule change", () => {
+    expect(
+      detailParts(
+        entry(
+          {
+            days_before: { from: 3, to: 5 },
+            channel: { from: "whatsapp", to: "email" },
+            is_active: { from: true, to: false },
+          },
+          "alert_rules.updated",
+        ),
+        locale,
+        id,
+      ),
+    ).toEqual([
+      { label: "Hari sebelum kedaluwarsa", value: "3 hari → 5 hari" },
+      { label: "Kanal", value: "WhatsApp → Email" },
+      { label: "Diaktifkan", value: "Nyala → Mati" },
+    ]);
+  });
+
   test("drops a key with no label and an object that is not a change", () => {
     expect(
       detailParts(
