@@ -1,6 +1,7 @@
 mod common;
 
 use axum::{http::StatusCode, Router};
+use chrono::{Duration, NaiveDate, NaiveDateTime};
 use common::{call, signup, stock_in, tenant_of, test_app, CaptureOtp};
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -32,6 +33,79 @@ async fn batch(app: &Router, token: &str, material_id: Uuid, qty: &str, cost: &s
     assert_eq!(status, StatusCode::CREATED, "{body}");
 
     body["id"].as_str().expect("id").parse().expect("uuid")
+}
+
+async fn product(app: &Router, token: &str, name: &str, sell_price: &str) -> Uuid {
+    let (status, body) = call(
+        app,
+        "POST",
+        "/products",
+        Some(json!({ "name": name, "sell_price": sell_price })),
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    body["id"].as_str().expect("id").parse().expect("uuid")
+}
+
+/// A minute after midnight today and the matching minute yesterday.
+///
+/// Both dashboard windows run to this time of day, so the two points are one
+/// day apart and each lands inside its own window at any hour the suite runs.
+/// Taken from the database clock, which is also what the endpoint compares
+/// against, so a session in another zone cannot shift the boundary.
+async fn today_and_yesterday(pool: &PgPool) -> (NaiveDateTime, NaiveDateTime) {
+    let today: NaiveDate = sqlx::query_scalar("select now()::date")
+        .fetch_one(pool)
+        .await
+        .expect("today");
+    let midnight = today.and_hms_opt(0, 0, 0).expect("midnight");
+
+    (
+        midnight + Duration::minutes(1),
+        midnight - Duration::days(1) + Duration::minutes(1),
+    )
+}
+
+/// Writes a sale straight into the ledger. The overview reads the snapshots
+/// only, so the write path does not have to run. A null `cost` reproduces a
+/// sale written before `sale_items.unit_cost` existed.
+async fn sale(
+    pool: &PgPool,
+    tenant_id: Uuid,
+    product_id: Uuid,
+    qty: &str,
+    price: &str,
+    cost: Option<&str>,
+    sold_at: NaiveDateTime,
+) {
+    let (sale_id,): (Uuid,) = sqlx::query_as(
+        "insert into sales (tenant_id, sold_at, channel, total)
+         values ($1, $2, 'toko', $3::numeric * $4::numeric)
+         returning id",
+    )
+    .bind(tenant_id)
+    .bind(sold_at)
+    .bind(qty)
+    .bind(price)
+    .fetch_one(pool)
+    .await
+    .expect("sale");
+
+    sqlx::query(
+        "insert into sale_items (sale_id, tenant_id, product_id, qty, price, unit_cost)
+         values ($1, $2, $3, $4::numeric, $5::numeric, $6::numeric)",
+    )
+    .bind(sale_id)
+    .bind(tenant_id)
+    .bind(product_id)
+    .bind(qty)
+    .bind(price)
+    .bind(cost)
+    .execute(pool)
+    .await
+    .expect("sale item");
 }
 
 /// Expiry is set relative to the database clock, the same clock the endpoint
@@ -256,4 +330,129 @@ async fn overview_requires_a_session(pool: PgPool) {
 
     let (status, _) = call(&app, "GET", "/dashboard", None, None).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn overview_totals_today_against_the_same_stretch_of_yesterday(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant = tenant_of(&app, token).await;
+
+    let bread = product(&app, token, "Roti sobek", "15000").await;
+    let cake = product(&app, token, "Kue coklat", "40000").await;
+
+    let (today, yesterday) = today_and_yesterday(&pool).await;
+
+    sale(&pool, tenant, bread, "3", "15000", Some("9000"), today).await;
+    sale(&pool, tenant, cake, "1", "40000", Some("25000"), today).await;
+    sale(&pool, tenant, bread, "2", "15000", Some("9000"), yesterday).await;
+
+    let (status, body) = call(&app, "GET", "/dashboard", None, Some(token)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let sales = &body["sales"];
+    assert_eq!(sales["revenue"], "85000.00");
+    assert_eq!(sales["cost_of_goods"], "52000.00");
+    assert_eq!(sales["profit"], "33000.00");
+    assert_eq!(sales["cost_incomplete"], false);
+    assert_eq!(sales["yesterday_revenue"], "30000.00");
+    assert_eq!(sales["yesterday_profit"], "12000.00");
+
+    let best = sales["best_sellers"].as_array().expect("best sellers");
+    let ranked: Vec<(&str, &str, &str)> = best
+        .iter()
+        .map(|row| {
+            (
+                row["name"].as_str().expect("name"),
+                row["qty"].as_str().expect("qty"),
+                row["revenue"].as_str().expect("revenue"),
+            )
+        })
+        .collect();
+    assert_eq!(
+        ranked,
+        vec![
+            ("Roti sobek", "3.000", "45000.00"),
+            ("Kue coklat", "1.000", "40000.00")
+        ],
+        "most units first, revenue breaks a tie"
+    );
+    assert_eq!(best[0]["product_id"], bread.to_string());
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn overview_withholds_profit_when_a_sale_has_no_cost(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant = tenant_of(&app, token).await;
+
+    let bread = product(&app, token, "Roti sobek", "15000").await;
+    let (today, _yesterday) = today_and_yesterday(&pool).await;
+
+    sale(&pool, tenant, bread, "2", "15000", None, today).await;
+
+    let (status, body) = call(&app, "GET", "/dashboard", None, Some(token)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let sales = &body["sales"];
+    assert_eq!(sales["revenue"], "30000.00", "revenue needs no cost");
+    assert_eq!(sales["cost_of_goods"], Value::Null);
+    assert_eq!(sales["profit"], Value::Null, "an unknown cost is not zero");
+    assert_eq!(sales["cost_incomplete"], true);
+    assert_eq!(
+        sales["yesterday_revenue"], "0.00",
+        "a tenant that sold nothing yesterday"
+    );
+    assert_eq!(sales["yesterday_profit"], Value::Null);
+    assert_eq!(
+        sales["best_sellers"]
+            .as_array()
+            .expect("best sellers")
+            .len(),
+        1,
+        "the ranking is units, so it does not depend on cost"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn overview_counts_only_the_tenants_own_sales(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant = tenant_of(&app, token).await;
+
+    let mine = product(&app, token, "Roti sobek", "15000").await;
+    let (today, _yesterday) = today_and_yesterday(&pool).await;
+    sale(&pool, tenant, mine, "1", "15000", Some("9000"), today).await;
+
+    let other = signup(&app, &otp, "other@example.test").await;
+    let other_token = other["access_token"].as_str().expect("token");
+    let other_tenant = tenant_of(&app, other_token).await;
+    let theirs = product(&app, other_token, "Kue coklat", "40000").await;
+    sale(
+        &pool,
+        other_tenant,
+        theirs,
+        "5",
+        "40000",
+        Some("25000"),
+        today,
+    )
+    .await;
+
+    let (status, body) = call(&app, "GET", "/dashboard", None, Some(token)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    assert_ne!(tenant, other_tenant);
+    assert_eq!(body["sales"]["revenue"], "15000.00", "only this tenant");
+    let best = body["sales"]["best_sellers"]
+        .as_array()
+        .expect("best sellers");
+    assert_eq!(best.len(), 1);
+    assert_eq!(best[0]["name"], "Roti sobek");
 }

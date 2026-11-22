@@ -637,10 +637,28 @@ export type DashboardExpiringRow = {
   days_left: number;
 };
 
+export type DashboardBestSeller = {
+  product_id: string;
+  name: string;
+  qty: string;
+  revenue: string;
+};
+
+export type DashboardSales = {
+  revenue: string;
+  cost_of_goods: string | null;
+  profit: string | null;
+  cost_incomplete: boolean;
+  yesterday_revenue: string;
+  yesterday_profit: string | null;
+  best_sellers: DashboardBestSeller[];
+};
+
 export type Dashboard = {
   summary: DashboardSummary;
   critical: DashboardCriticalRow[];
   expiring: DashboardExpiringRow[];
+  sales: DashboardSales | null;
 };
 
 export type OnboardingTemplateItem = {

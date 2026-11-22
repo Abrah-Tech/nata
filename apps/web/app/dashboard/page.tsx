@@ -1,12 +1,14 @@
 "use client";
 
-import type { Dashboard } from "@nata/api-client";
+import type { Dashboard, DashboardSales } from "@nata/api-client";
 import {
   AlertTriangle,
   CalendarX2,
   CheckCircle2,
   ChevronRight,
   Clock3,
+  TrendingDown,
+  TrendingUp,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,6 +28,7 @@ import {
 } from "@/lib/format";
 import { fill, useI18n } from "@/lib/i18n";
 import { readToken } from "@/lib/session";
+import { cn } from "@/lib/utils";
 import { useMe } from "@/lib/use-me";
 
 import { AppShell } from "../app-shell";
@@ -116,6 +119,10 @@ export default function DashboardPage() {
             {/* Rendered as soon as the overview lands, so the checklist fills in
                 above the metrics instead of pushing them down. */}
             {data && <FirstSteps materials={data.summary.materials} />}
+
+            {/* Sales and stock are independent, so a business that sells but
+                tracks no ingredients still sees how its day went. */}
+            {data?.sales && <TodayPanel sales={data.sales} />}
 
             {load.status === "loading" && (
               <DashboardSkeleton label={t.dashboard.loading} />
@@ -396,6 +403,190 @@ function Metric({
   );
 }
 
+/** How the day went: the money, then what moved. */
+function TodayPanel({ sales }: { sales: DashboardSales }) {
+  const { t, locale } = useI18n();
+  const revenue = Number(sales.revenue);
+  const profit = sales.profit === null ? null : Number(sales.profit);
+  const yesterdayRevenue = Number(sales.yesterday_revenue);
+  const yesterdayProfit =
+    sales.yesterday_profit === null ? null : Number(sales.yesterday_profit);
+  const empty = revenue === 0 && sales.best_sellers.length === 0;
+
+  return (
+    <section
+      aria-label={t.dashboard.today.title}
+      className="flex flex-col overflow-hidden rounded-xl border border-border bg-card"
+    >
+      <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+        <div>
+          <h2 className="text-base font-bold tracking-tight">
+            {t.dashboard.today.title}
+          </h2>
+          <p className="mt-0.5 text-2xs text-ink-3">
+            {t.dashboard.today.subtitle}
+          </p>
+        </div>
+        <PanelLink href="/reports">{t.dashboard.today.seeAll}</PanelLink>
+      </header>
+
+      {empty ? (
+        <PanelEmpty
+          title={t.dashboard.today.emptyTitle}
+          body={t.dashboard.today.empty}
+        />
+      ) : (
+        <div className="grid gap-4 p-4 sm:grid-cols-2 sm:gap-x-5">
+          <div className="flex flex-col gap-3">
+            <MoneyRow
+              label={t.dashboard.today.profit}
+              value={profit}
+              baseline={yesterdayProfit}
+              fallback={t.dashboard.today.unknown}
+              hint={t.dashboard.today.profitHint}
+            />
+            <MoneyRow
+              label={t.dashboard.today.revenue}
+              value={revenue}
+              baseline={yesterdayRevenue}
+              fallback={t.dashboard.today.noBaseline}
+            />
+            {sales.cost_incomplete && (
+              <p className="text-2xs leading-relaxed text-warning">
+                {t.dashboard.today.incomplete}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-2xs font-semibold text-ink-3">
+              {t.dashboard.today.bestTitle}
+            </span>
+            {sales.best_sellers.length === 0 ? (
+              <p className="text-xs text-ink-3">{t.dashboard.today.bestEmpty}</p>
+            ) : (
+              <ul className="flex list-none flex-col p-0">
+                {sales.best_sellers.map((row, index) => (
+                  <li
+                    key={row.product_id}
+                    className="flex items-center justify-between gap-3 border-t border-border py-2 first:border-t-0 first:pt-0 last:pb-0"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="w-3 shrink-0 text-2xs font-semibold text-ink-3 tabular-nums">
+                        {index + 1}
+                      </span>
+                      <strong
+                        className="truncate text-sm font-semibold"
+                        title={row.name}
+                      >
+                        {row.name}
+                      </strong>
+                    </div>
+                    <div className="flex shrink-0 items-baseline gap-2 text-right">
+                      <span className="text-2xs whitespace-nowrap text-ink-3 tabular-nums">
+                        {fill(t.dashboard.today.sold, {
+                          qty: formatQty(row.qty, locale),
+                        })}
+                      </span>
+                      <strong className="text-xs font-semibold whitespace-nowrap tabular-nums">
+                        {formatMoney(Number(row.revenue), locale)}
+                      </strong>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MoneyRow({
+  label,
+  value,
+  baseline,
+  fallback,
+  hint,
+}: {
+  label: string;
+  value: number | null;
+  baseline: number | null;
+  /** Stands in for the comparison when the value itself is unknown. */
+  fallback: string;
+  hint?: string;
+}) {
+  const { locale } = useI18n();
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-2xs font-semibold text-ink-3">{label}</span>
+        <Compare value={value} baseline={baseline} fallback={fallback} />
+      </div>
+      {/* The profit line is the headline, so it gets one step more than a
+          metric card while the revenue line stays at the card size. */}
+      <strong
+        className={`font-extrabold tracking-tight tabular-nums ${
+          hint ? "text-2xl" : "text-xl"
+        }`}
+      >
+        {value === null ? "—" : formatMoney(value, locale)}
+      </strong>
+      {hint && value !== null && (
+        <span className="text-2xs text-ink-3">{hint}</span>
+      )}
+    </div>
+  );
+}
+
+function Compare({
+  value,
+  baseline,
+  fallback,
+}: {
+  value: number | null;
+  baseline: number | null;
+  fallback: string;
+}) {
+  const { t, locale } = useI18n();
+
+  if (value === null) {
+    return <span className="text-2xs text-ink-3">{fallback}</span>;
+  }
+  if (baseline === null) {
+    return (
+      <span className="text-2xs text-ink-3">{t.dashboard.today.noBaseline}</span>
+    );
+  }
+
+  const delta = value - baseline;
+  if (delta === 0) {
+    return (
+      <span className="text-2xs text-ink-3 tabular-nums">
+        {t.dashboard.today.flat}
+      </span>
+    );
+  }
+
+  const up = delta > 0;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 text-2xs font-semibold whitespace-nowrap tabular-nums",
+        up ? "text-brand" : "text-destructive",
+      )}
+    >
+      {up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+      {fill(up ? t.dashboard.today.deltaUp : t.dashboard.today.deltaDown, {
+        value: formatMoney(Math.abs(delta), locale),
+      })}
+    </span>
+  );
+}
+
 function PanelLink({
   href,
   children,
@@ -428,6 +619,19 @@ function PanelEmpty({ title, body }: { title: string; body: string }) {
 function DashboardSkeleton({ label }: { label: string }) {
   return (
     <LoadingRegion label={label} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-4">
+        <Skeleton className="h-3 w-24" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-2.5 w-20" />
+            <Skeleton className="h-6 w-28" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-2.5 w-28" />
+            <Skeleton className="h-2.5 w-20" />
+          </div>
+        </div>
+      </div>
       <SkeletonStats count={4} />
       <div className="grid gap-3 lg:grid-cols-2">
         {[0, 1].map((panel) => (

@@ -7,8 +7,10 @@
 
 use axum::{extract::State, Json};
 use chrono::NaiveDate;
-use rust_decimal::Decimal;
+use nata_domain::Permission;
+use rust_decimal::{Decimal, RoundingStrategy};
 use serde::Serialize;
+use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::auth::guard::{CanReadMaterials, Require};
@@ -19,6 +21,10 @@ use crate::{error::ApiError, AppState};
 const EXPIRY_HORIZON_DAYS: i32 = 7;
 /// Enough rows to fill the fold on a phone without making the payload heavy.
 const LIST_LIMIT: i64 = 8;
+/// The ranking is a glance at what moved, not a second report page.
+const BEST_SELLER_LIMIT: i64 = 5;
+/// Money is stored as `numeric(18,2)`.
+const MONEY_SCALE: u32 = 2;
 
 #[derive(Debug, Serialize)]
 pub struct DashboardView {
@@ -27,6 +33,35 @@ pub struct DashboardView {
     pub critical: Vec<CriticalRow>,
     /// Active batches at or past their expiry window, earliest first.
     pub expiring: Vec<ExpiringRow>,
+    /// Today's sales numbers. Absent when the caller's role cannot read
+    /// reports: the landing screen must not fail for a role that only needs
+    /// stock, and profit is the one figure a cashier should never see.
+    pub sales: Option<DashboardSales>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DashboardSales {
+    pub revenue: Decimal,
+    /// Null when any line sold today has no cost snapshot, the same rule the
+    /// report uses: an unknown cost is not a zero cost.
+    pub cost_of_goods: Option<Decimal>,
+    pub profit: Option<Decimal>,
+    /// True when the totals above cannot be trusted because a line has no cost.
+    pub cost_incomplete: bool,
+    /// Yesterday over the same stretch of the day. A half-finished today is
+    /// compared with a half-finished yesterday, never with a complete one.
+    pub yesterday_revenue: Decimal,
+    pub yesterday_profit: Option<Decimal>,
+    /// Units sold today, most first.
+    pub best_sellers: Vec<BestSeller>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BestSeller {
+    pub product_id: Uuid,
+    pub name: String,
+    pub qty: Decimal,
+    pub revenue: Decimal,
 }
 
 #[derive(Debug, Serialize)]
@@ -93,6 +128,73 @@ type ExpiringTuple = (
     NaiveDate,
     i32,
 );
+/// Revenue, cost of goods, and how many lines had no cost snapshot.
+type SalesTuple = (Decimal, Option<Decimal>, i64);
+type BestSellerTuple = (Uuid, String, Decimal, Decimal);
+
+/// Two decimals and a fixed scale. A computed `coalesce(…, 0)` can arrive with
+/// scale zero, which would serialize as `"0"` instead of `"0.00"`; rescaling
+/// keeps every money field the same shape for the client.
+fn money(value: Decimal) -> Decimal {
+    let mut value =
+        value.round_dp_with_strategy(MONEY_SCALE, RoundingStrategy::MidpointAwayFromZero);
+    value.rescale(MONEY_SCALE);
+    value
+}
+
+/// Revenue, cost of goods, and the count of lines with no cost snapshot, over
+/// one day measured from that day's midnight to this time of day.
+///
+/// `day_offset` is days back from today: `0` is today so far, `1` is yesterday
+/// so far. Comparing the two on the same stretch keeps a half-finished day from
+/// reading as a collapse next to a complete one.
+async fn day_totals(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant_id: Uuid,
+    day_offset: i32,
+) -> Result<SalesTuple, ApiError> {
+    sqlx::query_as(
+        "select coalesce(sum(si.qty * si.price), 0)::numeric(18,2) as revenue,
+                sum(si.qty * si.unit_cost)::numeric(18,2) as cost_of_goods,
+                count(*) filter (where si.unit_cost is null) as uncosted
+         from sale_items si
+         join sales s on s.id = si.sale_id
+         where si.tenant_id = $1
+           and s.sold_at >= date_trunc('day', now()) - ($2::int * interval '1 day')
+           and s.sold_at < now() - ($2::int * interval '1 day')",
+    )
+    .bind(tenant_id)
+    .bind(day_offset)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(Into::into)
+}
+
+/// The products that moved the most units today, biggest first.
+async fn best_sellers(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant_id: Uuid,
+) -> Result<Vec<BestSellerTuple>, ApiError> {
+    sqlx::query_as(
+        "select p.id, p.name,
+                sum(si.qty)::numeric(18,3) as qty,
+                sum(si.qty * si.price)::numeric(18,2) as revenue
+         from sale_items si
+         join sales s on s.id = si.sale_id
+         join products p on p.id = si.product_id
+         where si.tenant_id = $1
+           and s.sold_at >= date_trunc('day', now())
+           and s.sold_at < now()
+         group by p.id, p.name
+         order by qty desc, revenue desc, p.name
+         limit $2",
+    )
+    .bind(tenant_id)
+    .bind(BEST_SELLER_LIMIT)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(Into::into)
+}
 
 /// Everything the overview screen shows, in one round trip.
 pub async fn overview(
@@ -208,6 +310,43 @@ pub async fn overview(
     .fetch_all(&mut *tx)
     .await?;
 
+    // Profit is the one figure a cashier should never see, so the sales half is
+    // left out for a role without report access rather than refusing the landing
+    // screen. Every role today holds that permission; the check is there for the
+    // one that comes next.
+    let sales = if auth.role.can(Permission::ReportRead) {
+        let (revenue, cogs, uncosted) = day_totals(&mut tx, auth.tenant_id, 0).await?;
+        let (yesterday_revenue, yesterday_cogs, yesterday_uncosted) =
+            day_totals(&mut tx, auth.tenant_id, 1).await?;
+        let best_sellers = best_sellers(&mut tx, auth.tenant_id).await?;
+
+        let cost_of_goods = if uncosted > 0 { None } else { cogs.map(money) };
+        let yesterday_profit = match (yesterday_uncosted, yesterday_cogs) {
+            (0, Some(cost)) => Some(money(yesterday_revenue - cost)),
+            _ => None,
+        };
+
+        Some(DashboardSales {
+            revenue: money(revenue),
+            profit: cost_of_goods.map(|cost| money(revenue - cost)),
+            cost_of_goods,
+            cost_incomplete: uncosted > 0,
+            yesterday_revenue: money(yesterday_revenue),
+            yesterday_profit,
+            best_sellers: best_sellers
+                .into_iter()
+                .map(|(product_id, name, qty, revenue)| BestSeller {
+                    product_id,
+                    name,
+                    qty,
+                    revenue: money(revenue),
+                })
+                .collect(),
+        })
+    } else {
+        None
+    };
+
     tx.commit().await?;
 
     Ok(Json(DashboardView {
@@ -221,6 +360,7 @@ pub async fn overview(
             stock_value,
             horizon_days: EXPIRY_HORIZON_DAYS,
         },
+        sales,
         critical: critical_rows
             .into_iter()
             .map(
