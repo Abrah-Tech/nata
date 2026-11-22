@@ -596,6 +596,20 @@ export type StockInRequest = {
   client_ref?: string | null;
 };
 
+export type StockCountSheet = {
+  note?: string | null;
+  counts: {
+    batch_id: string;
+    /** What was counted, an absolute quantity and never a difference. */
+    qty: string;
+  }[];
+};
+
+export type StockCountResult = {
+  applied: number;
+  unchanged: number;
+};
+
 export type SyncResult = {
   client_ref: string | null;
   status: "created" | "duplicate" | "rejected";
@@ -1164,6 +1178,14 @@ export class ApiClient {
 
   stockIn(token: string, body: StockInRequest): Promise<Batch> {
     return this.request<Batch>("/stock/batches", {
+      method: "POST",
+      token,
+      body,
+    });
+  }
+
+  applyStockCount(token: string, body: StockCountSheet): Promise<StockCountResult> {
+    return this.request<StockCountResult>("/stock/opname", {
       method: "POST",
       token,
       body,

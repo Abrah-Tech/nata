@@ -1106,6 +1106,24 @@ export const en = {
       create: "Create ingredient",
       creating: "Creating…",
     },
+    opname: {
+      title: "Stock take",
+      subtitle:
+        "Every batch starts with the quantity the ledger already holds. Change only what you actually counted, and only those rows are written.",
+      note: "Note",
+      noteHint: "Written on every adjustment this sheet produces.",
+      notePlaceholder: "Optional",
+      system: "System: {qty} {unit}",
+      countLabel: "Counted quantity for the batch received {batch}, in {unit}",
+      materialTotal: "System {system} · counted {counted} {unit}",
+      noChange: "Nothing differs yet.",
+      summary: "{count} batches differ · net {difference}",
+      submit: "Apply {count} corrections",
+      empty: "There are no active batches to count.",
+      done: "{count} batches corrected.",
+      doneSingle: "1 batch corrected.",
+      doneNone: "Nothing differed, so nothing was written.",
+    },
     errors: {
       generic: "Something went wrong. Try again.",
       invalidQuantity: "Quantity must be greater than zero.",
@@ -1118,6 +1136,11 @@ export const en = {
       invalidShelfLife: "Shelf life cannot be negative.",
       planLimit: "Your plan is full. Upgrade to add more ingredients.",
       invalidNumber: "Enter a valid number.",
+      emptyCountSheet: "Record at least one counted batch.",
+      invalidCount: "A count must be zero or more, and each batch appears once.",
+      batchNotFound: "That batch no longer exists.",
+      quantityExceedsReceived:
+        "A count above everything ever received means a receipt is missing.",
     },
     saved: "Stock in saved.",
     offline: {

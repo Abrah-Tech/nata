@@ -27,6 +27,14 @@ export function stockError(t: Dictionary, cause: unknown): string {
       return t.stock.errors.invalidShelfLife;
     case "plan_limit_reached":
       return t.stock.errors.planLimit;
+    case "empty_count_sheet":
+      return t.stock.errors.emptyCountSheet;
+    case "invalid_count":
+      return t.stock.errors.invalidCount;
+    case "batch_not_found":
+      return t.stock.errors.batchNotFound;
+    case "quantity_exceeds_received":
+      return t.stock.errors.quantityExceedsReceived;
     default:
       return t.stock.errors.generic;
   }

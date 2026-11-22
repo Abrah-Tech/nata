@@ -2,6 +2,7 @@
 
 pub mod batches;
 pub mod corrections;
+pub mod opname;
 pub mod product_corrections;
 pub mod queries;
 
@@ -21,6 +22,7 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/stock/movements", get(queries::list_movements))
         .route("/stock/corrections", post(corrections::correct))
+        .route("/stock/opname", post(opname::apply))
         .route(
             "/stock/product-batches",
             get(product_corrections::list_batches),

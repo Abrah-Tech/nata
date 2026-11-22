@@ -7,7 +7,7 @@ import type {
   Supplier,
   Unit,
 } from "@nata/api-client";
-import { Ellipsis, Plus, RotateCcw, Search, X } from "lucide-react";
+import { ClipboardList, Ellipsis, Plus, RotateCcw, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -32,6 +32,7 @@ import { useMe } from "@/lib/use-me";
 
 import { AppShell } from "../app-shell";
 import { BatchPanel } from "./batch-panel";
+import { CountSheet } from "./count-sheet";
 import { MaterialDialog } from "./material-dialog";
 import { StockInDialog } from "./stock-in-dialog";
 
@@ -60,6 +61,7 @@ export default function StockPage() {
   const [panelId, setPanelId] = useState<string | null>(null);
   const [stockInFor, setStockInFor] = useState<string | null | undefined>();
   const [materialOpen, setMaterialOpen] = useState(false);
+  const [opnameOpen, setOpnameOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueuedStockIn[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -281,6 +283,7 @@ export default function StockPage() {
   const permissions = session.status === "ready" ? session.me.permissions : [];
   const canWriteBatches = permissions.includes("batch_write");
   const canWriteMaterials = permissions.includes("material_write");
+  const canAdjustStock = permissions.includes("stock_adjust");
 
   const panelRow =
     data?.stock.find((row) => row.material_id === panelId) ?? null;
@@ -451,6 +454,17 @@ export default function StockPage() {
                   >
                     <Plus size={15} />
                     {t.stock.newMaterial}
+                  </Button>
+                )}
+                {canAdjustStock && (
+                  <Button
+                    variant="ghost"
+                    className="flex-1 sm:flex-none"
+                    type="button"
+                    onClick={() => setOpnameOpen(true)}
+                  >
+                    <ClipboardList size={15} />
+                    {t.stock.opname.title}
                   </Button>
                 )}
                 {canWriteBatches && (
@@ -908,6 +922,25 @@ export default function StockPage() {
                 closeStockIn();
                 setNotice(t.stock.offline.queued);
                 void refreshQueue();
+              }}
+            />
+          )}
+
+          {opnameOpen && (
+            <CountSheet
+              materials={data?.stock ?? []}
+              batches={data?.batches ?? []}
+              onClose={() => setOpnameOpen(false)}
+              onApplied={(result) => {
+                setOpnameOpen(false);
+                setNotice(
+                  result.applied === 0
+                    ? t.stock.opname.doneNone
+                    : result.applied === 1
+                      ? t.stock.opname.doneSingle
+                      : fill(t.stock.opname.done, { count: result.applied }),
+                );
+                void fetchData();
               }}
             />
           )}
