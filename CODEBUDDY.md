@@ -240,7 +240,7 @@ Use `rust_decimal` and Postgres `NUMERIC` end to end. Never `f64` for money or q
 - Server push (FCM/APNs) is out of MVP scope; alerts go through WhatsApp.
 - sqlx compile-time checked queries need `DATABASE_URL` at build time or a committed `.sqlx` cache. CI must use one of them.
 - Offline sync covers stock-in only (D2). Production and corrections need a live connection because they depend on current stock; do not widen the outbox without a new decision.
-- The draft schema has no `warehouse_id` although Pro promises two warehouses. Do not add ad-hoc warehouse columns in phase 1 — follow the roadmap decision.
+- `warehouse_id` is nullable on `material_batches`, `product_batches`, and `stock_movements`, and the `warehouses` table exists (D6, migration `0021`). Nothing writes the column yet — P4-01 owns the endpoints and the UI, so do not invent a warehouse workflow ahead of it.
 - Dates: `expires_at` is a `date`, not a timestamp; avoid timezone drift when comparing.
 
 ## Conventions

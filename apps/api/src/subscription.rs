@@ -70,7 +70,7 @@ pub async fn get_subscription(
         users: count(&mut tx, auth.tenant_id, Resource::Users).await?,
         materials: count(&mut tx, auth.tenant_id, Resource::Materials).await?,
         recipes: count(&mut tx, auth.tenant_id, Resource::Recipes).await?,
-        warehouses: 0,
+        warehouses: count(&mut tx, auth.tenant_id, Resource::Warehouses).await?,
     };
 
     tx.commit().await?;
@@ -138,7 +138,9 @@ pub(crate) async fn ensure_capacity(
 /// What counts against a limit.
 ///
 /// Archived rows do not: an inactive material or a superseded recipe version
-/// is history, not consumption. Warehouses have no table until P4-01.
+/// is history, not consumption. A warehouse counts from the moment it is
+/// created; there is no archive state, and the `restrict` foreign keys keep it
+/// alive while a batch or a movement still points at it.
 async fn count(
     tx: &mut Transaction<'_, Postgres>,
     tenant_id: Uuid,
@@ -169,7 +171,12 @@ async fn count(
                 .fetch_one(&mut **tx)
                 .await?
         }
-        Resource::Warehouses => 0,
+        Resource::Warehouses => {
+            sqlx::query_scalar("select count(*) from warehouses where tenant_id = $1")
+                .bind(tenant_id)
+                .fetch_one(&mut **tx)
+                .await?
+        }
     };
 
     Ok(value)
