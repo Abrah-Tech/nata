@@ -768,6 +768,14 @@ export const en = {
         expiry: "Expiry warning",
         lowStock: "Low stock warning",
       },
+      preview: {
+        title: "Message preview",
+        body: "The message the next alert run would send for the alerts waiting now.",
+        loading: "Loading the message preview…",
+        empty: "Nothing is waiting to be sent, so there is no message to preview yet.",
+        copy: "Copy message",
+        copied: "Copied",
+      },
       history: {
         title: "Alert history",
         body: "What Nata has flagged and whether the message went out. Resolved means the condition no longer holds.",

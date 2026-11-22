@@ -74,6 +74,7 @@ async fn main() -> anyhow::Result<()> {
         otp_ttl_seconds: config.otp_ttl_seconds,
         jwt_ttl_seconds: config.jwt_ttl_seconds,
         dev_otp_code: config.dev_otp_code,
+        app_url: config.app_url,
     };
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
