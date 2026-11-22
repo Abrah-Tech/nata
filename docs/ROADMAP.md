@@ -75,6 +75,8 @@ Do not build these screens before their frame exists in the design file.
 
 The acceptance half of 10 is `apps/web/app/join` (PR #31). `POST /auth/accept-invitation` already existed but had no client method and no screen, so the code `/team` produces had nowhere to go. It follows the same tokens; the invite dialog now offers a `/join?token=…` link next to the raw code.
 
+12 · Pengaturan's audit half is `apps/web/app/settings/audit-list.tsx` (PR #38). `audit_logs`, `GET /audit-logs`, and `nata_db::audit::record` were already complete and owner-only, so the screen reads them from `/settings` behind the `audit_read` permission. The frame still needs a pen.dev drawing; until it lands, the existing-token build stands in for it.
+
 ### UI polish backlog
 
 Audit 2026-11-18 against `apps/web`: the component library plus the screens that

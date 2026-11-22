@@ -3,6 +3,7 @@
 import {
   ApiError,
   type Access,
+  type AuditEntry,
   type Billing,
   type Payment,
   type Subscription,
@@ -28,14 +29,21 @@ import {
   formatMoney,
   normalizeDecimal,
 } from "@/lib/format";
-import { fill, useI18n, type Dictionary } from "@/lib/i18n";
+import { fill, useI18n } from "@/lib/i18n";
 import { readToken } from "@/lib/session";
 import { useMe } from "@/lib/use-me";
 import { cn } from "@/lib/utils";
 
 import { AppShell } from "../app-shell";
+import { AuditSection } from "./audit-list";
+import { Intro } from "./intro";
+import { methodName, planName } from "./labels";
 
 type Load = { status: "loading" } | { status: "ready" } | { status: "error" };
+
+/** The audit screen's first page; the server caps a page at 200. */
+const AUDIT_FIRST_PAGE = 50;
+const AUDIT_LAST_PAGE = 200;
 
 const MIN_WINDOW_DAYS = 1;
 const MAX_WINDOW_DAYS = 365;
@@ -64,6 +72,11 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [audit, setAudit] = useState<AuditEntry[] | null>(null);
+  const [auditFailed, setAuditFailed] = useState(false);
+  const [auditLimit, setAuditLimit] = useState(AUDIT_FIRST_PAGE);
+  // A retry remounts the fetch without another state change to key on.
+  const [auditAttempt, setAuditAttempt] = useState(0);
 
   useEffect(() => {
     if (session.status !== "ready") return;
@@ -114,6 +127,34 @@ export default function SettingsPage() {
     };
   }, [session.status]);
 
+  // The audit log is owner-only, so an admin or a production role never asks
+  // for it. Like billing, a failure here is contained: the section explains
+  // itself and the rest of the settings still work.
+  useEffect(() => {
+    if (session.status !== "ready") return;
+    if (!session.me.permissions.includes("audit_read")) return;
+
+    const token = readToken();
+    if (!token) return;
+
+    let active = true;
+
+    api
+      .listAuditLogs(token, auditLimit)
+      .then((entries) => {
+        if (!active) return;
+        setAudit(entries);
+        setAuditFailed(false);
+      })
+      .catch(() => {
+        if (active) setAuditFailed(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session.status, auditLimit, auditAttempt]);
+
   useEffect(() => {
     if (!notice) return;
 
@@ -123,6 +164,7 @@ export default function SettingsPage() {
 
   const permissions = session.status === "ready" ? session.me.permissions : [];
   const canManage = permissions.includes("tenant_manage");
+  const canReadAudit = permissions.includes("audit_read");
 
   const months = Number(payMonths) || 0;
   const planPrice = billing?.plans.find((plan) => plan.id === payPlan)?.price ?? 0;
@@ -629,6 +671,23 @@ export default function SettingsPage() {
                 )}
               </section>
             )}
+
+            {canReadAudit && (
+              <AuditSection
+                entries={audit}
+                failed={auditFailed}
+                loading={audit === null && !auditFailed}
+                limit={auditLimit}
+                locale={locale}
+                onRetry={() => {
+                  setAudit(null);
+                  setAuditFailed(false);
+                  setAuditAttempt((attempt) => attempt + 1);
+                }}
+                onShowMore={() => setAuditLimit(AUDIT_LAST_PAGE)}
+                t={t}
+              />
+            )}
           </div>
 
           {/* A Radix dialog rather than `window.confirm`: the shell runs in an
@@ -675,17 +734,6 @@ export default function SettingsPage() {
         </AppShell>
       )}
     </>
-  );
-}
-
-function Intro({ title, body }: { title: string; body: string }) {
-  return (
-    <div>
-      <h2 className="text-base font-bold">{title}</h2>
-      <p className="mt-1.5 max-w-[60ch] text-sm leading-relaxed text-muted-foreground">
-        {body}
-      </p>
-    </div>
   );
 }
 
@@ -739,27 +787,6 @@ function statusVariant(
   if (status === "rejected") return "danger";
 
   return "neutral";
-}
-
-function methodName(t: Dictionary, method: string): string {
-  const methods = t.settings.billing.methods as Record<string, string | undefined>;
-
-  return methods[method] ?? method;
-}
-
-function planName(t: Dictionary, plan: string): string {
-  switch (plan) {
-    case "trial":
-      return t.settings.plan.trial;
-    case "starter":
-      return t.settings.plan.starter;
-    case "pro":
-      return t.settings.plan.pro;
-    case "business":
-      return t.settings.plan.business;
-    default:
-      return plan;
-  }
 }
 
 function isPast(value: string): boolean {
