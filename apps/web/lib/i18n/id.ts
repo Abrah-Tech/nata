@@ -433,7 +433,11 @@ export const id: Dictionary = {
     mobileProduction: "Produksi",
     mobileCashier: "Kasir",
     mobileAlerts: "Alert",
-    mobileGuide: "Bantuan",
+    mobileMore: "Lainnya",
+    more: {
+      title: "Lainnya",
+      close: "Tutup",
+    },
   },
   products: {
     title: "Produk & resep",
