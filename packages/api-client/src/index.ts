@@ -170,6 +170,32 @@ export type RecommendationList = {
   items: PurchaseRecommendation[];
 };
 
+export type PurchasePrice = {
+  id: string;
+  received_at: string;
+  qty: string;
+  unit_cost: string;
+  /** `qty * unit_cost`, computed by the server with `Decimal`. */
+  total: string;
+};
+
+export type SupplierPriceHistory = {
+  supplier_id: string | null;
+  supplier_name: string | null;
+  last_price: string;
+  lowest_price: string;
+  highest_price: string;
+  total_qty: string;
+  purchases: PurchasePrice[];
+};
+
+export type PriceHistory = {
+  material_id: string;
+  material_name: string;
+  unit_code: string;
+  suppliers: SupplierPriceHistory[];
+};
+
 export type SaleItem = {
   product_id: string;
   product_name: string;
@@ -1014,6 +1040,13 @@ export class ApiClient {
     return this.request<RecommendationList>("/purchasing/recommendations", {
       token,
     });
+  }
+
+  priceHistory(token: string, materialId: string): Promise<PriceHistory> {
+    return this.request<PriceHistory>(
+      `/purchasing/price-history?material_id=${encodeURIComponent(materialId)}`,
+      { token },
+    );
   }
 
   getSettings(token: string): Promise<TenantSettings> {
