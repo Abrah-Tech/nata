@@ -92,7 +92,11 @@ function scalar(
 ): string {
   if (value === null || value === undefined) return "";
 
-  if (key === "amount" || key === "labor_rate_per_hour") {
+  if (
+    key === "amount" ||
+    key === "labor_rate_per_hour" ||
+    key === "overhead_rate_per_hour"
+  ) {
     const numeric = Number(value);
 
     return Number.isFinite(numeric) ? formatMoney(numeric, locale) : String(value);

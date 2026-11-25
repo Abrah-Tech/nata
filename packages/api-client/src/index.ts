@@ -131,9 +131,10 @@ export type ProductionPreview = {
   recipe_id: string;
   recipe_version: number;
   yield_qty: string;
-  /** Labor minutes for one batch, and the tenant rate that prices them. */
+  /** Labor minutes for one batch, and the tenant rates that price them. */
   labor_minutes: number;
   labor_rate_per_hour: string;
+  overhead_rate_per_hour: string;
   qty: string;
   can_produce: boolean;
   /** Null when the run is short, because a partial cost would understate HPP. */
@@ -395,6 +396,8 @@ export type NewPayment = {
 
 export type TenantSettings = {
   labor_rate_per_hour: string;
+  /** Priced on the same recipe minutes as labor. */
+  overhead_rate_per_hour: string;
   /** Days of movement history purchase recommendations average over. */
   usage_window_days: number;
 };
@@ -402,6 +405,7 @@ export type TenantSettings = {
 /** Omitted fields keep their stored value. */
 export type TenantSettingsUpdate = {
   labor_rate_per_hour?: string;
+  overhead_rate_per_hour?: string;
   usage_window_days?: number;
 };
 

@@ -48,6 +48,7 @@ describe("detailParts", () => {
         entry(
           {
             labor_rate_per_hour: { from: "60000", to: "75000" },
+            overhead_rate_per_hour: { from: "0", to: "25000" },
             usage_window_days: { from: 30, to: 45 },
           },
           "settings.updated",
@@ -59,6 +60,10 @@ describe("detailParts", () => {
       {
         label: "Upah per jam",
         value: `${money("60.000")} → ${money("75.000")}`,
+      },
+      {
+        label: "Tarif overhead",
+        value: `${money("0")} → ${money("25.000")}`,
       },
       { label: "Jendela pemakaian", value: "30 hari → 45 hari" },
     ]);

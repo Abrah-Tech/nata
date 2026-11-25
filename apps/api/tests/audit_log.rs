@@ -67,7 +67,10 @@ async fn role_and_settings_changes_are_recorded(pool: PgPool) {
         &app,
         "PUT",
         "/settings",
-        Some(json!({ "labor_rate_per_hour": "15000" })),
+        Some(json!({
+            "labor_rate_per_hour": "15000",
+            "overhead_rate_per_hour": "25000"
+        })),
         Some(token),
     )
     .await;
@@ -94,6 +97,17 @@ async fn role_and_settings_changes_are_recorded(pool: PgPool) {
     assert_eq!(
         settings["metadata"]["labor_rate_per_hour"]["to"],
         "15000.00"
+    );
+
+    let overhead_from: Decimal = settings["metadata"]["overhead_rate_per_hour"]["from"]
+        .as_str()
+        .expect("from")
+        .parse()
+        .expect("decimal");
+    assert_eq!(overhead_from, Decimal::ZERO, "the tenant default is zero");
+    assert_eq!(
+        settings["metadata"]["overhead_rate_per_hour"]["to"],
+        "25000.00"
     );
 }
 

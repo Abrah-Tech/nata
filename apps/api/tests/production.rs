@@ -749,6 +749,91 @@ async fn labor_is_priced_from_the_tenant_rate(pool: PgPool) {
     assert_eq!(order["unit_cost"], "6150.0000");
 }
 
+async fn set_overhead_rate(app: &Router, token: &str, rate: &str) -> Value {
+    let (status, body) = call(
+        app,
+        "PUT",
+        "/settings",
+        Some(json!({ "overhead_rate_per_hour": rate })),
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    body
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn overhead_is_priced_on_the_same_minutes_as_labor(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let product_id = product(&app, token, "Kue lapis").await;
+    let flour = material(&app, token, "Tepung terigu").await;
+    create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
+    set_labor_rate(&app, token, "60000").await;
+    set_overhead_rate(&app, token, "25000").await;
+
+    // The recipe takes 30 minutes, so both rates are charged for half an hour:
+    // 30 000 of labor and 12 500 of overhead on top of 31 500 of material.
+    let (status, preview) = preview(
+        &app,
+        token,
+        json!({ "product_id": product_id, "qty": "10" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{preview}");
+    assert_eq!(preview["overhead_rate_per_hour"], "25000.00");
+    assert_eq!(preview["material_cost"], "31500.00");
+    assert_eq!(preview["labor_cost"], "30000.00");
+    assert_eq!(preview["overhead_cost"], "12500.00");
+    assert_eq!(preview["unit_cost"], "7400.0000");
+
+    let (status, order) = produce(
+        &app,
+        token,
+        json!({ "product_id": product_id, "qty": "10", "produced_on": "2026-11-10" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{order}");
+    assert_eq!(order["material_cost"], "31500.00");
+    assert_eq!(order["labor_cost"], "30000.00");
+    assert_eq!(order["overhead_cost"], "12500.00");
+    assert_eq!(order["unit_cost"], "7400.0000");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn overhead_follows_the_number_of_batches(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let product_id = product(&app, token, "Kue lapis").await;
+    let flour = material(&app, token, "Tepung terigu").await;
+    create_recipe(&app, token, product_id, recipe_body(flour, "2.5")).await;
+    stocked_batch(&app, token, flour, "5", &date_from_now(30), "12000").await;
+    set_overhead_rate(&app, token, "25000").await;
+
+    // Half a batch: overhead is 15 minutes at 25 000 an hour, and no labor rate
+    // is set, so labor stays out of the HPP.
+    let (status, order) = produce(
+        &app,
+        token,
+        json!({ "product_id": product_id, "qty": "5", "produced_on": "2026-11-10" }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::CREATED, "{order}");
+    assert_eq!(order["material_cost"], "15756.00");
+    assert_eq!(order["labor_cost"], "0");
+    assert_eq!(order["overhead_cost"], "6250.00");
+    assert_eq!(order["unit_cost"], "4401.2000");
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn labor_follows_the_number_of_batches(pool: PgPool) {
     let otp = CaptureOtp::default();

@@ -86,6 +86,9 @@ pub struct ProductionPreviewView {
     /// Minutes of labor for one batch, and the tenant rate that prices it.
     pub labor_minutes: i32,
     pub labor_rate_per_hour: Decimal,
+    /// The tenant's overhead rate. It is priced on the same minutes as labor,
+    /// so the screen can state one basis for both.
+    pub overhead_rate_per_hour: Decimal,
     pub qty: Decimal,
     /// False when any material is short; the UI must not allow the run.
     pub can_produce: bool,
@@ -179,6 +182,7 @@ struct PlannedOrder {
     yield_qty: Decimal,
     labor_minutes: i32,
     labor_rate_per_hour: Decimal,
+    overhead_rate_per_hour: Decimal,
     /// Days from production until a batch expires; null means it does not.
     shelf_life_days: Option<i32>,
     materials: Vec<MaterialPlan>,
@@ -263,13 +267,14 @@ async fn plan_order(
         _ => return Err(ApiError::Conflict("recipe_required")),
     };
 
-    // The rate belongs to the tenant, so it is read once per plan. Zero means
-    // no rate is configured and the run snapshots material cost only.
-    let (labor_rate_per_hour,): (Decimal,) =
-        sqlx::query_as("select labor_rate_per_hour from tenants where id = $1")
-            .bind(tenant_id)
-            .fetch_one(&mut **tx)
-            .await?;
+    // Both rates belong to the tenant, so they are read once per plan. Zero
+    // means no rate is configured and that component stays out of the HPP.
+    let (labor_rate_per_hour, overhead_rate_per_hour): (Decimal, Decimal) = sqlx::query_as(
+        "select labor_rate_per_hour, overhead_rate_per_hour from tenants where id = $1",
+    )
+    .bind(tenant_id)
+    .fetch_one(&mut **tx)
+    .await?;
 
     // Material order is part of the lock order: every run locks batches in
     // material id order, so two runs sharing materials cannot deadlock.
@@ -394,6 +399,7 @@ async fn plan_order(
         yield_qty,
         labor_minutes,
         labor_rate_per_hour,
+        overhead_rate_per_hour,
         shelf_life_days,
         materials,
         shortages,
@@ -403,8 +409,9 @@ async fn plan_order(
 /// Snapshot cost from the plan.
 ///
 /// A recipe's `labor_minutes` covers one batch, so a run of `qty` units takes
-/// `qty / yield_qty` batches of labor. Overhead stays zero until a tenant
-/// overhead input exists; the core already accepts the component.
+/// `qty / yield_qty` batches. Labor and overhead are priced on those same
+/// minutes: [`nata_core::hourly_cost`] is the single place the run's duration
+/// becomes an amount, and the two tenant rates only scale it.
 fn order_cost(planned: &PlannedOrder, production_qty: Decimal) -> Result<ProductionCost, ApiError> {
     let consumption_costs: Vec<Consumption> = planned
         .materials
@@ -417,14 +424,21 @@ fn order_cost(planned: &PlannedOrder, production_qty: Decimal) -> Result<Product
         })
         .collect();
 
-    let hours = Decimal::from(planned.labor_minutes) / Decimal::from(60);
     let batches = production_qty / planned.yield_qty;
-    let labor_cost = planned.labor_rate_per_hour * hours * batches;
+    let labor_cost =
+        nata_core::hourly_cost(planned.labor_rate_per_hour, planned.labor_minutes, batches)
+            .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?;
+    let overhead_cost = nata_core::hourly_cost(
+        planned.overhead_rate_per_hour,
+        planned.labor_minutes,
+        batches,
+    )
+    .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?;
 
     nata_core::production_cost(
         &consumption_costs,
         labor_cost,
-        Decimal::ZERO,
+        overhead_cost,
         production_qty,
     )
     .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))
@@ -506,6 +520,7 @@ pub async fn preview_order(
         yield_qty: planned.yield_qty,
         labor_minutes: planned.labor_minutes,
         labor_rate_per_hour: planned.labor_rate_per_hour,
+        overhead_rate_per_hour: planned.overhead_rate_per_hour,
         qty: production_qty,
         can_produce,
         material_cost: cost.map(|cost| at_scale(cost.material_cost, 2)),

@@ -252,6 +252,8 @@ export default function ProductionPage() {
           labor: preview.labor_cost,
           laborMinutes: preview.labor_minutes,
           laborRate: preview.labor_rate_per_hour,
+          overhead: preview.overhead_cost,
+          overheadRate: preview.overhead_rate_per_hour,
           margin: preview.margin,
           marginPct: preview.margin_pct,
           sellPrice: preview.sell_price,
@@ -642,7 +644,7 @@ export default function ProductionPage() {
                     </header>
 
                     {cost && (
-                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
                         <CostTile label={t.production.plan.hpp} primary>
                           {formatMoney(Number(cost.unit), locale)}
                         </CostTile>
@@ -680,6 +682,22 @@ export default function ProductionPage() {
                           }
                         >
                           {formatMoney(Number(cost.labor), locale)}
+                        </CostTile>
+                        <CostTile
+                          label={t.production.plan.overheadCost}
+                          note={
+                            Number(cost.overhead) > 0
+                              ? fill(t.production.plan.overheadDetail, {
+                                  minutes: cost.laborMinutes,
+                                  rate: formatMoney(
+                                    Number(cost.overheadRate),
+                                    locale,
+                                  ),
+                                })
+                              : t.production.plan.noOverheadRate
+                          }
+                        >
+                          {formatMoney(Number(cost.overhead), locale)}
                         </CostTile>
                       </div>
                     )}

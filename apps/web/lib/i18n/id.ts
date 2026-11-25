@@ -702,6 +702,12 @@ export const id: Dictionary = {
       hint: "Dalam rupiah. Biarkan 0 kalau tenaga kerja belum ingin dihitung di HPP.",
       readOnly: "Hanya owner atau admin yang bisa mengubah tarif.",
     },
+    overhead: {
+      title: "Biaya operasional produksi",
+      body: "Sewa tempat, listrik, dan keausan peralatan milik proses produksi, bukan satu bahan. Atur biaya satu jam produksi, lalu setiap proses baru menambahkannya ke HPP.",
+      label: "Tarif overhead per jam",
+      hint: "Dalam rupiah. Dihitung dari menit tenaga kerja resep, jadi kedua tarif berbagi satu durasi. Biarkan 0 kalau overhead belum ingin dihitung di HPP.",
+    },
     plan: {
       title: "Paket",
       trial: "Trial",
@@ -874,6 +880,7 @@ export const id: Dictionary = {
         period_start: "Mulai",
         period_end: "Sampai",
         labor_rate_per_hour: "Upah per jam",
+        overhead_rate_per_hour: "Tarif overhead",
         usage_window_days: "Jendela pemakaian",
         days_before: "Hari sebelum kedaluwarsa",
         channel: "Kanal",
@@ -885,6 +892,7 @@ export const id: Dictionary = {
     saving: "Menyimpan…",
     errors: {
       invalidRate: "Tarif tidak boleh negatif.",
+      invalidOverhead: "Tarif overhead tidak boleh negatif.",
       invalidWindow: "Jendela harus antara 1 dan 365 hari.",
       forbidden: "Kamu tidak punya izin mengubah pengaturan.",
       generic: "Ada yang salah. Coba lagi.",
@@ -968,6 +976,9 @@ export const id: Dictionary = {
       laborCost: "Biaya tenaga kerja",
       laborDetail: "{minutes} menit @ {rate}/jam",
       noLaborRate: "Tarif tenaga kerja belum diatur",
+      overheadCost: "Overhead",
+      overheadDetail: "{minutes} menit @ {rate}/jam",
+      noOverheadRate: "Tarif overhead belum diatur",
       readyTitle: "Siap diproduksi",
       readyBody:
         "Semua bahan tercukupi. Mencatat produksi akan mengurangi stok dan menyimpan HPP.",
@@ -1767,7 +1778,7 @@ export const id: Dictionary = {
         ],
         nextId: "team",
         tips: [
-          "Tarif tenaga kerja adalah satu-satunya input tenaga kerja; overhead selalu nol.",
+          "Tarif tenaga kerja dan overhead memakai menit produksi yang sama; biarkan 0 kalau salah satunya belum ingin dihitung.",
           "Kalau tarifnya dikosongkan, tersimpan sebagai nol.",
           "Layar ini tidak bisa mengubah paket atau mengganti nama usaha. Ia mencatat pembayaran untuk paket yang kamu pilih; mengundang orang ada di Tim & langganan.",
           "Pengguna hanya-baca melihat isian sebagai hanya-baca dan tidak ada tombol Simpan.",

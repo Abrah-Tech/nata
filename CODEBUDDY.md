@@ -132,7 +132,7 @@ The order stores the `recipe_id` it consumed; creating a newer recipe version ne
 
 Cost is snapshotted in the same transaction: `material_cost` is the sum of `production_consumptions.qty × unit_cost`, and `unit_cost` is the total divided by `actual_qty` (four decimals, D7), so a later purchase at a different price never changes a past HPP.
 
-Labor is priced from `tenants.labor_rate_per_hour` (set through `PUT /settings`): a recipe's `labor_minutes` covers one batch, so a run of `qty` units costs `rate × minutes / 60 × (qty ÷ yield_qty)`. The rate is read once per plan and stored in the order, so changing it never rewrites history. A zero rate means labor is left out of the HPP. `overhead_cost` stays zero until a tenant overhead input exists; `nata_core::production_cost` already accepts the component.
+Labor and overhead are priced the same way, from `tenants.labor_rate_per_hour` and `tenants.overhead_rate_per_hour` (both set through `PUT /settings`): a recipe's `labor_minutes` covers one batch, so a run of `qty` units costs `rate × minutes / 60 × (qty ÷ yield_qty)` for each component. `nata_core::hourly_cost` is the one function that turns those minutes into an amount, so the two components cannot drift onto different bases. Both rates are read once per plan and stored in the order, so changing either never rewrites history, and a zero rate leaves that component out of the HPP.
 
 `/settings` is readable by any member because it explains the HPP and the shopping list they see; `PUT /settings` requires `tenant_manage` (owner, admin). Fields are optional: an omitted field keeps its stored value.
 
