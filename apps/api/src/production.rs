@@ -12,7 +12,12 @@
 
 use std::collections::HashMap;
 
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use rust_decimal::{Decimal, RoundingStrategy};
 use serde::{Deserialize, Serialize};
@@ -703,8 +708,142 @@ pub async fn create_order(
     ))
 }
 
+/// How far ahead a suggestion may look. Past a fortnight the sales rate is a
+/// guess, and the shelf-life cap would have refused most of the run anyway.
+const MAX_DAYS_AHEAD: i32 = 14;
+
+#[derive(Debug, Deserialize)]
+pub struct SuggestionsQuery {
+    /// Days of sales the run is meant to cover. Defaults to tomorrow.
+    pub days: Option<i32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SuggestionsView {
+    pub days_ahead: i32,
+    /// The sales window the daily rate is measured over, from the tenant's
+    /// settings. Reported so the screen can state its own basis.
+    pub window_days: i32,
+    pub products: Vec<SuggestionView>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SuggestionView {
+    pub product_id: Uuid,
+    pub product_name: String,
+    pub average_daily_sales: Decimal,
+    /// Stock that can still be sold; expired batches are already excluded.
+    pub sellable_stock: Decimal,
+    /// Sales the run is meant to cover, before the shelf-life cap.
+    pub target_qty: Decimal,
+    pub recommended_qty: Decimal,
+    /// True when shelf life, not the sales target, decided the quantity.
+    pub capped_by_shelf_life: bool,
+    /// True when nothing sold in the window, so there is no rate to plan from.
+    pub insufficient_history: bool,
+}
+
+type SuggestionRow = (Uuid, String, Option<i32>, Decimal, Decimal);
+
+/// Suggests how much of each product to make for the next `days` days.
+///
+/// Only products with a recipe are listed: without one, the run cannot be
+/// previewed or created, so a suggestion would be an action the app refuses.
+pub async fn suggestions(
+    State(state): State<AppState>,
+    guard: Require<CanReadProduction>,
+    Query(query): Query<SuggestionsQuery>,
+) -> Result<Json<SuggestionsView>, ApiError> {
+    let auth = guard.auth;
+    let days_ahead = query.days.unwrap_or(1);
+
+    if !(1..=MAX_DAYS_AHEAD).contains(&days_ahead) {
+        return Err(ApiError::BadRequest("invalid_days"));
+    }
+
+    let db = state.db()?;
+    let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+
+    // The same window the shopping list and the reports use: one setting, one
+    // explanation, so the numbers on different screens cannot disagree.
+    let (window_days,): (i32,) =
+        sqlx::query_as("select usage_window_days from tenants where id = $1")
+            .bind(auth.tenant_id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+    let rows: Vec<SuggestionRow> = sqlx::query_as(
+        "with sold as (
+             select si.product_id, sum(si.qty)::numeric(18,3) as qty
+             from sale_items si
+             join sales s on s.id = si.sale_id
+             where si.tenant_id = $1
+               and s.sold_at >= now() - make_interval(days => $2)
+             group by si.product_id
+         )
+         select p.id, p.name, p.shelf_life_days,
+                (select coalesce(sum(b.qty_remaining), 0)::numeric(18,3)
+                   from product_batches b
+                  where b.tenant_id = p.tenant_id
+                    and b.product_id = p.id
+                    and b.qty_remaining > 0
+                    and (b.expires_at is null or b.expires_at >= current_date)) as sellable_qty,
+                coalesce(sold.qty, 0) as sold_qty
+         from products p
+         left join sold on sold.product_id = p.id
+         where p.tenant_id = $1 and p.is_active and p.current_recipe_id is not null
+         order by p.name",
+    )
+    .bind(auth.tenant_id)
+    .bind(window_days)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    let mut products = Vec::with_capacity(rows.len());
+
+    for (product_id, product_name, shelf_life_days, sellable_stock, sold_qty) in rows {
+        let average_daily_sales = nata_core::average_daily_sales(sold_qty, window_days as u32)
+            .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?;
+
+        let plan = nata_core::production_plan(nata_core::ProductionInput {
+            sellable_stock,
+            average_daily_sales,
+            days_ahead,
+            shelf_life_days,
+        })
+        .map_err(|error| ApiError::Internal(anyhow::Error::new(error)))?;
+
+        products.push(SuggestionView {
+            product_id,
+            product_name,
+            average_daily_sales: at_scale(average_daily_sales, LEDGER_SCALE),
+            sellable_stock,
+            target_qty: plan.target_qty,
+            recommended_qty: plan.recommended_qty,
+            capped_by_shelf_life: plan.capped_by_shelf_life,
+            insufficient_history: sold_qty == Decimal::ZERO,
+        });
+    }
+
+    // Largest gap first, so the screen reads as a work list.
+    products.sort_by(|a, b| {
+        b.recommended_qty
+            .cmp(&a.recommended_qty)
+            .then_with(|| a.product_name.cmp(&b.product_name))
+    });
+
+    Ok(Json(SuggestionsView {
+        days_ahead,
+        window_days,
+        products,
+    }))
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/production-orders", post(create_order))
         .route("/production-orders/preview", post(preview_order))
+        .route("/production/suggestions", get(suggestions))
 }

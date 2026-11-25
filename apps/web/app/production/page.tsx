@@ -5,15 +5,17 @@ import {
   type Product,
   type ProductionOrder,
   type ProductionPreview,
+  type ProductionSuggestion,
 } from "@nata/api-client";
 import { AlertTriangle, CheckCircle2, ChefHat } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { FirstStepsHint } from "@/components/first-steps-hint";
 import {
   LoadingRegion,
   SkeletonForm,
+  SkeletonList,
   SkeletonStats,
 } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +76,11 @@ export default function ProductionPage() {
   const [order, setOrder] = useState<ProductionOrder | null>(null);
   const [busy, setBusy] = useState<"preview" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [daysAhead, setDaysAhead] = useState(1);
+  const [suggestions, setSuggestions] = useState<ProductionSuggestion[] | null>(null);
+  const [suggestionWindow, setSuggestionWindow] = useState<number | null>(null);
+  const [suggestionsFailed, setSuggestionsFailed] = useState(false);
+  const runRef = useRef<HTMLFormElement | null>(null);
 
   const fetchProducts = useCallback(async () => {
     const token = readToken();
@@ -92,11 +99,29 @@ export default function ProductionPage() {
     }
   }, []);
 
+  const fetchSuggestions = useCallback(async (days: number) => {
+    const token = readToken();
+
+    if (!token) return;
+
+    setSuggestions(null);
+    setSuggestionsFailed(false);
+
+    try {
+      const result = await api.productionSuggestions(token, days);
+      setSuggestions(result.products);
+      setSuggestionWindow(result.window_days);
+    } catch {
+      setSuggestionsFailed(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (session.status === "ready") {
       void fetchProducts();
+      void fetchSuggestions(daysAhead);
     }
-  }, [session.status, fetchProducts]);
+  }, [session.status, daysAhead, fetchProducts, fetchSuggestions]);
 
   const products = load.status === "ready" ? load.products : [];
 
@@ -130,6 +155,17 @@ export default function ProductionPage() {
     setPreview(null);
     setOrder(null);
     setError(null);
+  }
+
+  /** Fills the run form from a suggestion, so the numbers are a starting point
+   * the user can still change before previewing. */
+  function applySuggestion(row: ProductionSuggestion) {
+    setProductId(row.product_id);
+    setQty(formatQty(row.recommended_qty, locale));
+    setPreview(null);
+    setOrder(null);
+    setError(null);
+    runRef.current?.scrollIntoView({ block: "start" });
   }
 
   async function runPreview(event: React.FormEvent<HTMLFormElement>) {
@@ -193,6 +229,8 @@ export default function ProductionPage() {
       setPreview(null);
       setOrder(result);
       void fetchProducts();
+      // The run changed finished stock, so the suggestions are stale.
+      void fetchSuggestions(daysAhead);
     } catch (cause) {
       setError(productionError(t, cause));
       // Stock changed underneath the preview; make the user look again.
@@ -269,6 +307,145 @@ export default function ProductionPage() {
             </header>
 
             <FirstStepsHint at="production" />
+
+            {load.status === "ready" && producible.length > 0 && (
+              <section className="flex flex-col gap-3.5 rounded-xl border border-border bg-card p-4.5">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold">
+                      {t.production.suggestions.title}
+                    </h2>
+                    {suggestionWindow !== null && (
+                      <p className="mt-0.5 text-xs text-ink-3">
+                        {fill(t.production.suggestions.subtitle, {
+                          days: suggestionWindow,
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="suggestions-period">
+                      {t.production.suggestions.period}
+                    </Label>
+                    <Select
+                      id="suggestions-period"
+                      value={String(daysAhead)}
+                      onChange={(event) =>
+                        setDaysAhead(Number(event.target.value))
+                      }
+                      className="w-full sm:w-32"
+                    >
+                      {[1, 2, 3, 7].map((days) => (
+                        <option key={days} value={days}>
+                          {days === 1
+                            ? t.production.suggestions.tomorrow
+                            : fill(t.production.suggestions.days, {
+                                count: days,
+                              })}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </header>
+
+                {suggestionsFailed && (
+                  <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-alt p-3.5">
+                    <p className="text-sm text-muted-foreground">
+                      {t.production.suggestions.error}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="self-start"
+                      type="button"
+                      onClick={() => void fetchSuggestions(daysAhead)}
+                    >
+                      {t.production.retry}
+                    </Button>
+                  </div>
+                )}
+
+                {!suggestionsFailed && suggestions === null && (
+                  <LoadingRegion label={t.production.suggestions.title}>
+                    <SkeletonList rows={3} />
+                  </LoadingRegion>
+                )}
+
+                {!suggestionsFailed && suggestions !== null && suggestions.length === 0 && (
+                  <p className="rounded-lg bg-surface-alt px-3 py-2.5 text-xs text-ink-3">
+                    {t.production.suggestions.empty}
+                  </p>
+                )}
+
+                {!suggestionsFailed && suggestions !== null && suggestions.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    {suggestions.map((row) => (
+                      <div
+                        className="flex flex-col gap-2.5 rounded-lg border border-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                        key={row.product_id}
+                      >
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <strong className="truncate text-sm font-semibold">
+                              {row.product_name}
+                            </strong>
+                            {row.capped_by_shelf_life && (
+                              <Badge
+                                variant="warning"
+                                className="shrink-0 text-2xs"
+                              >
+                                {t.production.suggestions.capped}
+                              </Badge>
+                            )}
+                          </div>
+                          {row.insufficient_history && (
+                            <span className="text-2xs text-ink-3">
+                              {fill(t.production.suggestions.noHistory, {
+                                days: suggestionWindow ?? 0,
+                              })}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-end gap-3.5 sm:items-center sm:gap-4.5">
+                          <PlanNumber
+                            label={t.production.suggestions.average}
+                            value={formatQty(row.average_daily_sales, locale)}
+                          />
+                          <PlanNumber
+                            label={t.production.suggestions.stock}
+                            value={formatQty(row.sellable_stock, locale)}
+                          />
+                          <PlanNumber
+                            label={t.production.suggestions.suggested}
+                            value={formatQty(row.recommended_qty, locale)}
+                            primary
+                          />
+                          {canWrite && Number(row.recommended_qty) > 0 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className="sm:self-center"
+                              onClick={() => applySuggestion(row)}
+                              aria-label={fill(
+                                t.production.suggestions.useNamed,
+                                {
+                                  qty: formatQty(row.recommended_qty, locale),
+                                  name: row.product_name,
+                                },
+                              )}
+                            >
+                              {t.production.suggestions.use}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
 
             {load.status === "loading" && (
               <LoadingRegion
@@ -359,6 +536,7 @@ export default function ProductionPage() {
             {load.status === "ready" && producible.length > 0 && !order && (
               <>
                 <form
+                  ref={runRef}
                   className="flex flex-col gap-3.5 rounded-xl border border-border bg-card p-4.5"
                   onSubmit={runPreview}
                 >
@@ -679,10 +857,12 @@ function PlanNumber({
   label,
   value,
   tone,
+  primary,
 }: {
   label: string;
   value: string;
   tone?: "danger";
+  primary?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-px text-left sm:text-right">
@@ -693,6 +873,7 @@ function PlanNumber({
         className={cn(
           "text-xs font-bold tabular-nums",
           tone === "danger" && "text-destructive",
+          primary && "text-brand",
         )}
       >
         {value}

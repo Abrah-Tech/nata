@@ -170,6 +170,27 @@ export type RecommendationList = {
   items: PurchaseRecommendation[];
 };
 
+export type ProductionSuggestion = {
+  product_id: string;
+  product_name: string;
+  average_daily_sales: string;
+  /** Stock that can still be sold; expired batches are already excluded. */
+  sellable_stock: string;
+  /** Sales the run is meant to cover, before the shelf-life cap. */
+  target_qty: string;
+  recommended_qty: string;
+  /** True when shelf life, not the sales target, decided the quantity. */
+  capped_by_shelf_life: boolean;
+  /** No sales in the window, so there is no rate to plan from. */
+  insufficient_history: boolean;
+};
+
+export type ProductionSuggestions = {
+  days_ahead: number;
+  window_days: number;
+  products: ProductionSuggestion[];
+};
+
 export type PurchasePrice = {
   id: string;
   received_at: string;
@@ -1148,6 +1169,16 @@ export class ApiClient {
       token,
       body,
     });
+  }
+
+  productionSuggestions(
+    token: string,
+    daysAhead: number,
+  ): Promise<ProductionSuggestions> {
+    return this.request<ProductionSuggestions>(
+      `/production/suggestions?days=${encodeURIComponent(daysAhead)}`,
+      { token },
+    );
   }
 
   listOnboardingTemplates(token: string): Promise<OnboardingTemplate[]> {
