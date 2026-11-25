@@ -118,7 +118,7 @@ async fn suggestions(app: &Router, token: &str, days: Option<i32>) -> (StatusCod
 }
 
 /// Finds one product's suggestion by id.
-fn find<'a>(body: &'a Value, product_id: Uuid) -> &'a Value {
+fn find(body: &Value, product_id: Uuid) -> &Value {
     body["products"]
         .as_array()
         .expect("products")
