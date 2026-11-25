@@ -16,6 +16,7 @@ pub enum Role {
     Admin,
     Production,
     Viewer,
+    Cashier,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
@@ -29,6 +30,7 @@ pub enum Permission {
     RecipeWrite,
     ProductionRead,
     ProductionWrite,
+    ProductRead,
     SalesRead,
     SalesWrite,
     ReportRead,
@@ -42,7 +44,7 @@ pub enum Permission {
 }
 
 impl Permission {
-    pub const ALL: [Permission; 18] = [
+    pub const ALL: [Permission; 19] = [
         Permission::MaterialRead,
         Permission::MaterialWrite,
         Permission::BatchWrite,
@@ -51,6 +53,7 @@ impl Permission {
         Permission::RecipeWrite,
         Permission::ProductionRead,
         Permission::ProductionWrite,
+        Permission::ProductRead,
         Permission::SalesRead,
         Permission::SalesWrite,
         Permission::ReportRead,
@@ -73,6 +76,7 @@ impl Permission {
             Permission::RecipeWrite => "recipe_write",
             Permission::ProductionRead => "production_read",
             Permission::ProductionWrite => "production_write",
+            Permission::ProductRead => "product_read",
             Permission::SalesRead => "sales_read",
             Permission::SalesWrite => "sales_write",
             Permission::ReportRead => "report_read",
@@ -88,7 +92,13 @@ impl Permission {
 }
 
 impl Role {
-    pub const ALL: [Role; 4] = [Role::Owner, Role::Admin, Role::Production, Role::Viewer];
+    pub const ALL: [Role; 5] = [
+        Role::Owner,
+        Role::Admin,
+        Role::Production,
+        Role::Viewer,
+        Role::Cashier,
+    ];
 
     pub const fn permissions(self) -> &'static [Permission] {
         match self {
@@ -101,6 +111,7 @@ impl Role {
                 Permission::RecipeWrite,
                 Permission::ProductionRead,
                 Permission::ProductionWrite,
+                Permission::ProductRead,
                 Permission::SalesRead,
                 Permission::SalesWrite,
                 Permission::ReportRead,
@@ -123,6 +134,7 @@ impl Role {
                 Permission::RecipeWrite,
                 Permission::ProductionRead,
                 Permission::ProductionWrite,
+                Permission::ProductRead,
                 Permission::SalesRead,
                 Permission::SalesWrite,
                 Permission::ReportRead,
@@ -136,6 +148,7 @@ impl Role {
                 Permission::RecipeRead,
                 Permission::ProductionRead,
                 Permission::ProductionWrite,
+                Permission::ProductRead,
                 Permission::SalesRead,
                 Permission::ReportRead,
                 Permission::MemberRead,
@@ -144,9 +157,18 @@ impl Role {
                 Permission::MaterialRead,
                 Permission::RecipeRead,
                 Permission::ProductionRead,
+                Permission::ProductRead,
                 Permission::SalesRead,
                 Permission::ReportRead,
                 Permission::MemberRead,
+            ],
+            // A cashier runs the register: it needs the sellable catalogue and
+            // the sales document, and nothing that reveals cost or margin. The
+            // product row carries no cost, so ProductRead is safe to grant.
+            Role::Cashier => &[
+                Permission::ProductRead,
+                Permission::SalesRead,
+                Permission::SalesWrite,
             ],
         }
     }
@@ -162,6 +184,9 @@ impl Role {
             Role::Admin => 2,
             Role::Production => 1,
             Role::Viewer => 0,
+            // A cashier is a peer of production, not below it: the register and
+            // the kitchen are separate desks, and neither manages the other.
+            Role::Cashier => 1,
         }
     }
 
@@ -181,6 +206,7 @@ impl Role {
             Role::Admin => "admin",
             Role::Production => "production",
             Role::Viewer => "viewer",
+            Role::Cashier => "cashier",
         }
     }
 }
@@ -211,6 +237,7 @@ impl FromStr for Role {
             "admin" => Ok(Role::Admin),
             "production" => Ok(Role::Production),
             "viewer" => Ok(Role::Viewer),
+            "cashier" => Ok(Role::Cashier),
             _ => Err(ParseRoleError),
         }
     }
@@ -294,6 +321,7 @@ mod tests {
             vec![
                 "material_read",
                 "member_read",
+                "product_read",
                 "production_read",
                 "recipe_read",
                 "report_read",
@@ -306,6 +334,7 @@ mod tests {
                 "batch_write",
                 "material_read",
                 "member_read",
+                "product_read",
                 "production_read",
                 "production_write",
                 "recipe_read",
@@ -322,6 +351,7 @@ mod tests {
                 "member_invite",
                 "member_manage",
                 "member_read",
+                "product_read",
                 "production_read",
                 "production_write",
                 "recipe_read",
@@ -333,9 +363,40 @@ mod tests {
             ]
         );
         assert_eq!(
+            names(Role::Cashier.permissions()),
+            vec!["product_read", "sales_read", "sales_write"]
+        );
+        assert_eq!(
             names(Role::Owner.permissions()).len(),
             Permission::ALL.len()
         );
+    }
+
+    #[test]
+    fn cashier_is_covered_by_admin_and_sees_no_cost() {
+        for permission in Role::Cashier.permissions() {
+            assert!(
+                Role::Admin.can(*permission),
+                "admin is missing {}",
+                permission.as_str()
+            );
+        }
+
+        // Cost reaches the UI through the material, recipe, production, and
+        // report reads. A cashier holds none of them, so neither HPP nor margin
+        // is reachable from the register.
+        for permission in [
+            Permission::MaterialRead,
+            Permission::RecipeRead,
+            Permission::ProductionRead,
+            Permission::ReportRead,
+        ] {
+            assert!(
+                !Role::Cashier.can(permission),
+                "cashier must not hold {}",
+                permission.as_str()
+            );
+        }
     }
 
     #[test]
@@ -344,16 +405,21 @@ mod tests {
         assert!(Role::Owner.can_manage(Role::Admin));
         assert!(Role::Owner.can_manage(Role::Production));
         assert!(Role::Owner.can_manage(Role::Viewer));
+        assert!(Role::Owner.can_manage(Role::Cashier));
 
         assert!(!Role::Admin.can_manage(Role::Owner));
         assert!(!Role::Admin.can_manage(Role::Admin));
         assert!(Role::Admin.can_manage(Role::Production));
         assert!(Role::Admin.can_manage(Role::Viewer));
+        assert!(Role::Admin.can_manage(Role::Cashier));
 
         assert!(!Role::Production.can_manage(Role::Production));
         assert!(Role::Production.can_manage(Role::Viewer));
+        // Separate desks: the kitchen never manages the register.
+        assert!(!Role::Production.can_manage(Role::Cashier));
 
         assert!(!Role::Viewer.can_manage(Role::Viewer));
+        assert!(!Role::Cashier.can_manage(Role::Cashier));
     }
 
     #[test]

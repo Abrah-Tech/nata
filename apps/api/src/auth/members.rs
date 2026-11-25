@@ -216,6 +216,7 @@ pub async fn list_members(
                     when 'owner' then 0
                     when 'admin' then 1
                     when 'production' then 2
+                    when 'cashier' then 2
                     else 3
                   end,
                   u.name",

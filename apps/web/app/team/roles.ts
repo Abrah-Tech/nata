@@ -6,6 +6,7 @@ import type { Dictionary } from "@/lib/i18n";
 export const ROLE_RANK: Record<Role, number> = {
   viewer: 0,
   production: 1,
+  cashier: 1,
   admin: 2,
   owner: 3,
 };

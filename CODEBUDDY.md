@@ -120,7 +120,7 @@ Stock is a batch ledger, not a scalar. `material_batches.qty_remaining` is on-ha
 
 ### Recipes
 
-Recipes are versioned, never edited in place. Creating a recipe version deactivates the previous one, and every version keeps its own `recipe_items`; production will point at the exact version it consumed so historical HPP never changes. A partial unique index enforces one active version per product, and the database rejects a recipe whose product belongs to another tenant. `products.current_recipe_id` follows the newest version and is null when the product has no recipe. Products share the `recipe_read`/`recipe_write` permissions — the RBAC matrix has no separate product permission.
+Recipes are versioned, never edited in place. Creating a recipe version deactivates the previous one, and every version keeps its own `recipe_items`; production will point at the exact version it consumed so historical HPP never changes. A partial unique index enforces one active version per product, and the database rejects a recipe whose product belongs to another tenant. `products.current_recipe_id` follows the newest version and is null when the product has no recipe. Reading a product is its own `product_read` permission rather than a side effect of `recipe_read`: the register needs the catalogue, while the recipe behind it carries quantities and waste a cashier has no reason to see. Writing a product still needs `recipe_write`.
 
 ### Production
 
@@ -144,7 +144,7 @@ A sale is the only writer that removes finished goods. `POST /sales` runs in one
 
 `client_ref` (uuid) is the idempotency key for imports and retries: replaying the same document returns the first sale with `200` and moves stock once. `sale_items` carries `tenant_id` so the composite foreign key proves the product belongs to the same tenant; RLS isolates it directly rather than through an `EXISTS` policy.
 
-Channels are validated in the API (`toko`, `reseller`, `online`, `lainnya`) and stored as text, so adding one is a code change rather than a migration. `GET /sales?limit=` returns newest first with their lines. Reads need `sales_read` (every role); writes need `sales_write` (owner, admin).
+Channels are validated in the API (`toko`, `reseller`, `online`, `lainnya`) and stored as text, so adding one is a code change rather than a migration. `GET /sales?limit=` returns newest first with their lines. Reads need `sales_read` (every role); writes need `sales_write` (owner, admin, cashier).
 
 `POST /sales/import?format=csv&tz_offset=` reads a CSV as raw bytes and groups rows into sales by the user's own `sale_ref`. That reference is hashed into the sale's `client_ref` (UUID v5, scoped to the tenant), so re-importing the same file reports `duplicate` instead of subtracting the stock twice; a row without a reference is a new sale every time, because the server has nothing to recognise it by. Each sale is its own transaction, so one bad row never rolls back the rest, and rows are reported with their spreadsheet line number. `tz_offset` is minutes east of UTC for timestamps written without an offset (Jakarta is 420). Only CSV is accepted: an xlsx date cell arrives as a serial number. The template ships at `apps/web/public/templates/sales-import.csv`.
 
@@ -160,7 +160,7 @@ A create over the limit is refused with `403 plan_limit_reached` and `details { 
 
 ### Members & invitations
 
-`memberships` is the join table: `(tenant_id, user_id, role, status, invited_by, joined_at)`. `Role::rank` is owner 3, admin 2, production 1, viewer 0, and `can_manage(mine, target)` is `rank(mine) > rank(target)`, or an owner managing another owner.
+`memberships` is the join table: `(tenant_id, user_id, role, status, invited_by, joined_at)`. `Role::rank` is owner 3, admin 2, production 1, cashier 1, viewer 0, and `can_manage(mine, target)` is `rank(mine) > rank(target)`, or an owner managing another owner. Cashier sits beside production rather than below it — the register and the kitchen are separate desks, and neither manages the other. It holds only `product_read`, `sales_read`, and `sales_write`, so no route that carries a cost or a margin is reachable from it; `apps/web/lib/landing.ts` sends it to `/sales` for the same reason.
 
 The guards live in `apps/api/src/auth/members.rs`:
 

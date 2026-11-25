@@ -4,7 +4,7 @@ export type HealthResponse = {
   version: string;
 };
 
-export type Role = "owner" | "admin" | "production" | "viewer";
+export type Role = "owner" | "admin" | "production" | "viewer" | "cashier";
 
 export type TenantSummary = {
   id: string;

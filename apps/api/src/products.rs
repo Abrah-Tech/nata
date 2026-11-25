@@ -1,7 +1,9 @@
 //! Finished products.
 //!
-//! Products share the recipe permissions: in this phase a product exists to
-//! own a recipe, and the RBAC matrix has no separate product permission.
+//! Reading a product is its own permission (`ProductRead`), separate from
+//! `RecipeRead`: the register needs the sellable catalogue, while the recipe
+//! behind it carries quantities and waste that a cashier has no reason to see.
+//! A product row holds a price and a stock count but never a cost.
 //! `current_recipe_id` and the production gate belong to P2-02.
 
 use axum::{
@@ -16,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::auth::guard::{CanReadRecipes, CanWriteRecipes, Require};
+use crate::auth::guard::{CanReadProducts, CanWriteRecipes, Require};
 use crate::{error::ApiError, AppState};
 
 #[derive(Debug, Serialize)]
@@ -153,7 +155,7 @@ async fn fetch_product(
 
 pub async fn list_products(
     State(state): State<AppState>,
-    guard: Require<CanReadRecipes>,
+    guard: Require<CanReadProducts>,
 ) -> Result<Json<Vec<ProductView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;

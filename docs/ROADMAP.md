@@ -279,7 +279,7 @@ Goal: the repo builds, multi-tenant auth works, and the Android app installs on 
 | P0-06 | OTP + JWT auth: provider abstraction (dev stub), OTP request/verify, JWT carrying `user_id` + `tenant_id`, tenant selection endpoint | End-to-end login in dev; tokens without `tenant_id` are rejected; multi-tenant users can switch tenants |
 | P0-07 | Bootstrap web + shell: Next static export, login page, generated TS client, Tauri Android init | `bun run --filter web build` produces `out/`; the debug APK installs and runs on 2 low-end Android phones |
 | P0-08 | Validation interviews with 10–15 F&B producers **(owner: user)** | 3–5 agree to try the product and pay |
-| P0-09 | RBAC matrix in `nata-domain`: `Role`, `Permission`, `can()` | Matrix covers owner/admin/production/viewer; pure, no IO, covered by golden tests |
+| P0-09 | RBAC matrix in `nata-domain`: `Role`, `Permission`, `can()` | Matrix covers owner/admin/production/viewer/cashier; pure, no IO, covered by golden tests |
 | P0-10 | `AuthContext` extractor and `/me`: JWT → active membership → role | Suspended membership gets 403; a role change applies on the next request without re-login; `/me` returns the effective permissions |
 | P0-11 | Permission-gated routes + invitation flow | Every mutating route declares a permission; removing or demoting the last owner fails inside the transaction; 403 paths have integration tests |
 | P0-12 | UI i18n foundation: `id` and `en` dictionaries, locale switch, no hardcoded copy | Login and dashboard render in both locales; a missing key fails the build |
@@ -288,7 +288,7 @@ Goal: the repo builds, multi-tenant auth works, and the Android app installs on 
 
 **Status (2026-11-14):** P0-01 through P0-07 and P0-09 through P0-12 are built. P0-08, the interviews, is the open gate.
 
-**Status (2026-11-25):** the interview notes are tracked at `interview.md` in the repository root — eleven findings, each checked against the code, so a finding that is already built is not mistaken for a gap. The navigation order and the cashier's reach to POS shipped in PR #43, the dashboard summary in PR #45, a per-batch stock take prefilled with the ledger's quantity in PR #46, per-supplier purchase price history in PR #47, production suggestions in PR #48, and the overhead component of the HPP in PR #49. This branch adds the profit and loss report (P3-07): revenue, cost of goods sold, and gross profit over the usage window, which needed the HPP to be complete first. Three findings are still open: the cashier role and offline POS need a product decision before any code, and export is CSV while PDF and automatic backup are still to do.
+**Status (2026-11-25):** the interview notes are tracked at `interview.md` in the repository root — eleven findings, each checked against the code, so a finding that is already built is not mistaken for a gap. The navigation order and the cashier's reach to POS shipped in PR #43, the dashboard summary in PR #45, a per-batch stock take prefilled with the ledger's quantity in PR #46, per-supplier purchase price history in PR #47, production suggestions in PR #48, and the overhead component of the HPP in PR #49. The profit and loss report (P3-07) shipped in PR #50: revenue, cost of goods sold, and gross profit over the usage window, which needed the HPP to be complete first. The cashier role shipped in PR #51: a register desk holding only `product_read`, `sales_read`, and `sales_write`, ranked beside production so neither desk manages the other, and landing on `/sales` because the overview reads materials. Two findings remain open: offline POS still needs a product decision before any code, and export is CSV while PDF and automatic backup are still to do.
 
 ---
 
@@ -412,6 +412,7 @@ Rules:
 - A member may only manage or grant roles strictly below their own; an owner may also manage another owner so a tenant can hand over. Invitations never carry the owner role.
 - Plan limits are entitlements, not permissions: check them in the service layer before creating a member, material, recipe, or warehouse.
 - Role checks never live in RLS policies; RLS only answers "which tenant owns this row".
+- The matrix has five roles. `cashier` is the register desk: `product_read`, `sales_read`, and `sales_write`, and nothing that reaches a cost. It ranks beside `production`, so neither desk manages the other; only admin and owner can grant or move it. Reading a product is its own permission (`product_read`) rather than a consequence of `recipe_read`, because the register needs the catalogue while the recipe behind it carries quantities and waste. The products screen stays behind `recipe_read` all the same, since it is the recipe manager.
 
 ### Pre-tenant lookups
 

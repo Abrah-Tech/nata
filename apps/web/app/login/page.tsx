@@ -13,6 +13,7 @@ import { Field, FormError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { fill, useI18n } from "@/lib/i18n";
+import { homePath } from "@/lib/landing";
 import {
   type PendingInvite,
   clearToken,
@@ -72,9 +73,9 @@ export default function LoginPage() {
     // instead of bouncing between /login and /dashboard.
     api
       .me(token)
-      .then(() => {
+      .then((me) => {
         if (!cancelled) {
-          router.replace("/dashboard");
+          router.replace(homePath(me));
         }
       })
       .catch((cause) => {
@@ -119,6 +120,27 @@ export default function LoginPage() {
     return invite && invite.code
       ? `/join?token=${encodeURIComponent(invite.code)}`
       : null;
+  }
+
+  /**
+   * Where a fresh session goes once it is stored. Only the role decides it, so
+   * `/me` answers; the fallback keeps a slow or failed read from stranding the
+   * visitor on the login screen.
+   */
+  async function landingPath(
+    token: string,
+    pending: boolean,
+    invite: PendingInvite | null,
+  ): Promise<string> {
+    if (pending || invite) {
+      return joinPath(invite) ?? "/join";
+    }
+
+    try {
+      return homePath(await api.me(token));
+    } catch {
+      return "/dashboard";
+    }
   }
 
   async function sendCode() {
@@ -197,10 +219,13 @@ export default function LoginPage() {
         // link, so signing in by hand still reaches the screen that accepts it.
         // An invitation this contact cannot claim lands there too, where the
         // mismatch is named, rather than dropping back to the overview.
-        const target =
-          result.pending_invitation || invite ? (joinPath(invite) ?? "/join") : null;
-
-        router.replace(target ?? "/dashboard");
+        router.replace(
+          await landingPath(
+            result.access_token,
+            result.pending_invitation,
+            invite,
+          ),
+        );
         return;
       }
 
@@ -241,7 +266,11 @@ export default function LoginPage() {
 
       const invite = readPendingInvite();
       router.replace(
-        result.pending_invitation ? (joinPath(invite) ?? "/join") : "/dashboard",
+        await landingPath(
+          result.access_token,
+          result.pending_invitation,
+          invite,
+        ),
       );
     } catch (cause) {
       setError(messageFor(cause));

@@ -373,6 +373,7 @@ export const id: Dictionary = {
       admin: "Admin",
       production: "Produksi",
       viewer: "Pengamat",
+      cashier: "Kasir",
     },
   },
   onboarding: {
