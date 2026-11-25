@@ -79,7 +79,7 @@ export default function ReportsPage() {
               label={t.reports.loading}
               className="flex flex-col gap-4"
             >
-              <SkeletonStats count={2} />
+              <SkeletonStats count={3} />
               <SkeletonList rows={3} />
             </LoadingRegion>
           </div>
@@ -150,7 +150,7 @@ export default function ReportsPage() {
                 label={t.reports.loading}
                 className="flex flex-col gap-4"
               >
-                <SkeletonStats count={2} />
+                <SkeletonStats count={3} />
                 <SkeletonList rows={3} />
               </LoadingRegion>
             )}
@@ -174,6 +174,68 @@ export default function ReportsPage() {
 
             {data && (
               <>
+                <section className="flex flex-col gap-2.5">
+                  <div>
+                    <h2 className="text-base font-bold">
+                      {t.reports.profitLoss.title}
+                    </h2>
+                    <p className="mt-0.5 max-w-[72ch] text-xs leading-relaxed text-ink-3">
+                      {t.reports.profitLoss.note}
+                    </p>
+                  </div>
+
+                  <article className="flex flex-col gap-1.5 rounded-xl border border-border bg-card px-4.5 py-4">
+                    <span className="text-2xs font-semibold tracking-wide text-ink-3 uppercase">
+                      {t.reports.profitLoss.grossProfit}
+                    </span>
+                    <strong
+                      className={`text-2xl font-extrabold tracking-tight tabular-nums ${
+                        data.profit_loss.gross_profit !== null &&
+                        Number(data.profit_loss.gross_profit) < 0
+                          ? "text-destructive"
+                          : ""
+                      }`}
+                    >
+                      {data.profit_loss.gross_profit === null
+                        ? "—"
+                        : formatMoney(
+                            Number(data.profit_loss.gross_profit),
+                            locale,
+                          )}
+                    </strong>
+
+                    <dl className="mt-1.5 flex flex-col gap-1.5">
+                      <div className="flex items-baseline justify-between gap-3 border-t border-border pt-1.5">
+                        <dt className="text-2xs text-ink-3">
+                          {t.reports.profitLoss.revenue}
+                        </dt>
+                        <dd className="m-0 text-base tabular-nums">
+                          {formatMoney(Number(data.profit_loss.revenue), locale)}
+                        </dd>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <dt className="text-2xs text-ink-3">
+                          {t.reports.profitLoss.costOfGoods}
+                        </dt>
+                        <dd className="m-0 text-base tabular-nums">
+                          {data.profit_loss.cost_of_goods === null
+                            ? "—"
+                            : formatMoney(
+                                Number(data.profit_loss.cost_of_goods),
+                                locale,
+                              )}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    {data.profit_loss.cost_incomplete && (
+                      <p className="text-2xs leading-relaxed text-warning">
+                        {t.reports.profitLoss.incomplete}
+                      </p>
+                    )}
+                  </article>
+                </section>
+
                 <section className="grid gap-3 lg:grid-cols-2">
                   <article className="flex flex-col gap-1.5 rounded-xl border border-border bg-card px-4.5 py-4">
                     <span className="text-2xs font-semibold tracking-wide text-ink-3 uppercase">

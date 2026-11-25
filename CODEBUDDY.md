@@ -193,13 +193,15 @@ The bin needs the same role as `alert_job`: the pending list spans every tenant,
 
 ### Reports
 
-`GET /reports` returns stock value, waste, and margin per product over the tenant's usage window.
+`GET /reports` returns profit and loss, stock value, waste, and margin per product over the tenant's usage window.
 
 Stock value is `sum(qty_remaining × unit_cost)` over material batches plus the same sum over `product_batches` for finished goods. It never uses `materials.last_cost`: a new purchase at a different price must not revalue stock already on the shelf.
 
 Waste is the sum of `waste` and `expired` movements in the window, valued at each movement's own `unit_cost`.
 
 Margin per unit is `sell_price − latest unit_cost`; a product that has never been produced has no cost and comes back flagged rather than estimated from its recipe. Historical margin is `revenue − cost_of_goods` from `sale_items.unit_cost`, so a sale written before that column existed makes the product's totals null and sets `cost_incomplete` instead of valuing the past at today's cost.
+
+Profit and loss (`profit_loss` on the same response) is revenue minus cost of goods over the window, from the same `sale_items` snapshots, so it is the period's gross profit. Overhead is not a second line: the HPP already carries `production_orders.overhead_cost` into `product_batches.unit_cost` and then `sale_items.unit_cost`, so subtracting the period overhead again would charge it twice. Nata records no other operating cost, so gross profit is also net. A sold line with no cost snapshot makes the period's `cost_of_goods` and `gross_profit` null and sets `cost_incomplete`, the rule the overview screen follows.
 
 Export is an entitlement, not a permission: `Plan::allows_export` is true for Pro and Business, and `GET /reports` returns `can_export` so the screen can say why the button is disabled instead of hiding it. The file is built in the browser (`apps/web/lib/report-csv.ts`) from the payload the screen is already showing, which is what makes "same filters as the view" true by construction. `apps/web/lib/csv.ts` owns quoting, CRLF, the formula guard, and the UTF-8 BOM Excel needs; the amounts stay raw so a spreadsheet can sum them, while the headers come from the same i18n block as the screen.
 

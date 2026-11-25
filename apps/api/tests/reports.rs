@@ -85,7 +85,7 @@ async fn produced(
     qty: &str,
     unit_cost: &str,
     produced_on: NaiveDate,
-) {
+) -> Uuid {
     let existing: Option<Uuid> =
         sqlx::query_scalar("select id from recipes where product_id = $1 and tenant_id = $2")
             .bind(product_id)
@@ -163,6 +163,48 @@ async fn produced(
         .execute(pool)
         .await
         .expect("stock cache");
+
+    order_id
+}
+
+/// A run whose HPP carries an overhead component, which is what a tenant's
+/// overhead rate produces. The components are split so a report that dropped
+/// overhead from the cost of goods would be caught: material is the rest of the
+/// unit cost, and `overhead_cost` is the part the rate added.
+async fn produced_with_overhead(
+    pool: &PgPool,
+    tenant_id: Uuid,
+    product_id: Uuid,
+    qty: &str,
+    unit_cost: &str,
+    overhead_cost: &str,
+) {
+    let order_id = produced(
+        pool,
+        tenant_id,
+        product_id,
+        qty,
+        unit_cost,
+        Utc::now().date_naive(),
+    )
+    .await;
+
+    let overhead = overhead_cost
+        .parse::<rust_decimal::Decimal>()
+        .expect("overhead");
+
+    sqlx::query(
+        "update production_orders
+         set overhead_cost = $2,
+             labor_cost = 0,
+             material_cost = (actual_qty * unit_cost - $2)::numeric(18,2)
+         where id = $1",
+    )
+    .bind(order_id)
+    .bind(overhead)
+    .execute(pool)
+    .await
+    .expect("order costs");
 }
 
 async fn sell(app: &Router, token: &str, body: Value) -> (StatusCode, Value) {
@@ -465,4 +507,98 @@ async fn export_follows_the_plan(pool: PgPool) {
         assert_eq!(status, StatusCode::OK, "{body}");
         assert_eq!(body["can_export"], expected, "plan {plan}");
     }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn profit_loss_is_revenue_minus_the_cost_of_goods(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant_id = common::tenant_of(&app, token).await;
+
+    let cake = product(&app, token, "Bolu pandan", "20000").await;
+    produced(
+        &pool,
+        tenant_id,
+        cake,
+        "5",
+        "12000",
+        Utc::now().date_naive(),
+    )
+    .await;
+
+    let (status, body) = sell(
+        &app,
+        token,
+        json!({ "items": [{ "product_id": cake, "qty": "2" }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["profit_loss"]["revenue"], "40000.00");
+    assert_eq!(body["profit_loss"]["cost_of_goods"], "24000.00");
+    assert_eq!(body["profit_loss"]["gross_profit"], "16000.00");
+    assert_eq!(body["profit_loss"]["cost_incomplete"], false);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn profit_loss_is_incomplete_when_a_sale_has_no_cost(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let cake = product(&app, token, "Bolu pandan", "15000").await;
+    set_stock(&pool, cake, "5").await;
+
+    let (status, body) = sell(
+        &app,
+        token,
+        json!({ "items": [{ "product_id": cake, "qty": "1" }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // Revenue is still known, but an unknown cost is not a zero cost, so the
+    // two figures that depend on it come back null.
+    assert_eq!(body["profit_loss"]["revenue"], "15000.00");
+    assert_eq!(body["profit_loss"]["cost_of_goods"], Value::Null);
+    assert_eq!(body["profit_loss"]["gross_profit"], Value::Null);
+    assert_eq!(body["profit_loss"]["cost_incomplete"], true);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn overhead_is_charged_once_inside_the_cost_of_goods(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant_id = common::tenant_of(&app, token).await;
+
+    let cake = product(&app, token, "Bolu pandan", "20000").await;
+
+    // Five units at 12 000, of which 10 000 is overhead. The cost of goods for
+    // two units must be the full 24 000; valuing them at material alone would
+    // say 20 000 and silently drop the overhead the tenant asked to recover.
+    produced_with_overhead(&pool, tenant_id, cake, "5", "12000", "10000").await;
+
+    let (status, body) = sell(
+        &app,
+        token,
+        json!({ "items": [{ "product_id": cake, "qty": "2" }] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["profit_loss"]["revenue"], "40000.00");
+    assert_eq!(body["profit_loss"]["cost_of_goods"], "24000.00");
+    assert_eq!(body["profit_loss"]["gross_profit"], "16000.00");
 }
