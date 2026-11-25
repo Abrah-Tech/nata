@@ -992,6 +992,23 @@ export const id: Dictionary = {
       recipe: "Resep v{version}",
       newRun: "Produksi lagi",
     },
+    suggestions: {
+      title: "Saran produksi",
+      subtitle:
+        "Dasar {days} hari penjualan terakhir; stok yang lewat tanggal tidak dihitung.",
+      period: "Periode",
+      tomorrow: "Besok",
+      days: "{count} hari",
+      average: "RATA-RATA/HARI",
+      stock: "STOK BISA JUAL",
+      suggested: "SARAN",
+      empty: "Tidak ada yang perlu dibuat: semua produk sudah mencakup periode ini.",
+      noHistory: "Tidak ada penjualan dalam {days} hari, jadi tidak ada patokan.",
+      capped: "Dibatasi umur simpan",
+      use: "Gunakan",
+      useNamed: "Gunakan {qty} untuk {name}",
+      error: "Gagal memuat saran.",
+    },
     errors: {
       generic: "Ada yang salah. Coba lagi.",
       invalidQuantity: "Isi jumlah lebih dari nol.",

@@ -991,6 +991,23 @@ export const en = {
       recipe: "Recipe v{version}",
       newRun: "Start another run",
     },
+    suggestions: {
+      title: "Production suggestions",
+      subtitle:
+        "Based on the last {days} of sales; stock past its date is not counted.",
+      period: "Period",
+      tomorrow: "Tomorrow",
+      days: "{count} days",
+      average: "AVG/DAY",
+      stock: "SELLABLE STOCK",
+      suggested: "SUGGESTED",
+      empty: "Nothing to make: every product already covers this period.",
+      noHistory: "Nothing sold in {days} days, so there is no rate to plan from.",
+      capped: "Capped by shelf life",
+      use: "Use",
+      useNamed: "Use {qty} for {name}",
+      error: "Could not load suggestions.",
+    },
     errors: {
       generic: "Something went wrong. Try again.",
       invalidQuantity: "Enter a quantity greater than zero.",
