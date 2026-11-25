@@ -374,6 +374,7 @@ export const en = {
       admin: "Admin",
       production: "Production",
       viewer: "Viewer",
+      cashier: "Cashier",
     },
   },
   onboarding: {

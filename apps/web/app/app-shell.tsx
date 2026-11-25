@@ -44,6 +44,12 @@ type Item = {
   label: string;
   icon: ComponentType<{ size?: number; strokeWidth?: number }>;
   href: string;
+  /**
+   * Permission the screen's primary read needs. Omitted for a screen any
+   * signed-in role may open, such as the guide. A link to a screen the role
+   * cannot read is a dead end, so it is left out rather than shown disabled.
+   */
+  permission?: string;
 };
 
 type Props = {
@@ -112,31 +118,45 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           label: t.nav.overview,
           icon: LayoutDashboard,
           href: "/dashboard",
+          permission: "material_read",
         },
-        { key: "stock", label: t.nav.stock, icon: Package, href: "/stock" },
+        {
+          key: "stock",
+          label: t.nav.stock,
+          icon: Package,
+          href: "/stock",
+          permission: "material_read",
+        },
         {
           key: "batches",
           label: t.nav.batches,
           icon: CalendarClock,
           href: "/batches",
+          permission: "material_read",
         },
         {
           key: "purchasing",
           label: t.nav.purchasing,
           icon: Truck,
           href: "/purchasing",
+          permission: "material_read",
         },
         {
           key: "production",
           label: t.nav.production,
           icon: ChefHat,
           href: "/production",
+          permission: "production_read",
         },
         {
+          // The screen is the recipe manager: it lists versions and their
+          // items, so it stays behind the recipe read even though the register
+          // reads the catalogue through the product permission.
           key: "products",
           label: t.nav.products,
           icon: Boxes,
           href: "/products",
+          permission: "recipe_read",
         },
       ],
     },
@@ -148,12 +168,14 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           label: t.nav.pos,
           icon: ShoppingCart,
           href: "/sales",
+          permission: "sales_read",
         },
         {
           key: "reports",
           label: t.nav.reports,
           icon: BarChart3,
           href: "/reports",
+          permission: "report_read",
         },
       ],
     },
@@ -165,12 +187,14 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
           label: t.nav.team,
           icon: Users,
           href: "/team",
+          permission: "member_read",
         },
         {
           key: "settings",
           label: t.nav.settings,
           icon: Settings,
           href: "/settings",
+          permission: "tenant_manage",
         },
         {
           key: "guide",
@@ -191,29 +215,88 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
       label: t.nav.reports,
       icon: BarChart3,
       href: "/reports",
+      permission: "report_read",
     },
     {
       key: "purchasing",
       label: t.nav.purchasing,
       icon: Truck,
       href: "/purchasing",
+      permission: "material_read",
     },
     {
       key: "batches",
       label: t.nav.batches,
       icon: CalendarClock,
       href: "/batches",
+      permission: "material_read",
     },
-    { key: "products", label: t.nav.products, icon: Boxes, href: "/products" },
-    { key: "team", label: t.nav.team, icon: Users, href: "/team" },
+    {
+      key: "products",
+      label: t.nav.products,
+      icon: Boxes,
+      href: "/products",
+      permission: "recipe_read",
+    },
+    {
+      key: "team",
+      label: t.nav.team,
+      icon: Users,
+      href: "/team",
+      permission: "member_read",
+    },
     {
       key: "settings",
       label: t.nav.settings,
       icon: Settings,
       href: "/settings",
+      permission: "tenant_manage",
     },
     { key: "guide", label: t.nav.guide, icon: BookOpen, href: "/guide" },
   ];
+
+  // A screen is listed only when the role can read it. While /me is still in
+  // flight every link shows, so the sidebar never empties on a reload.
+  const permissions = me?.permissions;
+  const isListed = (item: { permission?: string }) =>
+    !item.permission || (permissions?.includes(item.permission) ?? true);
+  const visibleGroups = groups
+    .map((group) => ({ ...group, items: group.items.filter(isListed) }))
+    .filter((group) => group.items.length > 0);
+  const visibleMore = moreItems.filter(isListed);
+
+  // The bar holds the four working screens plus More, so a role that can reach
+  // fewer of them gets a shorter bar rather than empty slots.
+  const tabs = [
+    {
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      label: t.nav.mobileHome,
+      active: active === "overview",
+      permission: "material_read",
+    },
+    {
+      href: "/stock",
+      icon: Package,
+      label: t.nav.mobileStock,
+      active: active === "stock",
+      permission: "material_read",
+    },
+    {
+      href: "/sales",
+      icon: ShoppingCart,
+      label: t.nav.mobileCashier,
+      active: active === "pos",
+      permission: "sales_read",
+    },
+    {
+      href: "/production",
+      icon: ChefHat,
+      label: t.nav.mobileProduction,
+      active: active === "production",
+      permission: "production_read",
+    },
+  ].filter(isListed);
 
   return (
     <div className="min-h-dvh min-[961px]:grid min-[961px]:grid-cols-[246px_minmax(0,1fr)]">
@@ -251,7 +334,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         </div>
 
         <nav className="flex flex-col gap-3" aria-label={t.nav.main}>
-          {groups.map((group) => (
+          {visibleGroups.map((group) => (
             <div className="flex flex-col gap-0.5" key={group.label}>
               <p className="px-2.5 py-1 text-2xs font-bold tracking-[0.09em] text-ink-3">
                 {group.label}
@@ -344,36 +427,22 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
       </div>
 
       <nav
-        className="fixed inset-x-4 bottom-3 z-20 grid h-14 grid-cols-5 gap-1 rounded-[28px] border border-border bg-white/95 p-1.5 backdrop-blur min-[961px]:hidden"
+        className="fixed inset-x-4 bottom-3 z-20 grid h-14 gap-1 rounded-[28px] border border-border bg-white/95 p-1.5 backdrop-blur min-[961px]:hidden"
+        style={{ gridTemplateColumns: `repeat(${tabs.length + 1}, minmax(0, 1fr))` }}
         aria-label={t.nav.main}
       >
-        <MobileTab
-          href="/dashboard"
-          icon={LayoutDashboard}
-          label={t.nav.mobileHome}
-          active={active === "overview"}
-        />
-        <MobileTab
-          href="/stock"
-          icon={Package}
-          label={t.nav.mobileStock}
-          active={active === "stock"}
-        />
         {/* The cashier's screen earns a slot of its own. It used to have no link
             anywhere on a phone, so a shop that only works from one could not
             take a sale at all. */}
-        <MobileTab
-          href="/sales"
-          icon={ShoppingCart}
-          label={t.nav.mobileCashier}
-          active={active === "pos"}
-        />
-        <MobileTab
-          href="/production"
-          icon={ChefHat}
-          label={t.nav.mobileProduction}
-          active={active === "production"}
-        />
+        {tabs.map((tab) => (
+          <MobileTab
+            key={tab.href}
+            href={tab.href}
+            icon={tab.icon}
+            label={tab.label}
+            active={tab.active}
+          />
+        ))}
         <button
           type="button"
           onClick={() => setMoreOpen(true)}
@@ -391,7 +460,7 @@ export function AppShell({ me, active, onSignOut, children }: Props) {
         onClose={() => setMoreOpen(false)}
       >
         <div className="flex flex-col gap-0.5">
-          {moreItems.map((item) => (
+          {visibleMore.map((item) => (
             <Link
               key={item.key}
               href={item.href}
