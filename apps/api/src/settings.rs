@@ -55,7 +55,7 @@ pub struct SettingsUpdate {
     pub usage_window_days: Option<i32>,
 }
 
-/// Every member may read the settings: the rate explains the HPP they see on a
+/// Every member may read the settings: the rates explain the HPP they see on a
 /// run, and the window explains the shopping list.
 pub async fn get_settings(
     State(state): State<AppState>,
@@ -102,7 +102,7 @@ pub async fn update_settings(
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
     // Read the current values first: the audit entry is the only record of what
-    // the rate was before this change.
+    // the rates were before this change.
     let (previous_rate, previous_overhead, previous_window): (Decimal, Decimal, i32) =
         sqlx::query_as(
             "select labor_rate_per_hour, overhead_rate_per_hour, usage_window_days
