@@ -643,6 +643,15 @@ export const en = {
     loading: "Loading the summary…",
     error: "Could not load the summary.",
     retry: "Try again",
+    profitLoss: {
+      title: "Profit and loss",
+      note: "Revenue minus the cost recorded on each sale. The cost of goods already includes ingredients, labor, and production overhead.",
+      revenue: "Sales revenue",
+      costOfGoods: "Cost of goods sold",
+      grossProfit: "Gross profit",
+      incomplete:
+        "Some sales in this window have no cost, so profit is not final yet.",
+    },
     stock: {
       title: "Stock value",
       materials: "Ingredients",
@@ -1706,13 +1715,14 @@ export const en = {
         id: "reports",
         icon: "reports",
         title: "Reports",
-        goal: "One summary of the period: stock value, what was wasted, and the margin per product. It reads the costs stored when each sale happened, so the numbers do not move when prices change later.",
+        goal: "One summary of the period: profit and loss, stock value, what was wasted, and the margin per product. It reads the costs stored when each sale happened, so the numbers do not move when prices change later.",
         before: [
           "A signed-in session. Reading is allowed on every plan.",
           "Exporting the CSV needs a paid plan.",
         ],
         inputs: ["Export CSV, which is disabled until the plan includes it."],
         outputs: [
+          "Profit and loss: revenue, cost of goods sold, and the gross profit for the window.",
           "Stock value, split into ingredients and finished goods.",
           "Waste: its value, the number of waste movements, and a row per ingredient.",
           "A margin table per product with sell price, HPP, margin per unit, units sold, revenue and total margin.",

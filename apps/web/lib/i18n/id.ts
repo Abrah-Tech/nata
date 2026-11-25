@@ -642,6 +642,15 @@ export const id: Dictionary = {
     loading: "Memuat ringkasan…",
     error: "Gagal memuat ringkasan.",
     retry: "Coba lagi",
+    profitLoss: {
+      title: "Laba rugi",
+      note: "Pendapatan dikurangi biaya yang tercatat saat setiap penjualan. Harga pokok sudah termasuk bahan baku, tenaga kerja, dan overhead produksi.",
+      revenue: "Pendapatan penjualan",
+      costOfGoods: "Harga pokok penjualan",
+      grossProfit: "Laba kotor",
+      incomplete:
+        "Sebagian penjualan pada periode ini tanpa biaya, jadi laba belum final.",
+    },
     stock: {
       title: "Nilai stok",
       materials: "Bahan baku",
@@ -1707,13 +1716,14 @@ export const id: Dictionary = {
         id: "reports",
         icon: "reports",
         title: "Laporan",
-        goal: "Satu ringkasan periode: nilai stok, yang terbuang, dan margin per produk. Ini membaca biaya yang tersimpan saat setiap penjualan terjadi, jadi angkanya tidak bergerak kalau harga berubah kemudian.",
+        goal: "Satu ringkasan periode: laba rugi, nilai stok, yang terbuang, dan margin per produk. Ini membaca biaya yang tersimpan saat setiap penjualan terjadi, jadi angkanya tidak bergerak kalau harga berubah kemudian.",
         before: [
           "Sesi yang sudah masuk. Membaca diizinkan di semua paket.",
           "Mengekspor CSV butuh paket berbayar.",
         ],
         inputs: ["Ekspor CSV, yang nonaktif sampai paketmu memuatnya."],
         outputs: [
+          "Laba rugi: pendapatan, harga pokok penjualan, dan laba kotor pada periode ini.",
           "Nilai stok, dibagi menjadi bahan dan barang jadi.",
           "Limbah: nilainya, jumlah pergerakan limbah, dan satu baris per bahan.",
           "Tabel margin per produk dengan harga jual, HPP, margin per unit, unit terjual, pendapatan, dan total margin.",

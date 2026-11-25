@@ -313,10 +313,26 @@ export type ProductMargin = {
   cost_incomplete: boolean;
 };
 
+export type ProfitLoss = {
+  /** Revenue from every sale in the window. */
+  revenue: string;
+  /**
+   * Cost of the goods sold at the cost snapshotted on each sale. Null when any
+   * line in the window has no cost, because an unknown cost is not a zero
+   * cost.
+   */
+  cost_of_goods: string | null;
+  /** Revenue minus cost of goods, null while the cost is incomplete. */
+  gross_profit: string | null;
+  /** At least one sold line had no cost snapshot, so the totals are partial. */
+  cost_incomplete: boolean;
+};
+
 export type BusinessReport = {
   window_days: number;
   /** Whether the plan includes taking the report away as a file. */
   can_export: boolean;
+  profit_loss: ProfitLoss;
   stock: StockValue;
   waste: WasteValue;
   products: ProductMargin[];

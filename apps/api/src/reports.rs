@@ -31,9 +31,31 @@ pub struct BusinessView {
     /// shows the report to every plan and only offers the export when this is
     /// true, so a refusal is explainable instead of a missing button.
     pub can_export: bool,
+    pub profit_loss: ProfitLoss,
     pub stock: StockValue,
     pub waste: WasteValue,
     pub products: Vec<ProductMargin>,
+}
+
+/// The period's laba rugi: what came in, what the goods cost, and the difference.
+///
+/// There is no separate operating-expense line. Overhead is priced into the HPP
+/// (`production_orders.overhead_cost` -> `product_batches.unit_cost` ->
+/// `sale_items.unit_cost`), so it is already inside `cost_of_goods`; subtracting
+/// the period overhead again would charge it twice. Nata records no other
+/// operating cost, so the gross profit is also the net one.
+#[derive(Debug, Serialize)]
+pub struct ProfitLoss {
+    /// Revenue from every sale in the window, at the price each line charged.
+    pub revenue: Decimal,
+    /// Cost of the goods sold, at the cost snapshotted on each sale. Null when
+    /// any line in the window has no cost, because an unknown cost is not a
+    /// zero cost.
+    pub cost_of_goods: Option<Decimal>,
+    /// Revenue minus cost of goods, null while the cost is incomplete.
+    pub gross_profit: Option<Decimal>,
+    /// True when at least one sold line in the window has no cost snapshot.
+    pub cost_incomplete: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -94,6 +116,9 @@ type ProductRow = (
 );
 
 type WasteTuple = (Uuid, String, String, Decimal, Decimal);
+
+/// Revenue, cost of goods, and how many sold lines carry no cost snapshot.
+type SalesTuple = (Decimal, Decimal, i64);
 
 pub async fn business(
     State(state): State<AppState>,
@@ -168,6 +193,24 @@ pub async fn business(
     .fetch_all(&mut *tx)
     .await?;
 
+    // The same window as the product margin below, and the same rule the
+    // overview screen uses: revenue minus the cost recorded on each sale. A
+    // line written before `sale_items.unit_cost` existed makes the whole
+    // period's cost unknown rather than valuing the past at today's prices.
+    let (revenue, cost_of_goods, uncosted): SalesTuple = sqlx::query_as(
+        "select coalesce(sum(si.qty * si.price), 0)::numeric(18,2),
+                coalesce(sum(si.qty * si.unit_cost), 0)::numeric(18,2),
+                count(*) filter (where si.unit_cost is null)
+         from sale_items si
+         join sales s on s.id = si.sale_id
+         where si.tenant_id = $1
+           and s.sold_at >= now() - make_interval(days => $2)",
+    )
+    .bind(auth.tenant_id)
+    .bind(window_days)
+    .fetch_one(&mut *tx)
+    .await?;
+
     let rows: Vec<ProductRow> = sqlx::query_as(
         "with latest as (
              select distinct on (product_id) product_id, unit_cost
@@ -236,9 +279,23 @@ pub async fn business(
         )
         .collect();
 
+    let cost_incomplete = uncosted > 0;
+    let cost_of_goods = if cost_incomplete {
+        None
+    } else {
+        Some(money(cost_of_goods))
+    };
+    let gross_profit = cost_of_goods.map(|cost| money(revenue - cost));
+
     Ok(Json(BusinessView {
         window_days,
         can_export: plan.allows_export(),
+        profit_loss: ProfitLoss {
+            revenue: money(revenue),
+            cost_of_goods,
+            gross_profit,
+            cost_incomplete,
+        },
         stock: StockValue {
             materials: money(material_value),
             products: money(product_value),

@@ -288,7 +288,7 @@ Goal: the repo builds, multi-tenant auth works, and the Android app installs on 
 
 **Status (2026-11-14):** P0-01 through P0-07 and P0-09 through P0-12 are built. P0-08, the interviews, is the open gate.
 
-**Status (2026-11-25):** the interview notes are tracked at `interview.md` in the repository root — eleven findings, each checked against the code, so a finding that is already built is not mistaken for a gap. The navigation order and the cashier's reach to POS shipped in PR #43, the dashboard summary in PR #45, a per-batch stock take prefilled with the ledger's quantity in PR #46, per-supplier purchase price history in PR #47, and production suggestions in PR #48. This branch adds the missing overhead component of the HPP (P2-09): the tenant sets what one production hour costs, labor and overhead are priced on the same recipe minutes, and the run preview lists all three components. Four findings are still open, and two of them (the cashier role, offline POS) need a product decision before any code; the profit and loss report was waiting on this overhead number.
+**Status (2026-11-25):** the interview notes are tracked at `interview.md` in the repository root — eleven findings, each checked against the code, so a finding that is already built is not mistaken for a gap. The navigation order and the cashier's reach to POS shipped in PR #43, the dashboard summary in PR #45, a per-batch stock take prefilled with the ledger's quantity in PR #46, per-supplier purchase price history in PR #47, production suggestions in PR #48, and the overhead component of the HPP in PR #49. This branch adds the profit and loss report (P3-07): revenue, cost of goods sold, and gross profit over the usage window, which needed the HPP to be complete first. Three findings are still open: the cashier role and offline POS need a product decision before any code, and export is CSV while PDF and automatic backup are still to do.
 
 ---
 
@@ -351,8 +351,11 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 | P3-04 | Subscription + plan limits: 14-day trial, user/material/recipe/warehouse caps, checked before an invitation is created | Tenants over the limit are rejected with a clear message; a downgrade never deletes data |
 | P3-05 | Billing (see D4): manual activation or gateway, subscription status, expiry | Trial expiry switches to read-only mode; data stays intact |
 | P3-06 | Report export (Pro) | CSV/Excel respects the same filters as the on-screen view |
+| P3-07 | Profit and loss: revenue, cost of goods sold, and gross profit over the usage window | The bottom line equals revenue minus the cost snapshotted on each sale, so a later price never rewrites it; a sold line with no cost makes the period's cost unknown rather than zero |
 
 **Phase 3 gate:** first paying customer.
+
+**Status (2026-11-25):** P3-07 is built. `GET /reports` also returns `profit_loss`, and the reports screen leads with it. Gross profit is revenue minus the cost recorded on each sale, the same snapshots the margin table uses. Overhead is inside the cost of goods rather than a second line, because the HPP already carries it; a sold line with no cost snapshot makes the period's cost and profit null, the rule the overview screen follows. Export is CSV only for now.
 
 **Status (2026-11-15):** P3-01 through P3-06 are built. Report export is a Pro and Business entitlement: the report stays readable on every plan, the file is built in the browser from the payload the screen already shows, so the CSV cannot drift from the view, and the API reports `can_export` so the button can explain itself instead of disappearing. Billing is manual, per D4: the owner records a transfer, the operator checks it and runs `cargo run -p nata-api --bin billing -- verify <payment-id>`, and access runs to the paid period plus a 7-day grace before the tenant goes read-only. Reads and the billing routes stay open in read-only mode so a tenant can always pay its way back.
 

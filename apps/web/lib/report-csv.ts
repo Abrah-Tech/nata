@@ -25,6 +25,18 @@ export function reportCsv(
     [labels.export.window, String(data.window_days)],
   ];
 
+  const profitLoss = [
+    [labels.profitLoss.title],
+    [labels.profitLoss.revenue, data.profit_loss.revenue],
+    [labels.profitLoss.costOfGoods, data.profit_loss.cost_of_goods ?? ""],
+    [labels.profitLoss.grossProfit, data.profit_loss.gross_profit ?? ""],
+    // An unknown cost is printed as a gap, and the row says why, rather than
+    // letting an empty cell read as zero.
+    ...(data.profit_loss.cost_incomplete
+      ? [[labels.export.costIncomplete, labels.export.yes]]
+      : []),
+  ];
+
   const stock = [
     [labels.stock.title],
     [labels.stock.materials, data.stock.materials],
@@ -87,7 +99,14 @@ export function reportCsv(
     ]),
   ];
 
-  const sections: string[][][] = [summary, stock, waste, wasteDetail, products]
+  const sections: string[][][] = [
+    summary,
+    profitLoss,
+    stock,
+    waste,
+    wasteDetail,
+    products,
+  ]
     .filter((section) => section.length > 0);
 
   return toCsv(
