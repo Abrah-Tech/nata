@@ -703,6 +703,12 @@ export const en = {
       hint: "In rupiah. Leave it at 0 to keep labor out of the HPP for now.",
       readOnly: "Only an owner or admin can change the rate.",
     },
+    overhead: {
+      title: "Production overhead",
+      body: "Rent, power, and equipment wear belong to the run, not to one ingredient. Set what an hour of production costs and every new run adds it to the HPP.",
+      label: "Overhead rate per hour",
+      hint: "In rupiah. It is priced on the recipe's labor minutes, so both rates share one duration. Leave it at 0 to keep overhead out of the HPP.",
+    },
     plan: {
       title: "Plan",
       trial: "Trial",
@@ -875,6 +881,7 @@ export const en = {
         period_start: "Start",
         period_end: "End",
         labor_rate_per_hour: "Labor rate",
+        overhead_rate_per_hour: "Overhead rate",
         usage_window_days: "Usage window",
         days_before: "Days before expiry",
         channel: "Channel",
@@ -886,6 +893,7 @@ export const en = {
     saving: "Saving…",
     errors: {
       invalidRate: "The rate cannot be negative.",
+      invalidOverhead: "The overhead rate cannot be negative.",
       invalidWindow: "The window must be between 1 and 365 days.",
       forbidden: "You do not have permission to change settings.",
       generic: "Something went wrong. Try again.",
@@ -968,6 +976,9 @@ export const en = {
       laborCost: "Labor cost",
       laborDetail: "{minutes} min at {rate}/hour",
       noLaborRate: "No labor rate set",
+      overheadCost: "Overhead",
+      overheadDetail: "{minutes} min at {rate}/hour",
+      noOverheadRate: "No overhead rate set",
       readyTitle: "Ready to produce",
       readyBody:
         "Every material is covered. Recording the run moves stock and snapshots the HPP.",
@@ -1766,7 +1777,7 @@ export const en = {
         ],
         nextId: "team",
         tips: [
-          "The labour rate is the only labour input; overhead is always zero.",
+          "The labour and overhead rates price the same production minutes; leave either at 0 to keep it out of the HPP.",
           "Leave the rate empty and it saves as zero.",
           "The screen cannot change the plan itself or rename the business. It records a payment for a plan you choose; inviting people lives in Team & plan.",
           "A read-only user sees the fields as read-only and no Save button.",

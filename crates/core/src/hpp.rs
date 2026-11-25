@@ -44,6 +44,8 @@ pub enum CostError {
     InvalidQuantity,
     /// Costs and consumed quantities cannot be negative.
     NegativeCost,
+    /// A recipe's labor minutes are a duration, so they cannot be negative.
+    InvalidMinutes,
 }
 
 impl fmt::Display for CostError {
@@ -53,11 +55,38 @@ impl fmt::Display for CostError {
                 formatter.write_str("production quantity must be positive")
             }
             CostError::NegativeCost => formatter.write_str("cost cannot be negative"),
+            CostError::InvalidMinutes => {
+                formatter.write_str("production minutes cannot be negative")
+            }
         }
     }
 }
 
 impl std::error::Error for CostError {}
+
+/// Cost of one hourly component, labor or overhead, over a run.
+///
+/// A recipe's `minutes` covers one batch, so a run of `batches` batches takes
+/// `minutes * batches / 60` hours. Both components use this function, which is
+/// what keeps them on the same production hours: the recipe is read once and
+/// the two rates only scale the result. The amount is money, so it is rounded
+/// to two decimals here; [`production_cost`] rounds again, which changes
+/// nothing.
+pub fn hourly_cost(
+    rate_per_hour: Decimal,
+    minutes: i32,
+    batches: Decimal,
+) -> Result<Decimal, CostError> {
+    if rate_per_hour.is_sign_negative() || batches.is_sign_negative() {
+        return Err(CostError::NegativeCost);
+    }
+    if minutes < 0 {
+        return Err(CostError::InvalidMinutes);
+    }
+
+    let hours = Decimal::from(minutes) / Decimal::from(60);
+    Ok((rate_per_hour * hours * batches).round_dp(MONEY_SCALE))
+}
 
 /// Snapshots the cost of a run from its consumptions, labor, and overhead.
 ///
@@ -208,6 +237,56 @@ mod tests {
 
         assert_eq!(cost.material_cost, dec("0.11"));
         assert_eq!(cost.unit_cost, dec("0.1100"));
+    }
+
+    #[test]
+    fn an_hourly_rate_is_priced_over_the_run_minutes() {
+        // Half an hour at 25 000 is 12 500 for the one batch the run makes.
+        assert_eq!(
+            hourly_cost(dec("25000"), 30, dec("1")).expect("cost"),
+            dec("12500.00")
+        );
+
+        // Two batches of a half-hour recipe take three quarters of an hour.
+        assert_eq!(
+            hourly_cost(dec("25000"), 30, dec("1.5")).expect("cost"),
+            dec("18750.00")
+        );
+    }
+
+    #[test]
+    fn an_hourly_cost_rounds_to_money() {
+        // 1000 an hour for 10 minutes is 166.666…, which stores as 166.67.
+        assert_eq!(
+            hourly_cost(dec("1000"), 10, dec("1")).expect("cost"),
+            dec("166.67")
+        );
+    }
+
+    #[test]
+    fn a_zero_rate_costs_nothing() {
+        assert_eq!(
+            hourly_cost(Decimal::ZERO, 30, dec("2")).expect("cost"),
+            dec("0")
+        );
+    }
+
+    #[test]
+    fn an_hourly_cost_rejects_negative_inputs() {
+        assert_eq!(
+            hourly_cost(dec("-1"), 30, dec("1")),
+            Err(CostError::NegativeCost)
+        );
+
+        assert_eq!(
+            hourly_cost(dec("1000"), 30, dec("-1")),
+            Err(CostError::NegativeCost)
+        );
+
+        assert_eq!(
+            hourly_cost(dec("1000"), -1, dec("1")),
+            Err(CostError::InvalidMinutes)
+        );
     }
 
     #[test]

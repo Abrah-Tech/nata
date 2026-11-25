@@ -60,6 +60,7 @@ export default function SettingsPage() {
 
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [rate, setRate] = useState("");
+  const [overhead, setOverhead] = useState("");
   const [windowDays, setWindowDays] = useState("");
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billing, setBilling] = useState<Billing | null>(null);
@@ -93,6 +94,7 @@ export default function SettingsPage() {
         if (!active) return;
         setLoad({ status: "ready" });
         setRate(trimDecimal(settings.labor_rate_per_hour));
+        setOverhead(trimDecimal(settings.overhead_rate_per_hour));
         setWindowDays(String(settings.usage_window_days));
         setSubscription(plan);
       })
@@ -252,6 +254,14 @@ export default function SettingsPage() {
       return;
     }
 
+    const overheadValue =
+      overhead.trim() === "" ? "0" : normalizeDecimal(overhead);
+
+    if (overheadValue === null || Number(overheadValue) < 0) {
+      setError(t.settings.errors.invalidOverhead);
+      return;
+    }
+
     const days = Number(windowDays);
 
     if (
@@ -268,15 +278,22 @@ export default function SettingsPage() {
     try {
       const saved = await api.updateSettings(token, {
         labor_rate_per_hour: value,
+        overhead_rate_per_hour: overheadValue,
         usage_window_days: days,
       });
 
       setRate(trimDecimal(saved.labor_rate_per_hour));
+      setOverhead(trimDecimal(saved.overhead_rate_per_hour));
       setWindowDays(String(saved.usage_window_days));
       setNotice(t.settings.saved);
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "invalid_labor_rate") {
         setError(t.settings.errors.invalidRate);
+      } else if (
+        cause instanceof ApiError &&
+        cause.code === "invalid_overhead_rate"
+      ) {
+        setError(t.settings.errors.invalidOverhead);
       } else if (
         cause instanceof ApiError &&
         cause.code === "invalid_usage_window"
@@ -395,6 +412,35 @@ export default function SettingsPage() {
                     <span className="text-2xs leading-snug text-ink-3">
                       {canManage
                         ? t.settings.labor.hint
+                        : t.settings.labor.readOnly}
+                    </span>
+                  </div>
+                </section>
+
+                <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4.5">
+                  <Intro
+                    title={t.settings.overhead.title}
+                    body={t.settings.overhead.body}
+                  />
+
+                  <div className="flex max-w-[320px] flex-col gap-1.5">
+                    <Label htmlFor="settings-overhead">
+                      {t.settings.overhead.label}
+                    </Label>
+                    <Input
+                      id="settings-overhead"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      placeholder="0"
+                      value={overhead}
+                      onChange={(event) => setOverhead(event.target.value)}
+                      readOnly={!canManage}
+                      required
+                    />
+                    <span className="text-2xs leading-snug text-ink-3">
+                      {canManage
+                        ? t.settings.overhead.hint
                         : t.settings.labor.readOnly}
                     </span>
                   </div>

@@ -288,7 +288,7 @@ Goal: the repo builds, multi-tenant auth works, and the Android app installs on 
 
 **Status (2026-11-14):** P0-01 through P0-07 and P0-09 through P0-12 are built. P0-08, the interviews, is the open gate.
 
-**Status (2026-11-25):** the interview notes are tracked at `interview.md` in the repository root — eleven findings, each checked against the code, so a finding that is already built is not mistaken for a gap. The navigation order and the cashier's reach to POS shipped in PR #43, the dashboard summary in PR #45, a per-batch stock take prefilled with the ledger's quantity in PR #46, and per-supplier purchase price history in PR #47. This branch adds production suggestions: for each product with a recipe, the average daily sales over the tenant's window, minus the stock that can still be sold, capped at what the shelf life allows. Six findings are still open, and three of them (overhead allocation, the cashier role, offline POS) need a product decision before any code.
+**Status (2026-11-25):** the interview notes are tracked at `interview.md` in the repository root — eleven findings, each checked against the code, so a finding that is already built is not mistaken for a gap. The navigation order and the cashier's reach to POS shipped in PR #43, the dashboard summary in PR #45, a per-batch stock take prefilled with the ledger's quantity in PR #46, per-supplier purchase price history in PR #47, and production suggestions in PR #48. This branch adds the missing overhead component of the HPP (P2-09): the tenant sets what one production hour costs, labor and overhead are priced on the same recipe minutes, and the run preview lists all three components. Four findings are still open, and two of them (the cashier role, offline POS) need a product decision before any code; the profit and loss report was waiting on this overhead number.
 
 ---
 
@@ -331,8 +331,9 @@ Goal: an HPP that users trust and use to set selling prices. This is the densest
 | P2-06 | Production UI: pick product + qty, preview requirements, confirm, show HPP + margin | One flow without reloads; required versus actual usage is visible |
 | P2-07 | Offline outbox (see D2): Tauri SQLite queue for stock-in, idempotent sync endpoint | Stock entries made offline sync after reconnect without duplicates; a rejected entry stays visible as failed instead of disappearing |
 | P2-08 | Tenant labor rate: `tenants.labor_rate_per_hour` plus a settings endpoint; production snapshots `labor_cost` from `recipe.labor_minutes × rate` | New orders include labor in HPP; existing orders keep their material-only snapshot |
+| P2-09 | Tenant overhead rate: `tenants.overhead_rate_per_hour` on the same settings endpoint; production snapshots `overhead_cost` from the same `recipe.labor_minutes` at that rate | New orders include overhead in HPP; the preview lists material, labor, and overhead separately; existing orders keep their snapshot |
 
-**HPP scope note.** P2-05 snapshotted material cost only; P2-08 adds labor from the tenant rate, so a new order prices `recipe.labor_minutes` at `tenants.labor_rate_per_hour`. Overhead stays out until `cost_overheads` gets an input flow; when it lands, a monthly amount allocated per unit is the recommended shape.
+**HPP scope note.** P2-05 snapshotted material cost only; P2-08 adds labor and P2-09 adds overhead, both pricing `recipe.labor_minutes` at the matching tenant rate. Overhead was an open question — a monthly amount allocated per unit was the first recommendation, and an hourly rate was chosen instead because the recipe already carries the run's duration, so one basis serves both components and a tenant can reason about what an hour of production costs. Either rate left at zero keeps that component out of the HPP, and a past order's snapshot never changes.
 
 **Phase 2 gate:** users trust the HPP and start using it to set prices.
 

@@ -20,6 +20,17 @@ async fn put_rate(app: &Router, token: &str, rate: &str) -> (StatusCode, Value) 
     .await
 }
 
+async fn put_overhead(app: &Router, token: &str, rate: &str) -> (StatusCode, Value) {
+    call(
+        app,
+        "PUT",
+        "/settings",
+        Some(json!({ "overhead_rate_per_hour": rate })),
+        Some(token),
+    )
+    .await
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_new_tenant_starts_at_zero_and_the_owner_sets_the_rate(pool: PgPool) {
     let otp = CaptureOtp::default();
@@ -132,6 +143,79 @@ async fn a_partial_update_keeps_the_other_field(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["labor_rate_per_hour"], "50000.00");
     assert_eq!(body["usage_window_days"], 14);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_new_tenant_starts_at_zero_overhead_and_the_owner_sets_the_rate(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let (status, body) = get_settings(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["overhead_rate_per_hour"], "0");
+
+    let (status, body) = put_overhead(&app, token, "25000").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["overhead_rate_per_hour"], "25000.00");
+
+    let (status, body) = get_settings(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["overhead_rate_per_hour"], "25000.00");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_negative_overhead_rate_is_rejected(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let (status, body) = put_overhead(&app, token, "-1").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["error"]["code"], "invalid_overhead_rate");
+
+    let (status, body) = get_settings(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["overhead_rate_per_hour"], "0");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn setting_one_rate_keeps_the_other(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    put_rate(&app, token, "60000").await;
+
+    let (status, body) = put_overhead(&app, token, "25000").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["labor_rate_per_hour"], "60000.00");
+    assert_eq!(body["overhead_rate_per_hour"], "25000.00");
+
+    let (status, body) = put_rate(&app, token, "70000").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["labor_rate_per_hour"], "70000.00");
+    assert_eq!(body["overhead_rate_per_hour"], "25000.00");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_overhead_rate_belongs_to_one_tenant(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+
+    let first = signup(&app, &otp, "first@example.test").await;
+    let first_token = first["access_token"].as_str().expect("token");
+    put_overhead(&app, first_token, "25000").await;
+
+    let second = signup(&app, &otp, "second@example.test").await;
+    let second_token = second["access_token"].as_str().expect("token");
+
+    let (status, body) = get_settings(&app, second_token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["overhead_rate_per_hour"], "0");
 }
 
 #[sqlx::test(migrations = "../../migrations")]
