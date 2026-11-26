@@ -2,7 +2,14 @@ import type { BusinessReport } from "@nata/api-client";
 import type { jsPDF } from "jspdf";
 import type { UserOptions } from "jspdf-autotable";
 
-import { formatMoney, formatPercent, formatQty, formatStamp } from "./format";
+import {
+  formatDate,
+  formatDateYear,
+  formatMoney,
+  formatPercent,
+  formatQty,
+  formatStamp,
+} from "./format";
 import type { Dictionary, Locale } from "./i18n";
 
 type Labels = Dictionary["reports"];
@@ -25,7 +32,7 @@ export type PdfSection = {
 export type ReportPdf = {
   title: string;
   generated: string;
-  window: string;
+  period: string;
   sections: PdfSection[];
 };
 
@@ -69,6 +76,34 @@ export function reportPdf(
 
   if (data.profit_loss.cost_incomplete) {
     profitLoss.note = labels.profitLoss.incomplete;
+  }
+
+  const trend: PdfSection = { heading: labels.trend.title };
+
+  if (data.trend.length === 0) {
+    trend.note = labels.trend.empty;
+  } else {
+    trend.table = {
+      head: [
+        labels.export.date,
+        labels.trend.revenue,
+        labels.trend.grossProfit,
+        labels.trend.sold,
+      ],
+      body: data.trend.map((day) => [
+        formatDate(day.date, locale),
+        money(day.revenue, locale),
+        money(day.gross_profit, locale),
+        formatQty(day.sold_qty, locale),
+      ]),
+      align: ["left", "right", "right", "right"],
+    };
+
+    // A day without a cost snapshot has no profit, and the note says so rather
+    // than letting the gaps read as zero.
+    trend.note = data.trend.some((day) => day.cost_incomplete)
+      ? `${labels.trend.note} ${labels.trend.incomplete}`
+      : labels.trend.note;
   }
 
   const stock: PdfSection = {
@@ -148,11 +183,65 @@ export function reportPdf(
       : labels.products.costNote;
   }
 
+  const usage: PdfSection = { heading: labels.usage.title };
+
+  if (data.usage.length === 0) {
+    usage.note = labels.usage.empty;
+  } else {
+    usage.table = {
+      head: [
+        labels.usage.material,
+        labels.usage.unit,
+        labels.usage.qty,
+        labels.usage.unitCost,
+        labels.usage.value,
+        labels.usage.runs,
+      ],
+      body: data.usage.map((row) => [
+        row.material_name,
+        row.unit_code,
+        formatQty(row.qty, locale),
+        money(row.unit_cost, locale),
+        money(row.value, locale),
+        String(row.runs),
+      ]),
+      align: ["left", "left", "right", "right", "right", "right"],
+    };
+    usage.note = labels.usage.note;
+  }
+
+  const purchasing: PdfSection = { heading: labels.purchasing.title };
+
+  if (data.purchasing.length === 0) {
+    purchasing.note = labels.purchasing.empty;
+  } else {
+    purchasing.table = {
+      head: [
+        labels.purchasing.supplier,
+        labels.purchasing.material,
+        labels.purchasing.unit,
+        labels.purchasing.qty,
+        labels.purchasing.value,
+        labels.purchasing.batches,
+      ],
+      body: data.purchasing.map((row) => [
+        row.supplier_name ?? labels.purchasing.noSupplier,
+        row.material_name,
+        row.unit_code,
+        formatQty(row.qty, locale),
+        money(row.value, locale),
+        String(row.batches),
+      ]),
+      align: ["left", "left", "left", "right", "right", "right"],
+    };
+    purchasing.note = labels.purchasing.note;
+  }
+
   return {
     title: labels.title,
     generated: `${labels.export.generated}: ${formatStamp(generatedAt)}`,
-    window: `${labels.export.window}: ${data.window_days}`,
-    sections: [profitLoss, stock, waste, products],
+    period: `${labels.export.period}: ${formatDateYear(data.range.from, locale)} - ${formatDateYear(data.range.to, locale)}`,
+    sections: [profitLoss, trend, stock, waste, usage, purchasing, products],
   };
 }
 
@@ -194,7 +283,7 @@ export function renderReportPdf(
   doc.setTextColor(...MUTED);
   doc.text(report.generated, MARGIN, y);
   y += 5;
-  doc.text(report.window, MARGIN, y);
+  doc.text(report.period, MARGIN, y);
   y += 8;
 
   for (const section of report.sections) {

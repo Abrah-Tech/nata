@@ -122,6 +122,17 @@ impl Plan {
     pub const fn allows_export(self) -> bool {
         matches!(self, Plan::Pro | Plan::Business)
     }
+
+    /// Whether the tenant gets the deeper report: a chosen range, the daily
+    /// trend, material usage, and purchasing by supplier.
+    ///
+    /// The plan copy promises Business "deeper reports" on top of Pro, so the
+    /// three sections are the reason to move up. The range itself is honoured
+    /// for every plan, because it only changes how far back a report the
+    /// tenant may already read goes.
+    pub const fn allows_advanced_reports(self) -> bool {
+        matches!(self, Plan::Business)
+    }
 }
 
 impl Resource {
@@ -206,6 +217,14 @@ mod tests {
         assert!(!Plan::Starter.allows_export());
         assert!(Plan::Pro.allows_export());
         assert!(Plan::Business.allows_export());
+    }
+
+    #[test]
+    fn deeper_reports_belong_to_business_alone() {
+        assert!(!Plan::Trial.allows_advanced_reports());
+        assert!(!Plan::Starter.allows_advanced_reports());
+        assert!(!Plan::Pro.allows_advanced_reports());
+        assert!(Plan::Business.allows_advanced_reports());
     }
 
     #[test]

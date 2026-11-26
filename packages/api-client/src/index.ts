@@ -340,13 +340,73 @@ export type ProfitLoss = {
   cost_incomplete: boolean;
 };
 
+/** The period the report actually covered, echoed back from the request. */
+export type ReportRange = {
+  from: string;
+  to: string;
+  days: number;
+};
+
+/** One day of the trend. Days with nothing sold are absent. */
+export type TrendDay = {
+  date: string;
+  revenue: string;
+  /** Null when any line sold that day had no cost snapshot. */
+  cost_of_goods: string | null;
+  gross_profit: string | null;
+  sold_qty: string;
+  cost_incomplete: boolean;
+};
+
+/** Material drawn into production during the period. */
+export type UsageRow = {
+  material_id: string;
+  material_name: string;
+  unit_code: string;
+  qty: string;
+  /** Quantity-weighted average cost. */
+  unit_cost: string;
+  value: string;
+  /** How many production runs drew on this material. */
+  runs: number;
+};
+
+/** Purchases grouped by supplier and material. */
+export type PurchaseRow = {
+  supplier_id: string | null;
+  /** Null when the batch records no supplier, which is allowed. */
+  supplier_name: string | null;
+  material_id: string;
+  material_name: string;
+  unit_code: string;
+  qty: string;
+  value: string;
+  batches: number;
+};
+
+/** `from` and `to` are `YYYY-MM-DD`. Both are given together, or neither. */
+export type ReportRangeQuery = {
+  from?: string;
+  to?: string;
+};
+
 export type BusinessReport = {
   window_days: number;
+  /** The period covered. Equal to `window_days` unless a range was asked for. */
+  range: ReportRange;
   /** Whether the plan includes taking the report away as a file. */
   can_export: boolean;
+  /**
+   * Whether the plan includes the trend, usage, and purchasing sections. They
+   * are empty arrays when this is false.
+   */
+  can_advanced: boolean;
   profit_loss: ProfitLoss;
+  trend: TrendDay[];
   stock: StockValue;
   waste: WasteValue;
+  usage: UsageRow[];
+  purchasing: PurchaseRow[];
   products: ProductMargin[];
 };
 
@@ -1093,8 +1153,18 @@ export class ApiClient {
     });
   }
 
-  getBusinessReport(token: string): Promise<BusinessReport> {
-    return this.request<BusinessReport>("/reports", { token });
+  getBusinessReport(
+    token: string,
+    range?: ReportRangeQuery,
+  ): Promise<BusinessReport> {
+    // Both ends together or neither: a half-given range is refused by the
+    // server rather than completed with a guess.
+    const query =
+      range?.from && range?.to
+        ? `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`
+        : "";
+
+    return this.request<BusinessReport>(`/reports${query}`, { token });
   }
 
   listRecommendations(token: string): Promise<RecommendationList> {

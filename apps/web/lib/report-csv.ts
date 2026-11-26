@@ -22,7 +22,7 @@ export function reportCsv(
   const summary = [
     [labels.title],
     [labels.export.generated, formatStamp(generatedAt)],
-    [labels.export.window, String(data.window_days)],
+    [labels.export.period, `${data.range.from} to ${data.range.to}`],
   ];
 
   const profitLoss = [
@@ -71,6 +71,75 @@ export function reportCsv(
           ]),
         ];
 
+  // The deeper sections belong to Business, so a tenant without them gets a
+  // file with no empty headers in it.
+  const trend =
+    data.trend.length === 0
+      ? []
+      : [
+          [labels.trend.title],
+          [
+            labels.export.date,
+            labels.trend.revenue,
+            labels.trend.grossProfit,
+            labels.trend.sold,
+            labels.export.costIncomplete,
+          ],
+          ...data.trend.map((day) => [
+            day.date,
+            day.revenue,
+            day.gross_profit ?? "",
+            day.sold_qty,
+            day.cost_incomplete ? labels.export.yes : labels.export.no,
+          ]),
+        ];
+
+  const usage =
+    data.usage.length === 0
+      ? []
+      : [
+          [labels.usage.title],
+          [
+            labels.usage.material,
+            labels.usage.unit,
+            labels.usage.qty,
+            labels.usage.unitCost,
+            labels.usage.value,
+            labels.usage.runs,
+          ],
+          ...data.usage.map((row) => [
+            row.material_name,
+            row.unit_code,
+            row.qty,
+            row.unit_cost,
+            row.value,
+            String(row.runs),
+          ]),
+        ];
+
+  const purchasing =
+    data.purchasing.length === 0
+      ? []
+      : [
+          [labels.purchasing.title],
+          [
+            labels.purchasing.supplier,
+            labels.purchasing.material,
+            labels.purchasing.unit,
+            labels.purchasing.qty,
+            labels.purchasing.value,
+            labels.purchasing.batches,
+          ],
+          ...data.purchasing.map((row) => [
+            row.supplier_name ?? labels.purchasing.noSupplier,
+            row.material_name,
+            row.unit_code,
+            row.qty,
+            row.value,
+            String(row.batches),
+          ]),
+        ];
+
   const products = [
     [labels.products.title],
     [
@@ -102,9 +171,12 @@ export function reportCsv(
   const sections: string[][][] = [
     summary,
     profitLoss,
+    trend,
     stock,
     waste,
     wasteDetail,
+    usage,
+    purchasing,
     products,
   ]
     .filter((section) => section.length > 0);

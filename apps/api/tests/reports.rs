@@ -602,3 +602,341 @@ async fn overhead_is_charged_once_inside_the_cost_of_goods(pool: PgPool) {
     assert_eq!(body["profit_loss"]["cost_of_goods"], "24000.00");
     assert_eq!(body["profit_loss"]["gross_profit"], "16000.00");
 }
+
+async fn set_plan(pool: &PgPool, tenant_id: Uuid, plan: &str) {
+    sqlx::query("update tenants set plan = $2 where id = $1")
+        .bind(tenant_id)
+        .bind(plan)
+        .execute(pool)
+        .await
+        .expect("plan");
+}
+
+/// Midday UTC, so a `sold_at` lands on the intended calendar day whatever the
+/// database session timezone is.
+fn noon(date: NaiveDate) -> String {
+    date.and_hms_opt(12, 0, 0)
+        .expect("midday")
+        .and_utc()
+        .to_rfc3339()
+}
+
+/// The first batch of a material, which is the one FEFO reaches for first.
+async fn batch_of(app: &Router, token: &str, material_id: Uuid) -> Uuid {
+    let (status, body) = call(
+        app,
+        "GET",
+        &format!("/stock/batches?material_id={material_id}"),
+        None,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    body.as_array().expect("batches").first().expect("a batch")["id"]
+        .as_str()
+        .expect("batch id")
+        .parse()
+        .expect("uuid")
+}
+
+/// Records what a run drew from a batch, at the cost it carried then.
+async fn consume(pool: &PgPool, order_id: Uuid, batch_id: Uuid, qty: &str, unit_cost: &str) {
+    sqlx::query(
+        "insert into production_consumptions
+             (production_order_id, batch_id, qty, unit_cost)
+         values ($1, $2, $3, $4)",
+    )
+    .bind(order_id)
+    .bind(batch_id)
+    .bind(qty.parse::<rust_decimal::Decimal>().expect("qty"))
+    .bind(unit_cost.parse::<rust_decimal::Decimal>().expect("cost"))
+    .execute(pool)
+    .await
+    .expect("consumption");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_chosen_range_replaces_the_window(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let cake = product(&app, token, "Bolu pandan", "20000").await;
+    set_stock(&pool, cake, "10").await;
+
+    let today = Utc::now().date_naive();
+    let last_month = today - Duration::days(60);
+
+    let (status, body) = sell(
+        &app,
+        token,
+        json!({
+            "sold_at": noon(last_month),
+            "items": [{ "product_id": cake, "qty": "4" }],
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    // The default window is thirty days, so last month is out of reach.
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["range"]["days"], body["window_days"]);
+    assert_eq!(body["profit_loss"]["revenue"], "0.00");
+
+    // Asking for the month reaches it, and the echo says what was covered.
+    let (status, body) = call(
+        &app,
+        "GET",
+        &format!("/reports?from={last_month}&to={today}"),
+        None,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["range"]["from"], last_month.to_string());
+    assert_eq!(body["range"]["to"], today.to_string());
+    assert_eq!(body["range"]["days"], 61);
+    assert_eq!(body["profit_loss"]["revenue"], "80000.00");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_range_must_be_whole_in_order_and_short(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+
+    let today = Utc::now().date_naive();
+    let last_year = today - Duration::days(400);
+
+    let cases = [
+        (format!("/reports?from={today}"), "invalid_range"),
+        (format!("/reports?to={today}"), "invalid_range"),
+        (
+            format!(
+                "/reports?from={}&to={}",
+                today - Duration::days(9),
+                today - Duration::days(14)
+            ),
+            "invalid_range",
+        ),
+        (
+            "/reports?from=2026-13-01&to=2026-11-26".to_string(),
+            "invalid_range",
+        ),
+        (
+            format!("/reports?from={last_year}&to={today}"),
+            "range_too_long",
+        ),
+    ];
+
+    for (path, code) in cases {
+        let (status, body) = call(&app, "GET", &path, None, Some(token)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{path}: {body}");
+        assert_eq!(body["error"]["code"], code, "{path}");
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn advanced_sections_belong_to_business(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant_id = common::tenant_of(&app, token).await;
+
+    // A new tenant is on the trial: the report reads, the deeper sections do
+    // not exist and cost nothing to compute.
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["can_advanced"], false);
+    assert_eq!(body["trend"].as_array().expect("trend").len(), 0);
+    assert_eq!(body["usage"].as_array().expect("usage").len(), 0);
+    assert_eq!(body["purchasing"].as_array().expect("purchasing").len(), 0);
+
+    for (plan, expected) in [("starter", false), ("pro", false), ("business", true)] {
+        set_plan(&pool, tenant_id, plan).await;
+
+        let (status, body) = report(&app, token).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["can_advanced"], expected, "plan {plan}");
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_trend_groups_sales_by_day(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant_id = common::tenant_of(&app, token).await;
+    set_plan(&pool, tenant_id, "business").await;
+
+    let cake = product(&app, token, "Bolu pandan", "20000").await;
+    produced(
+        &pool,
+        tenant_id,
+        cake,
+        "5",
+        "12000",
+        Utc::now().date_naive(),
+    )
+    .await;
+
+    let today = Utc::now().date_naive();
+    let yesterday = today - Duration::days(1);
+
+    for (day, qty) in [(yesterday, "1"), (today, "2")] {
+        let (status, body) = sell(
+            &app,
+            token,
+            json!({
+                "sold_at": noon(day),
+                "items": [{ "product_id": cake, "qty": qty }],
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{body}");
+    }
+
+    let (status, body) = call(
+        &app,
+        "GET",
+        &format!("/reports?from={yesterday}&to={today}"),
+        None,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let trend = body["trend"].as_array().expect("trend");
+    assert_eq!(trend.len(), 2);
+    assert_eq!(trend[0]["date"], yesterday.to_string());
+    assert_eq!(trend[0]["revenue"], "20000.00");
+    assert_eq!(trend[0]["gross_profit"], "8000.00");
+    assert_eq!(trend[0]["cost_incomplete"], false);
+    assert_eq!(trend[1]["date"], today.to_string());
+    assert_eq!(trend[1]["revenue"], "40000.00");
+    assert_eq!(trend[1]["gross_profit"], "16000.00");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn usage_counts_what_production_drew(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant_id = common::tenant_of(&app, token).await;
+    set_plan(&pool, tenant_id, "business").await;
+
+    let flour = material(&app, token, "Tepung terigu").await;
+    stock(&app, token, flour, "10", "10000").await;
+    let batch_id = batch_of(&app, token, flour).await;
+
+    let cake = product(&app, token, "Bolu pandan", "20000").await;
+    let today = Utc::now().date_naive();
+    let last_month = today - Duration::days(60);
+
+    let recent = produced(&pool, tenant_id, cake, "2", "12000", today).await;
+    consume(&pool, recent, batch_id, "3", "10000").await;
+
+    let older = produced(&pool, tenant_id, cake, "1", "12000", last_month).await;
+    consume(&pool, older, batch_id, "5", "10000").await;
+
+    // The thirty-day window sees only the recent run.
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let usage = body["usage"].as_array().expect("usage");
+    assert_eq!(usage.len(), 1);
+    assert_eq!(usage[0]["material_name"], "Tepung terigu");
+    assert_eq!(usage[0]["qty"], "3.000");
+    assert_eq!(usage[0]["unit_cost"], "10000.0000");
+    assert_eq!(usage[0]["value"], "30000.00");
+    assert_eq!(usage[0]["runs"], 1);
+
+    // Widening the range pulls the older run in and counts both.
+    let (status, body) = call(
+        &app,
+        "GET",
+        &format!("/reports?from={last_month}&to={today}"),
+        None,
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let usage = body["usage"].as_array().expect("usage");
+    assert_eq!(usage.len(), 1);
+    assert_eq!(usage[0]["qty"], "8.000");
+    assert_eq!(usage[0]["value"], "80000.00");
+    assert_eq!(usage[0]["runs"], 2);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn purchasing_groups_by_supplier_and_material(pool: PgPool) {
+    let otp = CaptureOtp::default();
+    let app = test_app(pool.clone(), otp.clone());
+    let owner = signup(&app, &otp, "owner@example.test").await;
+    let token = owner["access_token"].as_str().expect("token");
+    let tenant_id = common::tenant_of(&app, token).await;
+    set_plan(&pool, tenant_id, "business").await;
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/suppliers",
+        Some(json!({ "name": "Toko Sumber" })),
+        Some(token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let supplier_id = body["id"].as_str().expect("supplier id");
+
+    let flour = material(&app, token, "Tepung terigu").await;
+    let sugar = material(&app, token, "Gula pasir").await;
+
+    // Two batches of flour from the supplier, one of sugar with none recorded.
+    for (qty, cost) in [("10", "10000"), ("4", "11000")] {
+        let (status, body) = stock_in(
+            &app,
+            token,
+            json!({
+                "material_id": flour,
+                "qty_received": qty,
+                "unit_cost": cost,
+                "supplier_id": supplier_id,
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED, "{body}");
+    }
+
+    stock(&app, token, sugar, "5", "9000").await;
+
+    let (status, body) = report(&app, token).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let purchasing = body["purchasing"].as_array().expect("purchasing");
+    assert_eq!(purchasing.len(), 2);
+
+    let flour_row = purchasing
+        .iter()
+        .find(|row| row["material_name"] == "Tepung terigu")
+        .expect("flour");
+    assert_eq!(flour_row["supplier_name"], "Toko Sumber");
+    assert_eq!(flour_row["qty"], "14.000");
+    assert_eq!(flour_row["value"], "144000.00");
+    assert_eq!(flour_row["batches"], 2);
+
+    let sugar_row = purchasing
+        .iter()
+        .find(|row| row["material_name"] == "Gula pasir")
+        .expect("sugar");
+    assert_eq!(sugar_row["supplier_name"], Value::Null);
+    assert_eq!(sugar_row["qty"], "5.000");
+    assert_eq!(sugar_row["value"], "45000.00");
+}
