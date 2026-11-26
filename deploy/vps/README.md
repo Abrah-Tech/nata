@@ -192,6 +192,9 @@ ssh root@VPS '
 '
 ```
 
+Tambahkan `--retain HARI` kalau dump lama harus dihapus otomatis; tanpa itu
+semua dump menumpuk di direktori output.
+
 ### Drill terjadwal
 
 Manual tidak membuktikan apa-apa kalau tidak pernah dijalankan. Di VPS drill
