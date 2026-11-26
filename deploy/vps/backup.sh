@@ -28,11 +28,14 @@
 #   DATABASE_URL=postgres://user:pass@host:5432/nata deploy/vps/backup.sh
 #
 # Options:
-#   --url URL      source connection string (default: DATABASE_URL)
-#   --output DIR   where to write the dump (default: ./tmp)
-#   --keep         keep the dump after a successful run
-#   --self-test    change a row in the restored copy and require the comparison
-#                  to fail; use it to check the drill itself
+#   --url URL        source connection string (default: DATABASE_URL)
+#   --output DIR     where to write the dump (default: ./tmp)
+#   --keep           keep the dump after a successful run
+#   --retain DAYS    with --keep, delete dumps in DIR older than this many days
+#                    (default 0, keep everything). Runs only after a pass, so a
+#                    failed drill never prunes the last known-good dump
+#   --self-test      change a row in the restored copy and require the comparison
+#                    to fail; use it to check the drill itself
 #
 # Needs pg_dump, pg_restore, and psql, plus a role allowed to create databases.
 
@@ -43,6 +46,7 @@ export PGCONNECT_TIMEOUT="${PGCONNECT_TIMEOUT:-10}"
 url="${DATABASE_URL:-}"
 output_dir="./tmp"
 keep=false
+retain=0
 self_test=false
 
 while [ "$#" -gt 0 ]; do
@@ -59,12 +63,33 @@ while [ "$#" -gt 0 ]; do
       keep=true
       shift
       ;;
+    --retain)
+      retain="${2:?--retain needs a number of days}"
+      shift 2
+      ;;
     --self-test)
       self_test=true
       shift
       ;;
     -h | --help)
-      sed -n '2,32p' "$0"
+      # Printed from a here-doc rather than `sed -n` over a line range, which
+      # truncates the help the moment a line is added above it.
+      cat <<'HELP'
+Usage:
+  DATABASE_URL=postgres://user:pass@host:5432/nata deploy/vps/backup.sh
+
+Options:
+  --url URL        source connection string (default: DATABASE_URL)
+  --output DIR     where to write the dump (default: ./tmp)
+  --keep           keep the dump after a successful run
+  --retain DAYS    with --keep, delete dumps in DIR older than this many days
+                   (default 0, keep everything). Runs only after a pass, so a
+                   failed drill never prunes the last known-good dump
+  --self-test      change a row in the restored copy and require the comparison
+                   to fail; use it to check the drill itself
+
+Needs pg_dump, pg_restore, and psql, plus a role allowed to create databases.
+HELP
       exit 0
       ;;
     *)
@@ -85,6 +110,11 @@ for tool in pg_dump pg_restore psql; do
     exit 2
   fi
 done
+
+if ! [[ "$retain" =~ ^[0-9]+$ ]]; then
+  echo "FAIL: --retain wants a whole number of days, got '$retain'" >&2
+  exit 2
+fi
 
 # A pg_dump older than the server refuses, and one that is merely close enough
 # to run can still miss things. Refuse rather than produce a dump nobody will
@@ -262,6 +292,14 @@ if diff -u "$work/source.txt" "$work/restored.txt" >"$work/diff.txt"; then
   echo "PASS: $checks checks over $table_count tables and $rows rows"
   if [ "$keep" = true ]; then
     echo "the scratch database has been dropped; the dump is kept at $dump_file"
+
+    # Pruning happens only here, on a pass: a failed drill must never cost you
+    # the last dump that was known to restore.
+    if [ "$retain" -gt 0 ]; then
+      pruned="$(find "$output_dir" -maxdepth 1 -type f -name 'nata-*.dump' \
+        -mtime "+$retain" -delete -print | wc -l)"
+      echo "$pruned dump(s) older than $retain days removed from $output_dir"
+    fi
   else
     echo "the scratch database has been dropped and the dump removed"
   fi
