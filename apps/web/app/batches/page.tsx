@@ -1,6 +1,10 @@
 "use client";
 
-import type { ProductBatch, ProductCorrection } from "@nata/api-client";
+import type {
+  ProductBatch,
+  ProductCorrection,
+  Warehouse,
+} from "@nata/api-client";
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +13,7 @@ import { StatusMessage } from "@/components/status";
 import { LoadingRegion, SkeletonTable } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { daysUntil, formatDate, formatMoney, formatQty } from "@/lib/format";
 import { fill, useI18n, type Dictionary, type Locale } from "@/lib/i18n";
@@ -22,7 +27,7 @@ type Filter = "all" | "expiring" | "expired";
 
 type Load =
   | { status: "loading" }
-  | { status: "ready"; batches: ProductBatch[] }
+  | { status: "ready"; batches: ProductBatch[]; warehouses: Warehouse[] }
   | { status: "error" };
 
 export default function BatchesPage() {
@@ -31,6 +36,7 @@ export default function BatchesPage() {
 
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [filter, setFilter] = useState<Filter>("all");
+  const [warehouseId, setWarehouseId] = useState("");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<ProductBatch | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -46,11 +52,16 @@ export default function BatchesPage() {
     );
 
     try {
-      setLoad({ status: "ready", batches: await api.listProductBatches(token) });
+      const [batches, warehouses] = await Promise.all([
+        api.listProductBatches(token, undefined, warehouseId || undefined),
+        api.listWarehouses(token),
+      ]);
+
+      setLoad({ status: "ready", batches, warehouses });
     } catch {
       setLoad({ status: "error" });
     }
-  }, []);
+  }, [warehouseId]);
 
   useEffect(() => {
     if (session.status === "ready") {
@@ -66,6 +77,17 @@ export default function BatchesPage() {
   }, [notice]);
 
   const batches = load.status === "ready" ? load.batches : [];
+  const warehouses = load.status === "ready" ? load.warehouses : [];
+
+  const warehouseById = useMemo(
+    () => new Map(warehouses.map((warehouse) => [warehouse.id, warehouse])),
+    [warehouses],
+  );
+
+  function warehouseName(id: string | null): string {
+    if (!id) return t.batches.meta.unassigned;
+    return warehouseById.get(id)?.name ?? t.batches.meta.unassigned;
+  }
 
   const counts = useMemo(() => {
     return {
@@ -276,6 +298,20 @@ export default function BatchesPage() {
                     })}
                   </div>
 
+                  <Select
+                    value={warehouseId}
+                    onChange={(event) => setWarehouseId(event.target.value)}
+                    aria-label={t.batches.warehouseFilter.label}
+                    className="w-full sm:w-[180px]"
+                  >
+                    <option value="">{t.batches.warehouseFilter.all}</option>
+                    {warehouses.map((warehouse) => (
+                      <option key={warehouse.id} value={warehouse.id}>
+                        {warehouse.name}
+                      </option>
+                    ))}
+                  </Select>
+
                   <label className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-alt px-2.5 py-1.5 text-ink-3 transition-[border-color,box-shadow] duration-150 hover:border-ink-3 focus-within:border-brand focus-within:shadow-[0_0_0_3px_var(--brand-soft)] sm:w-[220px]">
                     <Search size={14} />
                     <input
@@ -378,6 +414,9 @@ export default function BatchesPage() {
                                   phone it is the only place the date exists. */}
                               <span className="truncate text-2xs text-ink-3 @min-[878px]:hidden">
                                 {expiryText(row, t, locale)}
+                              </span>
+                              <span className="truncate text-2xs text-ink-3">
+                                {warehouseName(row.warehouse_id)}
                               </span>
                             </div>
 

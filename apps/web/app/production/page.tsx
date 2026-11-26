@@ -6,6 +6,7 @@ import {
   type ProductionOrder,
   type ProductionPreview,
   type ProductionSuggestion,
+  type Warehouse,
 } from "@nata/api-client";
 import { AlertTriangle, CheckCircle2, ChefHat } from "lucide-react";
 import Link from "next/link";
@@ -41,7 +42,7 @@ import { AppShell } from "../app-shell";
 
 type Load =
   | { status: "loading" }
-  | { status: "ready"; products: Product[] }
+  | { status: "ready"; products: Product[]; warehouses: Warehouse[] }
   | { status: "error" };
 
 function productionError(t: Dictionary, cause: unknown): string {
@@ -56,6 +57,8 @@ function productionError(t: Dictionary, cause: unknown): string {
         return t.production.errors.insufficientStock;
       case "product_not_found":
         return t.production.errors.productNotFound;
+      case "invalid_warehouse":
+        return t.production.errors.invalidWarehouse;
       case "permission_denied":
         return t.production.errors.forbidden;
     }
@@ -70,6 +73,9 @@ export default function ProductionPage() {
 
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [productId, setProductId] = useState("");
+  // `null` means "not chosen yet", so the first warehouse is only a default
+  // and picking "Unassigned" sticks.
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
   const [qty, setQty] = useState("");
   const [producedOn, setProducedOn] = useState(todayIso());
   const [preview, setPreview] = useState<ProductionPreview | null>(null);
@@ -92,8 +98,12 @@ export default function ProductionPage() {
     );
 
     try {
-      const products = await api.listProducts(token);
-      setLoad({ status: "ready", products });
+      const [products, warehouses] = await Promise.all([
+        api.listProducts(token),
+        api.listWarehouses(token),
+      ]);
+
+      setLoad({ status: "ready", products, warehouses });
     } catch {
       setLoad({ status: "error" });
     }
@@ -124,6 +134,8 @@ export default function ProductionPage() {
   }, [session.status, daysAhead, fetchProducts, fetchSuggestions]);
 
   const products = load.status === "ready" ? load.products : [];
+  const warehouses = load.status === "ready" ? load.warehouses : [];
+  const targetWarehouseId = warehouseId ?? warehouses[0]?.id ?? "";
 
   const producible = useMemo(
     () => products.filter((product) => product.current_recipe_id !== null),
@@ -224,6 +236,7 @@ export default function ProductionPage() {
         product_id: preview.product_id,
         qty: preview.qty,
         produced_on: producedOn,
+        warehouse_id: targetWarehouseId || null,
       });
 
       setPreview(null);
@@ -542,7 +555,7 @@ export default function ProductionPage() {
                   className="flex flex-col gap-3.5 rounded-xl border border-border bg-card p-4.5"
                   onSubmit={runPreview}
                 >
-                  <div className="grid gap-3.5 sm:grid-cols-[1.2fr_0.8fr_0.8fr]">
+                  <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="production-product">
                         {t.production.form.product}
@@ -594,6 +607,29 @@ export default function ProductionPage() {
                         onChange={(event) => setProducedOn(event.target.value)}
                         required
                       />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="production-warehouse">
+                        {t.production.form.warehouse}
+                      </Label>
+                      <Select
+                        id="production-warehouse"
+                        value={targetWarehouseId}
+                        onChange={(event) => setWarehouseId(event.target.value)}
+                      >
+                        <option value="">
+                          {t.production.form.warehouseNone}
+                        </option>
+                        {warehouses.map((warehouse) => (
+                          <option key={warehouse.id} value={warehouse.id}>
+                            {warehouse.name}
+                          </option>
+                        ))}
+                      </Select>
+                      <span className="text-2xs leading-snug text-ink-3">
+                        {t.production.form.warehouseHint}
+                      </span>
                     </div>
                   </div>
 

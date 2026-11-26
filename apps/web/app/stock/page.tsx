@@ -6,6 +6,7 @@ import type {
   StockLevel,
   Supplier,
   Unit,
+  Warehouse,
 } from "@nata/api-client";
 import { ClipboardList, Ellipsis, Plus, RotateCcw, Search, X } from "lucide-react";
 import Link from "next/link";
@@ -16,6 +17,7 @@ import { StatusMessage } from "@/components/status";
 import { LoadingRegion, SkeletonTable } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { api } from "@/lib/api";
 import { daysUntil, formatDate, formatMoney, formatQty } from "@/lib/format";
 import { fill, useI18n, type Dictionary } from "@/lib/i18n";
@@ -44,6 +46,7 @@ type Data = {
   suppliers: Supplier[];
   units: Unit[];
   batches: Batch[];
+  warehouses: Warehouse[];
 };
 
 type Load =
@@ -57,6 +60,7 @@ export default function StockPage() {
 
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [filter, setFilter] = useState<Filter>("all");
+  const [warehouseId, setWarehouseId] = useState("");
   const [query, setQuery] = useState("");
   const [panelId, setPanelId] = useState<string | null>(null);
   const [stockInFor, setStockInFor] = useState<string | null | undefined>();
@@ -77,22 +81,24 @@ export default function StockPage() {
     );
 
     try {
-      const [stock, materials, suppliers, units, batches] = await Promise.all([
-        api.listStock(token),
-        api.listMaterials(token),
-        api.listSuppliers(token),
-        api.listUnits(token),
-        api.listBatches(token),
-      ]);
+      const [stock, materials, suppliers, units, batches, warehouses] =
+        await Promise.all([
+          api.listStock(token, warehouseId || undefined),
+          api.listMaterials(token),
+          api.listSuppliers(token),
+          api.listUnits(token),
+          api.listBatches(token, undefined, warehouseId || undefined),
+          api.listWarehouses(token),
+        ]);
 
       setLoad({
         status: "ready",
-        data: { stock, materials, suppliers, units, batches },
+        data: { stock, materials, suppliers, units, batches, warehouses },
       });
     } catch {
       setLoad({ status: "error" });
     }
-  }, []);
+  }, [warehouseId]);
 
   useEffect(() => {
     if (session.status === "ready") {
@@ -697,6 +703,20 @@ export default function StockPage() {
                     })}
                   </div>
 
+                  <Select
+                    value={warehouseId}
+                    onChange={(event) => setWarehouseId(event.target.value)}
+                    aria-label={t.stock.warehouseFilter.label}
+                    className="w-full sm:w-[180px]"
+                  >
+                    <option value="">{t.stock.warehouseFilter.all}</option>
+                    {(data?.warehouses ?? []).map((warehouse) => (
+                      <option key={warehouse.id} value={warehouse.id}>
+                        {warehouse.name}
+                      </option>
+                    ))}
+                  </Select>
+
                   <label className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-alt px-2.5 py-1.5 text-ink-3 transition-[border-color,box-shadow] duration-150 hover:border-ink-3 focus-within:border-brand focus-within:shadow-[0_0_0_3px_var(--brand-soft)] sm:w-[220px]">
                     <Search size={14} />
                     <input
@@ -897,6 +917,7 @@ export default function StockPage() {
               material={panelRow}
               batches={batchesByMaterial.get(panelRow.material_id) ?? []}
               suppliers={data?.suppliers ?? []}
+              warehouses={data?.warehouses ?? []}
               canStockIn={canWriteBatches}
               onClose={() => setPanelId(null)}
               onStockIn={() => {
@@ -911,6 +932,7 @@ export default function StockPage() {
             <StockInDialog
               materials={data?.materials ?? []}
               suppliers={data?.suppliers ?? []}
+              warehouses={data?.warehouses ?? []}
               defaultMaterialId={stockInFor}
               onClose={closeStockIn}
               onSaved={() => {

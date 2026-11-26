@@ -1,6 +1,12 @@
 "use client";
 
-import type { Batch, Movement, StockLevel, Supplier } from "@nata/api-client";
+import type {
+  Batch,
+  Movement,
+  StockLevel,
+  Supplier,
+  Warehouse,
+} from "@nata/api-client";
 import { CalendarClock, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -20,6 +26,7 @@ type Props = {
   material: StockLevel;
   batches: Batch[];
   suppliers: Supplier[];
+  warehouses: Warehouse[];
   canStockIn: boolean;
   onClose: () => void;
   onStockIn: () => void;
@@ -29,6 +36,7 @@ export function BatchPanel({
   material,
   batches,
   suppliers,
+  warehouses,
   canStockIn,
   onClose,
   onStockIn,
@@ -60,6 +68,14 @@ export function BatchPanel({
   function supplierName(id: string | null): string {
     if (!id) return t.stock.meta.noSupplier;
     return suppliers.find((supplier) => supplier.id === id)?.name ?? t.stock.meta.noSupplier;
+  }
+
+  function warehouseName(id: string | null): string {
+    if (!id) return t.stock.meta.unassigned;
+    return (
+      warehouses.find((warehouse) => warehouse.id === id)?.name ??
+      t.stock.meta.unassigned
+    );
   }
 
   function expiryText(expiresAt: string | null): string {
@@ -154,7 +170,7 @@ export function BatchPanel({
                         {formatMoney(Number(batch.unit_cost), locale)}
                       </span>
                     </div>
-                    <dl className="grid grid-cols-3 gap-2">
+                    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       <div>
                         <dt className="text-2xs font-semibold tracking-wide text-ink-3 uppercase">
                           {t.stock.panel.received}
@@ -177,6 +193,14 @@ export function BatchPanel({
                         </dt>
                         <dd className="mt-0.5 text-2xs text-ink-2">
                           {supplierName(batch.supplier_id)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-2xs font-semibold tracking-wide text-ink-3 uppercase">
+                          {t.stock.meta.warehouse}
+                        </dt>
+                        <dd className="mt-0.5 text-2xs text-ink-2">
+                          {warehouseName(batch.warehouse_id)}
                         </dd>
                       </div>
                     </dl>
@@ -226,6 +250,12 @@ export function BatchPanel({
                     </span>
                     <span className="text-ink-2">
                       {t.stock.panel.types[movement.type]}
+                      {movement.warehouse_name ? (
+                        <span className="text-ink-3">
+                          {" "}
+                          · {movement.warehouse_name}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="text-2xs whitespace-nowrap text-ink-3">
                       {formatDateTime(movement.created_at, locale)}

@@ -118,6 +118,12 @@ Loading uses skeletons, never a spinner or a "Memuat…" line: `components/skele
 
 Stock is a batch ledger, not a scalar. `material_batches.qty_remaining` is on-hand per batch; `stock_movements` is the audit trail. Never add a single `stock` column to `materials`. Finished goods are a batch ledger too: `product_batches.qty_remaining` is on-hand per batch and `products.stock_qty` is only a read-only cache written in the same transaction. `product_batches.unit_cost` is null when the cost cannot be known (stock migrated from the scalar column with no production order), and a sale that takes such a batch is reported as cost incomplete instead of valued at a made-up number.
 
+### Warehouses
+
+A location is a name on `warehouses`, unique per tenant. `warehouse_id` is nullable on `material_batches`, `product_batches`, and `stock_movements`, because rows written before P4-01 have no location and a null stays valid on every read path. `POST /warehouses` and `PUT`/`DELETE /warehouses/{id}` require `tenant_manage`; listing needs `material_read`, and a create checks `Resource::Warehouses` capacity first. Deleting is refused with `409 warehouse_in_use` while any batch or movement still points at the location, which is what the composite `ON DELETE RESTRICT` foreign key buys.
+
+Stock-in and a production run choose a destination. A correction or a count inherits the batch's location, and a sale writes the source batch's location on its movement. Allocation never narrows by location: a sale takes the earliest expiring batch across every warehouse, and production consumes materials the same way, so a location is where stock sits rather than a stock domain. Moving a batch between locations is not built, and a correction cannot change `warehouse_id`.
+
 ### Recipes
 
 Recipes are versioned, never edited in place. Creating a recipe version deactivates the previous one, and every version keeps its own `recipe_items`; production will point at the exact version it consumed so historical HPP never changes. A partial unique index enforces one active version per product, and the database rejects a recipe whose product belongs to another tenant. `products.current_recipe_id` follows the newest version and is null when the product has no recipe. Reading a product is its own `product_read` permission rather than a side effect of `recipe_read`: the register needs the catalogue, while the recipe behind it carries quantities and waste a cashier has no reason to see. Writing a product still needs `recipe_write`.
@@ -154,7 +160,7 @@ Both entry points call `sales::write_sale`, so a typed sale and an imported one 
 
 Every tenant starts on `trial` with `trial_ends_at` set to 14 days after creation. The limits live in `nata-domain::plan` (`Plan::limits`) and are entitlements, not permissions: the role says what a member may do, the plan says how much of it the tenant may have. They are checked in the service layer before a create, never in RLS.
 
-`GET /subscription` returns the plan, the trial end, the limits, and current usage. Seats count active memberships plus pending invitations, because an invitation reserves a seat. Materials and recipes count only active rows: archiving a material frees a slot, and a new recipe version does not consume one. Warehouses have no table until P4-01, so that counter stays at zero.
+`GET /subscription` returns the plan, the trial end, the limits, and current usage. Seats count active memberships plus pending invitations, because an invitation reserves a seat. Materials and recipes count only active rows: archiving a material frees a slot, and a new recipe version does not consume one. Warehouses count every row in `warehouses`, because a location is either there or it is not; deleting one is refused while stock still points at it.
 
 A create over the limit is refused with `403 plan_limit_reached` and `details { resource, plan, limit, current }`. Only creates are checked — a downgrade never deletes or hides rows, it just blocks the next one.
 
@@ -242,7 +248,7 @@ Use `rust_decimal` and Postgres `NUMERIC` end to end. Never `f64` for money or q
 - Server push (FCM/APNs) is out of MVP scope; alerts go through WhatsApp.
 - sqlx compile-time checked queries need `DATABASE_URL` at build time or a committed `.sqlx` cache. CI must use one of them.
 - Offline sync covers stock-in only (D2). Production and corrections need a live connection because they depend on current stock; do not widen the outbox without a new decision.
-- `warehouse_id` is nullable on `material_batches`, `product_batches`, and `stock_movements`, and the `warehouses` table exists (D6, migration `0021`). Nothing writes the column yet — P4-01 owns the endpoints and the UI, so do not invent a warehouse workflow ahead of it.
+- `warehouse_id` is nullable on `material_batches`, `product_batches`, and `stock_movements` (D6, migration `0021`). P4-01 writes it: a receipt and a production run pick a destination, a correction or count inherits the batch's location, and a sale records the source batch's location while still allocating globally in FEFO order. A null location is real data from before P4-01, so every read path must tolerate it; transfers between locations are still not built, so a location change only happens by correcting the batch.
 - Dates: `expires_at` is a `date`, not a timestamp; avoid timezone drift when comparing.
 
 ## Conventions
