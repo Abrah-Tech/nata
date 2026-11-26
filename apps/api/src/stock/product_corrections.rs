@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::corrections::{validate, CorrectionType};
+use super::queries::ensure_warehouse;
 use crate::auth::guard::{CanAdjustStock, CanReadRecipes, Require};
 use crate::{error::ApiError, AppState};
 
@@ -32,12 +33,15 @@ pub struct ProductBatchView {
     pub qty_received: Decimal,
     pub qty_remaining: Decimal,
     pub unit_cost: Option<Decimal>,
+    pub warehouse_id: Option<Uuid>,
+    pub warehouse_name: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ProductBatchFilter {
     pub product_id: Option<Uuid>,
+    pub warehouse_id: Option<Uuid>,
 }
 
 type ProductBatchRow = (
@@ -50,6 +54,8 @@ type ProductBatchRow = (
     Decimal,
     Decimal,
     Option<Decimal>,
+    Option<Uuid>,
+    Option<String>,
     DateTime<Utc>,
 );
 
@@ -64,6 +70,8 @@ fn batch_view(row: ProductBatchRow) -> ProductBatchView {
         qty_received,
         qty_remaining,
         unit_cost,
+        warehouse_id,
+        warehouse_name,
         created_at,
     ) = row;
 
@@ -77,6 +85,8 @@ fn batch_view(row: ProductBatchRow) -> ProductBatchView {
         qty_received,
         qty_remaining,
         unit_cost,
+        warehouse_id,
+        warehouse_name,
         created_at,
     }
 }
@@ -92,19 +102,26 @@ pub async fn list_batches(
     let db = state.db()?;
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
+    if let Some(warehouse_id) = filter.warehouse_id {
+        ensure_warehouse(&mut tx, auth.tenant_id, warehouse_id).await?;
+    }
+
     let rows: Vec<ProductBatchRow> = sqlx::query_as(
         "select b.id, b.product_id, p.name, b.production_order_id,
                 b.produced_on, b.expires_at, b.qty_received, b.qty_remaining,
-                b.unit_cost, b.created_at
+                b.unit_cost, b.warehouse_id, w.name, b.created_at
          from product_batches b
          join products p on p.id = b.product_id and p.tenant_id = b.tenant_id
+         left join warehouses w on w.id = b.warehouse_id
          where b.tenant_id = $1
            and b.qty_remaining > 0
            and ($2::uuid is null or b.product_id = $2)
+           and ($3::uuid is null or b.warehouse_id = $3)
          order by b.expires_at asc nulls last, b.produced_on asc, b.created_at asc",
     )
     .bind(auth.tenant_id)
     .bind(filter.product_id)
+    .bind(filter.warehouse_id)
     .fetch_all(&mut *tx)
     .await?;
 
@@ -139,7 +156,7 @@ pub struct ProductCorrectionView {
     pub batch_qty_remaining: Decimal,
 }
 
-type CorrectedBatch = (Uuid, Decimal, Decimal, Option<Decimal>);
+type CorrectedBatch = (Uuid, Decimal, Decimal, Option<Decimal>, Option<Uuid>);
 
 pub async fn correct(
     State(state): State<AppState>,
@@ -161,7 +178,7 @@ pub async fn correct(
     // Lock the batch: the bounds check below is only meaningful while no one
     // else can change the same remaining quantity.
     let batch: Option<CorrectedBatch> = sqlx::query_as(
-        "select product_id, qty_received, qty_remaining, unit_cost
+        "select product_id, qty_received, qty_remaining, unit_cost, warehouse_id
          from product_batches
          where id = $1 and tenant_id = $2
          for update",
@@ -171,7 +188,7 @@ pub async fn correct(
     .fetch_optional(&mut *tx)
     .await?;
 
-    let (product_id, qty_received, qty_remaining, unit_cost) =
+    let (product_id, qty_received, qty_remaining, unit_cost, warehouse_id) =
         batch.ok_or(ApiError::NotFound("batch_not_found"))?;
 
     let new_remaining = qty_remaining + body.qty;
@@ -186,8 +203,8 @@ pub async fn correct(
 
     let (movement_id, created_at): (Uuid, DateTime<Utc>) = sqlx::query_as(
         "insert into stock_movements
-             (tenant_id, product_batch_id, type, qty, unit_cost, note, created_by)
-         values ($1, $2, $3, $4, $5, $6, $7)
+             (tenant_id, product_batch_id, type, qty, unit_cost, note, created_by, warehouse_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
          returning id, created_at",
     )
     .bind(auth.tenant_id)
@@ -197,6 +214,7 @@ pub async fn correct(
     .bind(unit_cost)
     .bind(note)
     .bind(auth.user_id)
+    .bind(warehouse_id)
     .fetch_one(&mut *tx)
     .await?;
 

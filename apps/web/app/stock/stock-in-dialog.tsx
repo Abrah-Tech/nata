@@ -1,6 +1,12 @@
 "use client";
 
-import { ApiError, type Batch, type Material, type Supplier } from "@nata/api-client";
+import {
+  ApiError,
+  type Batch,
+  type Material,
+  type Supplier,
+  type Warehouse,
+} from "@nata/api-client";
 import { useRef, useState } from "react";
 
 import { Modal } from "@/components/modal";
@@ -23,6 +29,7 @@ import { stockError } from "./error-copy";
 type Props = {
   materials: Material[];
   suppliers: Supplier[];
+  warehouses: Warehouse[];
   defaultMaterialId?: string | null;
   onClose: () => void;
   onSaved: (batch: Batch) => void;
@@ -33,6 +40,7 @@ type Props = {
 export function StockInDialog({
   materials,
   suppliers,
+  warehouses,
   defaultMaterialId,
   onClose,
   onSaved,
@@ -45,6 +53,9 @@ export function StockInDialog({
 
   const [materialId, setMaterialId] = useState(initial?.id ?? "");
   const [supplierId, setSupplierId] = useState(initial?.default_supplier_id ?? "");
+  // A receipt usually goes to the first location; leaving it unassigned stays
+  // possible, because existing stock has no location.
+  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? "");
   const [receivedAt, setReceivedAt] = useState(today);
   const [expiresAt, setExpiresAt] = useState(
     initial?.shelf_life_days != null
@@ -115,6 +126,7 @@ export function StockInDialog({
     const body = {
       material_id: materialId,
       supplier_id: supplierId || null,
+      warehouse_id: warehouseId || null,
       received_at: receivedAt,
       expires_at: expiresAt || null,
       qty_received: quantity,
@@ -186,6 +198,20 @@ export function StockInDialog({
                 {materials.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name} ({item.base_unit.code})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field label={t.stock.form.warehouse}>
+              <Select
+                value={warehouseId}
+                onChange={(event) => setWarehouseId(event.target.value)}
+              >
+                <option value="">{t.stock.form.warehouseNone}</option>
+                {warehouses.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
                   </option>
                 ))}
               </Select>

@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
+use super::queries::ensure_warehouse;
 use crate::auth::guard::{CanWriteBatches, Require};
 use crate::{error::ApiError, AppState};
 
@@ -19,6 +20,8 @@ use crate::{error::ApiError, AppState};
 pub struct StockInBody {
     pub material_id: Uuid,
     pub supplier_id: Option<Uuid>,
+    /// Where the receipt is put; null leaves the batch unassigned.
+    pub warehouse_id: Option<Uuid>,
     pub received_at: Option<NaiveDate>,
     pub expires_at: Option<NaiveDate>,
     pub qty_received: Decimal,
@@ -33,6 +36,7 @@ pub struct BatchView {
     pub id: Uuid,
     pub material_id: Uuid,
     pub supplier_id: Option<Uuid>,
+    pub warehouse_id: Option<Uuid>,
     pub received_at: NaiveDate,
     pub expires_at: Option<NaiveDate>,
     pub qty_received: Decimal,
@@ -48,7 +52,7 @@ pub(crate) struct StockInRecord {
     pub created: bool,
 }
 
-const BATCH_COLUMNS: &str = "id, material_id, supplier_id, received_at, expires_at,
+const BATCH_COLUMNS: &str = "id, material_id, supplier_id, warehouse_id, received_at, expires_at,
      qty_received, qty_remaining, unit_cost, note, created_at";
 
 async fn load_batch(
@@ -108,6 +112,10 @@ pub(crate) async fn insert_stock_in(
         }
     }
 
+    if let Some(warehouse_id) = body.warehouse_id {
+        ensure_warehouse(tx, tenant_id, warehouse_id).await?;
+    }
+
     // A replay is not an error: return the batch the first attempt created.
     if let Some(client_ref) = body.client_ref {
         let existing: Option<(Uuid,)> = sqlx::query_as(
@@ -137,15 +145,16 @@ pub(crate) async fn insert_stock_in(
     // replays: the loser reads the row the winner committed.
     let inserted: Option<(Uuid, DateTime<Utc>)> = sqlx::query_as(
         "insert into material_batches
-             (tenant_id, material_id, supplier_id, received_at, expires_at,
+             (tenant_id, material_id, supplier_id, warehouse_id, received_at, expires_at,
               qty_received, qty_remaining, unit_cost, note, client_ref)
-         values ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9)
+         values ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9, $10)
          on conflict (tenant_id, client_ref) do nothing
          returning id, created_at",
     )
     .bind(tenant_id)
     .bind(body.material_id)
     .bind(body.supplier_id)
+    .bind(body.warehouse_id)
     .bind(received_at)
     .bind(body.expires_at)
     .bind(body.qty_received)
@@ -179,8 +188,8 @@ pub(crate) async fn insert_stock_in(
 
     sqlx::query(
         "insert into stock_movements
-             (tenant_id, batch_id, type, qty, unit_cost, note, created_by)
-         values ($1, $2, 'purchase', $3, $4, $5, $6)",
+             (tenant_id, batch_id, type, qty, unit_cost, note, created_by, warehouse_id)
+         values ($1, $2, 'purchase', $3, $4, $5, $6, $7)",
     )
     .bind(tenant_id)
     .bind(id)
@@ -188,6 +197,7 @@ pub(crate) async fn insert_stock_in(
     .bind(body.unit_cost)
     .bind(note)
     .bind(user_id)
+    .bind(body.warehouse_id)
     .execute(&mut **tx)
     .await?;
 
@@ -203,6 +213,7 @@ pub(crate) async fn insert_stock_in(
             id,
             material_id: body.material_id,
             supplier_id: body.supplier_id,
+            warehouse_id: body.warehouse_id,
             received_at,
             expires_at: body.expires_at,
             qty_received: body.qty_received,

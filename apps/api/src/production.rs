@@ -27,6 +27,7 @@ use uuid::Uuid;
 use nata_core::{Allocation, Consumption, ProductionCost, StockBatch};
 
 use crate::auth::guard::{CanReadProduction, CanWriteProduction, Require};
+use crate::stock::queries::ensure_warehouse;
 use crate::{error::ApiError, AppState};
 
 /// Batches store three decimals. Requirements round up to the same scale so
@@ -38,6 +39,9 @@ pub struct ProductionBody {
     pub product_id: Uuid,
     /// How much finished product the run is expected to make, in product units.
     pub qty: Decimal,
+    /// Where the finished batch is put; null leaves it unassigned. Materials
+    /// are still consumed across every location in FEFO order.
+    pub warehouse_id: Option<Uuid>,
     pub produced_on: Option<NaiveDate>,
 }
 
@@ -148,7 +152,14 @@ type ProductRow = (
     Option<i32>,
 );
 type ItemRow = (Uuid, String, String, Decimal, Decimal);
-type BatchRow = (Uuid, NaiveDate, Option<NaiveDate>, Decimal, Decimal);
+type BatchRow = (
+    Uuid,
+    NaiveDate,
+    Option<NaiveDate>,
+    Decimal,
+    Decimal,
+    Option<Uuid>,
+);
 
 /// A material requirement with the FEFO decision already made.
 struct MaterialPlan {
@@ -169,6 +180,9 @@ struct PlannedLine {
     expires_at: Option<NaiveDate>,
     qty: Decimal,
     unit_cost: Decimal,
+    /// The location the consumed batch is stored in; the production-use
+    /// movement records it so the trail says where the material left.
+    warehouse_id: Option<Uuid>,
 }
 
 /// Everything a run would need, without touching stock.
@@ -300,14 +314,14 @@ async fn plan_order(
     // instead of being consumed; if that leaves too little, the plan reports a
     // shortage. `expires_at` is a date, so a batch expiring today is still good.
     let batch_sql = if lock {
-        "select id, received_at, expires_at, qty_remaining, unit_cost
+        "select id, received_at, expires_at, qty_remaining, unit_cost, warehouse_id
          from material_batches
          where tenant_id = $1 and material_id = $2 and qty_remaining > 0
            and (expires_at is null or expires_at >= current_date)
          order by expires_at asc nulls last, received_at asc
          for update"
     } else {
-        "select id, received_at, expires_at, qty_remaining, unit_cost
+        "select id, received_at, expires_at, qty_remaining, unit_cost, warehouse_id
          from material_batches
          where tenant_id = $1 and material_id = $2 and qty_remaining > 0
            and (expires_at is null or expires_at >= current_date)
@@ -332,10 +346,12 @@ async fn plan_order(
         let mut costs: HashMap<Uuid, Decimal> = HashMap::with_capacity(rows.len());
         let mut batches: Vec<StockBatch<Uuid>> = Vec::with_capacity(rows.len());
         let mut expiries: HashMap<Uuid, Option<NaiveDate>> = HashMap::with_capacity(rows.len());
+        let mut warehouses: HashMap<Uuid, Option<Uuid>> = HashMap::with_capacity(rows.len());
 
-        for (id, received_at, expires_at, qty_remaining, unit_cost) in rows {
+        for (id, received_at, expires_at, qty_remaining, unit_cost, warehouse_id) in rows {
             costs.insert(id, unit_cost);
             expiries.insert(id, expires_at);
+            warehouses.insert(id, warehouse_id);
             batches.push(StockBatch {
                 id,
                 received_at,
@@ -374,6 +390,7 @@ async fn plan_order(
                 expires_at: expiries[&line.id],
                 qty: line.qty,
                 unit_cost: costs[&line.id],
+                warehouse_id: warehouses[&line.id],
             })
             .collect();
 
@@ -543,6 +560,10 @@ pub async fn create_order(
     let db = state.db()?;
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
 
+    if let Some(warehouse_id) = body.warehouse_id {
+        ensure_warehouse(&mut tx, auth.tenant_id, warehouse_id).await?;
+    }
+
     let planned = plan_order(
         &mut tx,
         auth.tenant_id,
@@ -597,20 +618,20 @@ pub async fn create_order(
         let MaterialPlan {
             material_id,
             material_name,
-            allocation,
             costs,
+            lines,
             ..
         } = material;
 
-        for line in allocation.lines {
-            let unit_cost = costs[&line.id];
+        for line in lines {
+            let unit_cost = costs[&line.batch_id];
 
             sqlx::query(
                 "update material_batches
                  set qty_remaining = qty_remaining - $3
                  where id = $1 and tenant_id = $2",
             )
-            .bind(line.id)
+            .bind(line.batch_id)
             .bind(auth.tenant_id)
             .bind(line.qty)
             .execute(&mut *tx)
@@ -618,14 +639,15 @@ pub async fn create_order(
 
             sqlx::query(
                 "insert into stock_movements
-                     (tenant_id, batch_id, type, qty, unit_cost, created_by)
-                 values ($1, $2, 'production_use', $3, $4, $5)",
+                     (tenant_id, batch_id, type, qty, unit_cost, created_by, warehouse_id)
+                 values ($1, $2, 'production_use', $3, $4, $5, $6)",
             )
             .bind(auth.tenant_id)
-            .bind(line.id)
+            .bind(line.batch_id)
             .bind(-line.qty)
             .bind(unit_cost)
             .bind(auth.user_id)
+            .bind(line.warehouse_id)
             .execute(&mut *tx)
             .await?;
 
@@ -635,14 +657,14 @@ pub async fn create_order(
                  values ($1, $2, $3, $4)",
             )
             .bind(order_id)
-            .bind(line.id)
+            .bind(line.batch_id)
             .bind(line.qty)
             .bind(unit_cost)
             .execute(&mut *tx)
             .await?;
 
             consumptions.push(ConsumptionView {
-                batch_id: line.id,
+                batch_id: line.batch_id,
                 material_id,
                 material_name: material_name.clone(),
                 qty: line.qty,
@@ -661,8 +683,8 @@ pub async fn create_order(
     let (product_batch_id,): (Uuid,) = sqlx::query_as(
         "insert into product_batches
              (tenant_id, product_id, production_order_id, produced_on, expires_at,
-              qty_received, qty_remaining, unit_cost)
-         values ($1, $2, $3, $4, $5, $6, $6, $7)
+              qty_received, qty_remaining, unit_cost, warehouse_id)
+         values ($1, $2, $3, $4, $5, $6, $6, $7, $8)
          returning id",
     )
     .bind(auth.tenant_id)
@@ -672,19 +694,21 @@ pub async fn create_order(
     .bind(expires_at)
     .bind(production_qty)
     .bind(cost.unit_cost)
+    .bind(body.warehouse_id)
     .fetch_one(&mut *tx)
     .await?;
 
     sqlx::query(
         "insert into stock_movements
-             (tenant_id, product_batch_id, type, qty, unit_cost, created_by)
-         values ($1, $2, 'production', $3, $4, $5)",
+             (tenant_id, product_batch_id, type, qty, unit_cost, created_by, warehouse_id)
+         values ($1, $2, 'production', $3, $4, $5, $6)",
     )
     .bind(auth.tenant_id)
     .bind(product_batch_id)
     .bind(production_qty)
     .bind(cost.unit_cost)
     .bind(auth.user_id)
+    .bind(body.warehouse_id)
     .execute(&mut *tx)
     .await?;
 

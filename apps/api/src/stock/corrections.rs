@@ -75,6 +75,9 @@ pub(crate) fn validate(kind: CorrectionType, qty: Decimal) -> Result<(), ApiErro
 pub(crate) struct LockedBatch {
     pub id: Uuid,
     pub material_id: Uuid,
+    /// Where the batch is stored; a correction happens in that location.
+    pub warehouse_id: Option<Uuid>,
+    pub warehouse_name: Option<String>,
     pub qty_received: Decimal,
     pub qty_remaining: Decimal,
     pub unit_cost: Decimal,
@@ -82,7 +85,17 @@ pub(crate) struct LockedBatch {
     pub unit_code: String,
 }
 
-type LockedRow = (Uuid, Uuid, Decimal, Decimal, Decimal, String, String);
+type LockedRow = (
+    Uuid,
+    Uuid,
+    Option<Uuid>,
+    Option<String>,
+    Decimal,
+    Decimal,
+    Decimal,
+    String,
+    String,
+);
 
 pub(crate) async fn lock_batch(
     tx: &mut Transaction<'_, Postgres>,
@@ -90,11 +103,13 @@ pub(crate) async fn lock_batch(
     batch_id: Uuid,
 ) -> Result<Option<LockedBatch>, ApiError> {
     let row: Option<LockedRow> = sqlx::query_as(
-        "select b.id, b.material_id, b.qty_received, b.qty_remaining, b.unit_cost,
+        "select b.id, b.material_id, b.warehouse_id, w.name,
+                b.qty_received, b.qty_remaining, b.unit_cost,
                 m.name, u.code
          from material_batches b
          join materials m on m.id = b.material_id
          join units u on u.id = m.base_unit_id
+         left join warehouses w on w.id = b.warehouse_id
          where b.id = $1 and b.tenant_id = $2
          for update of b",
     )
@@ -104,16 +119,26 @@ pub(crate) async fn lock_batch(
     .await?;
 
     Ok(row.map(
-        |(id, material_id, qty_received, qty_remaining, unit_cost, material_name, unit_code)| {
-            LockedBatch {
-                id,
-                material_id,
-                qty_received,
-                qty_remaining,
-                unit_cost,
-                material_name,
-                unit_code,
-            }
+        |(
+            id,
+            material_id,
+            warehouse_id,
+            warehouse_name,
+            qty_received,
+            qty_remaining,
+            unit_cost,
+            material_name,
+            unit_code,
+        )| LockedBatch {
+            id,
+            material_id,
+            warehouse_id,
+            warehouse_name,
+            qty_received,
+            qty_remaining,
+            unit_cost,
+            material_name,
+            unit_code,
         },
     ))
 }
@@ -139,8 +164,8 @@ pub(crate) async fn record_movement(
 
     let (movement_id, created_at): (Uuid, chrono::DateTime<chrono::Utc>) = sqlx::query_as(
         "insert into stock_movements
-             (tenant_id, batch_id, type, qty, unit_cost, note, created_by)
-         values ($1, $2, $3, $4, $5, $6, $7)
+             (tenant_id, batch_id, type, qty, unit_cost, note, created_by, warehouse_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
          returning id, created_at",
     )
     .bind(auth.tenant_id)
@@ -150,6 +175,7 @@ pub(crate) async fn record_movement(
     .bind(batch.unit_cost)
     .bind(note.clone())
     .bind(auth.user_id)
+    .bind(batch.warehouse_id)
     .fetch_one(&mut **tx)
     .await?;
 
@@ -174,6 +200,8 @@ pub(crate) async fn record_movement(
             product_batch_id: None,
             product_id: None,
             product_name: None,
+            warehouse_id: batch.warehouse_id,
+            warehouse_name: batch.warehouse_name,
             movement_type: movement_type.to_string(),
             qty,
             unit_cost: Some(batch.unit_cost),

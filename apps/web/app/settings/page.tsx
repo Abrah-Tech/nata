@@ -39,6 +39,7 @@ import { AuditSection } from "./audit-list";
 import { AlertsSection } from "./alerts-section";
 import { Intro } from "./intro";
 import { methodName, planName } from "./labels";
+import { WarehousesSection } from "./warehouses-section";
 
 type Load = { status: "loading" } | { status: "ready" } | { status: "error" };
 
@@ -718,6 +719,8 @@ export default function SettingsPage() {
                 )}
               </section>
             )}
+
+            <WarehousesSection locale={locale} readOnly={!canManage} t={t} />
 
             <AlertsSection locale={locale} readOnly={!canManage} t={t} />
 
