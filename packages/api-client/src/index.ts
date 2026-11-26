@@ -31,6 +31,16 @@ export type Supplier = {
   updated_at: string;
 };
 
+export type Warehouse = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
+export type WarehouseRequest = {
+  name: string;
+};
+
 export type Material = {
   id: string;
   name: string;
@@ -1111,6 +1121,34 @@ export class ApiClient {
 
   listSuppliers(token: string): Promise<Supplier[]> {
     return this.request<Supplier[]>("/suppliers", { token });
+  }
+
+  listWarehouses(token: string): Promise<Warehouse[]> {
+    return this.request<Warehouse[]>("/warehouses", { token });
+  }
+
+  createWarehouse(token: string, body: WarehouseRequest): Promise<Warehouse> {
+    return this.request<Warehouse>("/warehouses", {
+      method: "POST",
+      token,
+      body,
+    });
+  }
+
+  updateWarehouse(
+    token: string,
+    id: string,
+    body: WarehouseRequest,
+  ): Promise<Warehouse> {
+    return this.request<Warehouse>(`/warehouses/${id}`, {
+      method: "PUT",
+      token,
+      body,
+    });
+  }
+
+  removeWarehouse(token: string, id: string): Promise<void> {
+    return this.request<void>(`/warehouses/${id}`, { method: "DELETE", token });
   }
 
   listMaterials(token: string): Promise<Material[]> {

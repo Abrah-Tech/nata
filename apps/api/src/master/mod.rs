@@ -1,8 +1,9 @@
-//! Master data routes: units, suppliers, and materials.
+//! Master data routes: units, suppliers, materials, and warehouses.
 
 pub mod materials;
 pub mod suppliers;
 pub mod units;
+pub mod warehouses;
 
 use axum::{
     routing::{get, put},
@@ -29,5 +30,13 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/materials/{id}",
             put(materials::update_material).delete(materials::remove_material),
+        )
+        .route(
+            "/warehouses",
+            get(warehouses::list_warehouses).post(warehouses::create_warehouse),
+        )
+        .route(
+            "/warehouses/{id}",
+            put(warehouses::update_warehouse).delete(warehouses::remove_warehouse),
         )
 }
