@@ -20,7 +20,7 @@ This document turns `Rencana Produk PPIC + POS Ringan untuk UMKM F&B.md` into an
 | 1 | Stock, batches, expiry | 3 businesses use it instead of a notebook for 2 weeks | code done; gate pending |
 | 2 | Recipes, production, HPP | Users trust the HPP and use it to set prices | code done; gate pending |
 | 3 | Purchasing, sales, subscription | First paying customer | code done; gate pending |
-| 4 | Expansion | Stable monthly retention | not started |
+| 4 | Expansion | Stable monthly retention | P4-01 built (2026-11-26); P4-02 to P4-05 open |
 
 ## Platform targets
 
