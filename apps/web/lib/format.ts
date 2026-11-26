@@ -41,6 +41,18 @@ export function formatDate(value: string, locale: Locale): string {
 }
 
 /**
+ * A date-only value with the year, for a range a reader might file away: a
+ * period without a year is ambiguous the moment it crosses January.
+ */
+export function formatDateYear(value: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(localeTag(locale), {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(parseDate(value));
+}
+
+/**
  * A timestamp rendered as a short local date. `formatDate` is for date-only
  * values; feeding it an ISO timestamp would parse the time as the day.
  */

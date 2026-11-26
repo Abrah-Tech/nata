@@ -199,7 +199,9 @@ The bin needs the same role as `alert_job`: the pending list spans every tenant,
 
 ### Reports
 
-`GET /reports` returns profit and loss, stock value, waste, and margin per product over the tenant's usage window.
+`GET /reports` returns profit and loss, stock value, waste, and margin per product over a period. `?from=&to=` (`YYYY-MM-DD`, both or neither) chooses it; without them the tenant's usage window is used, ending today. A half-given, inverted, or over-366-day range is `400 invalid_range` / `400 range_too_long`, and the response echoes the `range` it actually covered. Stock value is a point-in-time figure, so it is the same whatever period is asked for; only the flows move with the range.
+
+`Plan::allows_advanced_reports` is Business alone and gates three more sections on the same response. `trend` groups sales by `sold_at::date` with revenue, cost, gross profit, sold quantity, and a `cost_incomplete` flag per day. `usage` reads `production_consumptions` joined to `production_orders` (filtering on `produced_on`, taking the tenant from the order because the child table has no `tenant_id` of its own) and reports the quantity, the quantity-weighted average cost, the value, and how many runs drew on the material. `purchasing` groups `stock_movements` of type `purchase` by the batch's supplier and material, so a batch received without a supplier is still listed, under a label of its own. A tenant without the entitlement gets empty arrays and the three queries are not run at all.
 
 Stock value is `sum(qty_remaining × unit_cost)` over material batches plus the same sum over `product_batches` for finished goods. It never uses `materials.last_cost`: a new purchase at a different price must not revalue stock already on the shelf.
 
