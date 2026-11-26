@@ -110,6 +110,8 @@ export type CreateRecipeRequest = {
 export type ProductionRequest = {
   product_id: string;
   qty: string;
+  /** Where the finished batch is put; null leaves it unassigned. */
+  warehouse_id?: string | null;
   produced_on?: string;
 };
 
@@ -477,6 +479,7 @@ export type Batch = {
   id: string;
   material_id: string;
   supplier_id: string | null;
+  warehouse_id: string | null;
   received_at: string;
   expires_at: string | null;
   qty_received: string;
@@ -496,6 +499,8 @@ export type ProductBatch = {
   qty_received: string;
   qty_remaining: string;
   unit_cost: string | null;
+  warehouse_id: string | null;
+  warehouse_name: string | null;
   created_at: string;
 };
 
@@ -542,6 +547,9 @@ export type Movement = {
   product_batch_id: string | null;
   product_id: string | null;
   product_name: string | null;
+  /** Where the movement happened; null for stock recorded before locations. */
+  warehouse_id: string | null;
+  warehouse_name: string | null;
   type: MovementType;
   qty: string;
   unit_cost: string | null;
@@ -664,6 +672,8 @@ export type AcceptInvitationRequest = {
 export type StockInRequest = {
   material_id: string;
   supplier_id?: string | null;
+  /** Where the receipt is put; null leaves the batch unassigned. */
+  warehouse_id?: string | null;
   received_at?: string;
   expires_at?: string | null;
   qty_received: string;
@@ -1265,14 +1275,21 @@ export class ApiClient {
     return this.request<Dashboard>("/dashboard", { token });
   }
 
-  listStock(token: string): Promise<StockLevel[]> {
-    return this.request<StockLevel[]>("/stock", { token });
+  listStock(token: string, warehouseId?: string): Promise<StockLevel[]> {
+    const query = warehouseId ? `?warehouse_id=${encodeURIComponent(warehouseId)}` : "";
+
+    return this.request<StockLevel[]>(`/stock${query}`, { token });
   }
 
-  listBatches(token: string, materialId?: string): Promise<Batch[]> {
-    const query = materialId ? `?material_id=${encodeURIComponent(materialId)}` : "";
+  listBatches(token: string, materialId?: string, warehouseId?: string): Promise<Batch[]> {
+    const query = new URLSearchParams();
 
-    return this.request<Batch[]>(`/stock/batches${query}`, { token });
+    if (materialId) query.set("material_id", materialId);
+    if (warehouseId) query.set("warehouse_id", warehouseId);
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
+
+    return this.request<Batch[]>(`/stock/batches${suffix}`, { token });
   }
 
   listMovements(
@@ -1282,6 +1299,7 @@ export class ApiClient {
       batchId?: string;
       productId?: string;
       productBatchId?: string;
+      warehouseId?: string;
       limit?: number;
     } = {},
   ): Promise<Movement[]> {
@@ -1291,6 +1309,7 @@ export class ApiClient {
     if (filter.batchId) query.set("batch_id", filter.batchId);
     if (filter.productId) query.set("product_id", filter.productId);
     if (filter.productBatchId) query.set("product_batch_id", filter.productBatchId);
+    if (filter.warehouseId) query.set("warehouse_id", filter.warehouseId);
     if (filter.limit) query.set("limit", String(filter.limit));
 
     const suffix = query.size > 0 ? `?${query.toString()}` : "";
@@ -1314,10 +1333,19 @@ export class ApiClient {
     });
   }
 
-  listProductBatches(token: string, productId?: string): Promise<ProductBatch[]> {
-    const query = productId ? `?product_id=${encodeURIComponent(productId)}` : "";
+  listProductBatches(
+    token: string,
+    productId?: string,
+    warehouseId?: string,
+  ): Promise<ProductBatch[]> {
+    const query = new URLSearchParams();
 
-    return this.request<ProductBatch[]>(`/stock/product-batches${query}`, { token });
+    if (productId) query.set("product_id", productId);
+    if (warehouseId) query.set("warehouse_id", warehouseId);
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
+
+    return this.request<ProductBatch[]>(`/stock/product-batches${suffix}`, { token });
   }
 
   correctProduct(

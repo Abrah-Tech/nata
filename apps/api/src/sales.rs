@@ -110,10 +110,20 @@ struct AllocatedBatch {
     id: Uuid,
     qty: Decimal,
     unit_cost: Option<Decimal>,
+    /// The location the batch was stored in; the sale movement records it so
+    /// the trail says where the goods left from.
+    warehouse_id: Option<Uuid>,
 }
 
 type ProductRow = (Uuid, String, Decimal);
-type BatchRow = (Uuid, NaiveDate, Option<NaiveDate>, Decimal, Option<Decimal>);
+type BatchRow = (
+    Uuid,
+    NaiveDate,
+    Option<NaiveDate>,
+    Decimal,
+    Option<Decimal>,
+    Option<Uuid>,
+);
 
 type SaleRow = (
     Uuid,
@@ -245,7 +255,7 @@ pub(crate) async fn write_sale(
         // expiry date is not sellable, so it is left for a write-off instead of
         // being shipped; if that leaves too little, the line reports a shortage.
         let rows: Vec<BatchRow> = sqlx::query_as(
-            "select id, produced_on, expires_at, qty_remaining, unit_cost
+            "select id, produced_on, expires_at, qty_remaining, unit_cost, warehouse_id
              from product_batches
              where tenant_id = $1 and product_id = $2 and qty_remaining > 0
                and (expires_at is null or expires_at >= current_date)
@@ -259,13 +269,18 @@ pub(crate) async fn write_sale(
 
         let costs: HashMap<Uuid, Option<Decimal>> = rows
             .iter()
-            .map(|(id, _, _, _, unit_cost)| (*id, *unit_cost))
+            .map(|(id, _, _, _, unit_cost, _)| (*id, *unit_cost))
+            .collect();
+
+        let warehouses: HashMap<Uuid, Option<Uuid>> = rows
+            .iter()
+            .map(|(id, _, _, _, _, warehouse_id)| (*id, *warehouse_id))
             .collect();
 
         let batches: Vec<StockBatch<Uuid>> = rows
             .iter()
             .map(
-                |(id, produced_on, expires_at, qty_remaining, _)| StockBatch {
+                |(id, produced_on, expires_at, qty_remaining, _, _)| StockBatch {
                     id: *id,
                     received_at: *produced_on,
                     expires_at: *expires_at,
@@ -314,6 +329,7 @@ pub(crate) async fn write_sale(
                     id: line.id,
                     qty: line.qty,
                     unit_cost: costs[&line.id],
+                    warehouse_id: warehouses[&line.id],
                 })
                 .collect(),
         });
@@ -376,14 +392,15 @@ pub(crate) async fn write_sale(
 
             sqlx::query(
                 "insert into stock_movements
-                     (tenant_id, product_batch_id, type, qty, unit_cost, created_by)
-                 values ($1, $2, 'sale', $3, $4, $5)",
+                     (tenant_id, product_batch_id, type, qty, unit_cost, created_by, warehouse_id)
+                 values ($1, $2, 'sale', $3, $4, $5, $6)",
             )
             .bind(tenant_id)
             .bind(batch.id)
             .bind(-batch.qty)
             .bind(batch.unit_cost)
             .bind(user_id)
+            .bind(batch.warehouse_id)
             .execute(&mut **tx)
             .await?;
         }

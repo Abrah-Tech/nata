@@ -46,6 +46,10 @@ pub struct MovementView {
     pub product_batch_id: Option<Uuid>,
     pub product_id: Option<Uuid>,
     pub product_name: Option<String>,
+    /// Where the movement happened; null for stock recorded before locations
+    /// existed.
+    pub warehouse_id: Option<Uuid>,
+    pub warehouse_name: Option<String>,
     #[serde(rename = "type")]
     pub movement_type: String,
     pub qty: Decimal,
@@ -56,8 +60,14 @@ pub struct MovementView {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct StockFilter {
+    pub warehouse_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct BatchFilter {
     pub material_id: Option<Uuid>,
+    pub warehouse_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,6 +76,7 @@ pub struct MovementFilter {
     pub batch_id: Option<Uuid>,
     pub product_id: Option<Uuid>,
     pub product_batch_id: Option<Uuid>,
+    pub warehouse_id: Option<Uuid>,
     pub limit: Option<i64>,
 }
 
@@ -88,6 +99,8 @@ type MovementRow = (
     Option<String>,
     Option<String>,
     Option<Uuid>,
+    Option<Uuid>,
+    Option<String>,
     Option<Uuid>,
     Option<String>,
     String,
@@ -133,13 +146,38 @@ async fn ensure_product(
         .ok_or(ApiError::NotFound("product_not_found"))
 }
 
+/// Same contract as `ensure_material`, for a warehouse filter or assignment.
+///
+/// A warehouse is optional on stock, so this is only called when the caller
+/// actually names one.
+pub(crate) async fn ensure_warehouse(
+    tx: &mut Transaction<'_, Postgres>,
+    tenant_id: Uuid,
+    warehouse_id: Uuid,
+) -> Result<(), ApiError> {
+    let row: Option<(Uuid,)> =
+        sqlx::query_as("select id from warehouses where id = $1 and tenant_id = $2")
+            .bind(warehouse_id)
+            .bind(tenant_id)
+            .fetch_optional(&mut **tx)
+            .await?;
+
+    row.map(|_| ())
+        .ok_or(ApiError::BadRequest("invalid_warehouse"))
+}
+
 pub async fn on_hand(
     State(state): State<AppState>,
     guard: Require<CanReadMaterials>,
+    Query(filter): Query<StockFilter>,
 ) -> Result<Json<Vec<StockLevelView>>, ApiError> {
     let auth = guard.auth;
     let db = state.db()?;
     let mut tx = nata_db::begin_scoped(db, Some(auth.tenant_id), Some(auth.user_id)).await?;
+
+    if let Some(warehouse_id) = filter.warehouse_id {
+        ensure_warehouse(&mut tx, auth.tenant_id, warehouse_id).await?;
+    }
 
     // `on_hand` only counts stock inside its shelf life, because that is what
     // can still be used. The batch count and the nearest expiry keep looking at
@@ -158,11 +196,13 @@ pub async fn on_hand(
                 on b.tenant_id = m.tenant_id
                and b.material_id = m.id
                and b.qty_remaining > 0
+               and ($2::uuid is null or b.warehouse_id = $2)
          where m.tenant_id = $1 and m.is_active
          group by m.id, u.id
          order by m.name, m.id",
     )
     .bind(auth.tenant_id)
+    .bind(filter.warehouse_id)
     .fetch_all(&mut *tx)
     .await?;
 
@@ -214,18 +254,24 @@ pub async fn list_batches(
     if let Some(material_id) = filter.material_id {
         ensure_material(&mut tx, auth.tenant_id, material_id).await?;
     }
+    if let Some(warehouse_id) = filter.warehouse_id {
+        ensure_warehouse(&mut tx, auth.tenant_id, warehouse_id).await?;
+    }
 
     let rows: Vec<BatchView> = sqlx::query_as(
         "select b.id, b.material_id, b.supplier_id, b.received_at, b.expires_at,
-                b.qty_received, b.qty_remaining, b.unit_cost, b.note, b.created_at
+                b.qty_received, b.qty_remaining, b.unit_cost, b.note, b.created_at,
+                b.warehouse_id
          from material_batches b
          where b.tenant_id = $1
            and b.qty_remaining > 0
            and ($2::uuid is null or b.material_id = $2)
+           and ($3::uuid is null or b.warehouse_id = $3)
          order by b.expires_at asc nulls last, b.received_at asc, b.created_at asc",
     )
     .bind(auth.tenant_id)
     .bind(filter.material_id)
+    .bind(filter.warehouse_id)
     .fetch_all(&mut *tx)
     .await?;
 
@@ -253,6 +299,9 @@ pub async fn list_movements(
     if let Some(product_id) = filter.product_id {
         ensure_product(&mut tx, auth.tenant_id, product_id).await?;
     }
+    if let Some(warehouse_id) = filter.warehouse_id {
+        ensure_warehouse(&mut tx, auth.tenant_id, warehouse_id).await?;
+    }
 
     // A movement points at exactly one ledger, so the other side is null. The
     // trail is one list on purpose: a production run shows both the material it
@@ -261,6 +310,7 @@ pub async fn list_movements(
         "select mv.id, mv.batch_id, b.material_id, m.name as material_name,
                 u.code as unit_code,
                 mv.product_batch_id, pb.product_id, p.name as product_name,
+                mv.warehouse_id, w.name as warehouse_name,
                 mv.type, mv.qty, mv.unit_cost, mv.note, mv.created_by, mv.created_at
          from stock_movements mv
          left join material_batches b on b.id = mv.batch_id
@@ -268,19 +318,22 @@ pub async fn list_movements(
          left join units u on u.id = m.base_unit_id
          left join product_batches pb on pb.id = mv.product_batch_id
          left join products p on p.id = pb.product_id
+         left join warehouses w on w.id = mv.warehouse_id
          where mv.tenant_id = $1
            and ($2::uuid is null or b.material_id = $2)
            and ($3::uuid is null or mv.batch_id = $3)
            and ($4::uuid is null or pb.product_id = $4)
            and ($5::uuid is null or mv.product_batch_id = $5)
+           and ($6::uuid is null or mv.warehouse_id = $6)
          order by mv.created_at desc, mv.id desc
-         limit $6",
+         limit $7",
     )
     .bind(auth.tenant_id)
     .bind(filter.material_id)
     .bind(filter.batch_id)
     .bind(filter.product_id)
     .bind(filter.product_batch_id)
+    .bind(filter.warehouse_id)
     .bind(limit)
     .fetch_all(&mut *tx)
     .await?;
@@ -299,6 +352,8 @@ pub async fn list_movements(
                     product_batch_id,
                     product_id,
                     product_name,
+                    warehouse_id,
+                    warehouse_name,
                     movement_type,
                     qty,
                     unit_cost,
@@ -314,6 +369,8 @@ pub async fn list_movements(
                     product_batch_id,
                     product_id,
                     product_name,
+                    warehouse_id,
+                    warehouse_name,
                     movement_type,
                     qty,
                     unit_cost,
