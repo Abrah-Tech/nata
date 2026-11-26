@@ -192,9 +192,56 @@ ssh root@VPS '
 '
 ```
 
+Tambahkan `--retain HARI` kalau dump lama harus dihapus otomatis; tanpa itu
+semua dump menumpuk di direktori output.
+
+### Drill terjadwal
+
+Manual tidak membuktikan apa-apa kalau tidak pernah dijalankan. Di VPS drill
+dijalankan tiap minggu oleh `nata-backup-drill.service` + `.timer` (unit ada di
+repo `nixos`), menjalankan script yang sama dari release sekarang:
+
+```bash
+/srv/nata/current/deploy/vps/backup.sh \
+  --url "$MIGRATE_DATABASE_URL" --keep --retain 14 --output /var/lib/nata/backups
+```
+
+- **Cadence** — mingguan, `Persistent = true`, jadi drill yang terlewat karena VPS
+  sedang mati jalan begitu menyala lagi. `--keep` selalu dipakai; `--retain 14`
+  membuang dump lebih tua dari 14 hari.
+- **Pemangkasan hanya setelah lolos.** `--retain` dijalankan di dalam cabang
+  PASS, jadi drill yang gagal tidak pernah ikut menghapus dump terakhir yang
+  diketahui masih bisa dipulihkan. Pesan `N dump(s) older than 14 days removed`
+  muncul hanya kalau perbandingan tadi lulus.
+- **Lokasi dump** — `/var/lib/nata/backups` (`0750 nata:nata`). Unit punya
+  `ReadWritePaths` hanya ke sana; sisanya `ProtectSystem = strict`.
+
+Cek hasil:
+
+```bash
+ssh root@VPS '
+  systemctl status nata-backup-drill --no-pager
+  journalctl -u nata-backup-drill -n 30 --no-pager
+  ls -la /var/lib/nata/backups
+'
+```
+
+Sebuah dump yang **tidak pernah ada** sama baiknya dengan backup yang tidak
+ada. `systemctl list-timers nata-backup-drill` mengatakan kapan run berikutnya,
+dan `OnFailure=` menulis ke `/var/lib/nata/backup-failures.log`.
+
+> **Belum ada kanal notifikasi.** Kegagalan drill hanya bisa dilihat kalau
+> ada yang memeriksa. Notifikasi WhatsApp/email belum ada di MVP (lihat
+> `docs/ROADMAP.md`, track Observability), jadi jadwalkan pemeriksaan manual —
+> minimal `ls /var/lib/nata/backups` dan `systemctl is-active nata-backup-drill`
+> tiap minggu.
+
+> Timer butuh `--retain` dari `backup.sh` ini. Merge PR nata dulu, baru unit di
+> repo `nixos` diswitch.
+
 `--self-test` mengubah satu baris di salinan restore lalu menuntut perbandingan
 gagal. Jalankan sekali-sekala untuk memastikan drill-nya sendiri masih
-berfungsi, bukan cuma script-nya masih jalan.
+berfungsi, bukan cuma script-nya masih jalan. CI menjalankannya di tiap push.
 
 ### Restore sungguhan
 
