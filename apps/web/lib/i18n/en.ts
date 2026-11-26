@@ -680,6 +680,7 @@ export const en = {
     },
     export: {
       button: "Export CSV",
+      pdfButton: "Export PDF",
       locked: "Export is included in Pro and Business.",
       generated: "Generated",
       window: "Window (days)",

@@ -8,14 +8,16 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@nata/api-client": "workspace:*",
     "@radix-ui/react-dialog": "^1.3.1",
     "@radix-ui/react-label": "^2.1.17",
     "@radix-ui/react-slot": "^1.5.0",
     "@tailwindcss/postcss": "^4.3.5",
-    "@nata/api-client": "workspace:*",
     "@tauri-apps/plugin-sql": "^2.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "lucide-react": "^1.70.0",
     "next": "16.4.5",
     "postcss": "^8.5.32",
