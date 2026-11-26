@@ -679,6 +679,7 @@ export const id: Dictionary = {
     },
     export: {
       button: "Ekspor CSV",
+      pdfButton: "Ekspor PDF",
       locked: "Ekspor termasuk di paket Pro dan Business.",
       generated: "Dibuat",
       window: "Periode (hari)",

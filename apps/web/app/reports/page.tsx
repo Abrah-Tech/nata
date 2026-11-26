@@ -28,6 +28,7 @@ import {
   todayIso,
 } from "@/lib/format";
 import { reportCsv } from "@/lib/report-csv";
+import { downloadReportPdf, reportPdf } from "@/lib/report-pdf";
 import { fill, useI18n } from "@/lib/i18n";
 import { readToken } from "@/lib/session";
 import { useMe } from "@/lib/use-me";
@@ -125,23 +126,40 @@ export default function ReportsPage() {
               </div>
 
               {data && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  className="self-start"
-                  disabled={!data.can_export}
-                  title={data.can_export ? undefined : t.reports.export.locked}
-                  onClick={() =>
-                    downloadCsv(
-                      `nata-report-${todayIso()}.csv`,
-                      reportCsv(data, t.reports, new Date()),
-                    )
-                  }
-                >
-                  <Download size={14} />
-                  {t.reports.export.button}
-                </Button>
+                <div className="flex flex-wrap gap-2 self-start">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    disabled={!data.can_export}
+                    title={data.can_export ? undefined : t.reports.export.locked}
+                    onClick={() =>
+                      downloadCsv(
+                        `nata-report-${todayIso()}.csv`,
+                        reportCsv(data, t.reports, new Date()),
+                      )
+                    }
+                  >
+                    <Download size={14} />
+                    {t.reports.export.button}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    disabled={!data.can_export}
+                    title={data.can_export ? undefined : t.reports.export.locked}
+                    onClick={() =>
+                      void downloadReportPdf(
+                        `nata-report-${todayIso()}.pdf`,
+                        reportPdf(data, t.reports, locale, new Date()),
+                      )
+                    }
+                  >
+                    <Download size={14} />
+                    {t.reports.export.pdfButton}
+                  </Button>
+                </div>
               )}
             </header>
 
